@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 RetrievalMode = Literal["vector", "lexical", "hybrid"]
@@ -18,16 +18,24 @@ GeneratorProvider = Literal["extractive", "anthropic"]
 DEFAULT_ABSTAIN_THRESHOLDS: dict[str, float] = {"hashing": 0.05, "fastembed": 0.55}
 
 
+MIN_API_KEY_LENGTH = 16
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_prefix="RAG_", env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_prefix="RAG_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        # `RAG_API_KEY=` (as in .env.example) means "unset", not "an empty key".
+        env_ignore_empty=True,
     )
 
     # --- Storage ---
     database_url: str = "sqlite:///data/rag.db"
 
     # --- Ingestion ---
-    max_upload_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
+    max_upload_bytes: int = Field(default=25 * 1024 * 1024, gt=0)
     max_pdf_pages: int = Field(default=500, gt=0)
     chunk_size: int = Field(default=1000, ge=100, description="Target chunk size in characters.")
     chunk_overlap: int = Field(default=150, ge=0)
@@ -59,6 +67,13 @@ class Settings(BaseSettings):
 
     # --- Generation ---
     generator: GeneratorProvider = "extractive"
+    anthropic_api_key: SecretStr | None = Field(
+        default=None,
+        # Read here (from the environment or .env) and passed to the SDK, because the SDK
+        # only sees the process environment, not values that come from .env.
+        validation_alias=AliasChoices("RAG_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"),
+        description="Claude API key. Unset lets the SDK resolve credentials itself.",
+    )
     anthropic_model: str = "claude-opus-5-5"
     anthropic_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
     anthropic_max_tokens: int = Field(default=16000, ge=256)
@@ -79,6 +94,16 @@ class Settings(BaseSettings):
         if self.min_vector_score is not None:
             return self.min_vector_score
         return DEFAULT_ABSTAIN_THRESHOLDS[self.embedding_provider]
+
+    @field_validator("api_key")
+    @classmethod
+    def _check_api_key(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and len(value.get_secret_value()) < MIN_API_KEY_LENGTH:
+            raise ValueError(
+                f"RAG_API_KEY must be at least {MIN_API_KEY_LENGTH} characters; generate one "
+                'with: python -c "import secrets; print(secrets.token_urlsafe(32))"'
+            )
+        return value
 
     @model_validator(mode="after")
     def _check_chunking(self) -> Settings:

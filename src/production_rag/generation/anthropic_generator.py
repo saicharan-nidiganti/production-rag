@@ -68,8 +68,12 @@ def build_search_results(chunks: Sequence[RetrievedChunk]) -> list[dict[str, Any
 class AnthropicGenerator:
     def __init__(self, settings: Settings, client: anthropic.Anthropic | None = None) -> None:
         self._settings = settings
+        api_key = settings.anthropic_api_key
         self._client = client or anthropic.Anthropic(
-            timeout=settings.anthropic_timeout_s, max_retries=settings.anthropic_max_retries
+            # None lets the SDK resolve credentials itself (environment, auth token, profile).
+            api_key=api_key.get_secret_value() if api_key else None,
+            timeout=settings.anthropic_timeout_s,
+            max_retries=settings.anthropic_max_retries,
         )
 
     @property

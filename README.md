@@ -188,7 +188,7 @@ Settings come from environment variables prefixed `RAG_`, or from a `.env` file.
 | `RAG_ANTHROPIC_EFFORT` | `medium` | `low` to `max` |
 | `RAG_ANTHROPIC_FALLBACKS` | `true` | Server-side refusal fallback (beta) |
 | `RAG_API_KEY` | unset | Enables API-key auth |
-| `RAG_MAX_UPLOAD_BYTES` | `10485760` | |
+| `RAG_MAX_UPLOAD_BYTES` | `26214400` (25 MiB) | FR-2 |
 
 Every setting, with its description, is in [config.py](src/production_rag/config.py). Deployment, migrations and backups are covered in [docs/operations.md](docs/operations.md).
 

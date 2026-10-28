@@ -138,28 +138,28 @@ def test_request_id_is_echoed_or_generated(client: TestClient) -> None:
     assert generated != "bad id with spaces" and len(generated) == 32
 
 
+API_KEY = "top-secret-key-0123456789"
+
+
 @pytest.fixture
 def secured_client(container: Container) -> Iterator[TestClient]:
-    container.settings.api_key = SecretStr("top-secret")
+    container.settings.api_key = SecretStr(API_KEY)
     with TestClient(create_app(container=container)) as client:
         yield client
 
 
 def test_api_key_is_required_when_configured(secured_client: TestClient) -> None:
+    def status(headers: dict[str, str]) -> int:
+        return secured_client.get("/v1/documents", headers=headers).status_code
+
     denied = secured_client.get("/v1/documents")
     assert denied.status_code == 401
     assert denied.json()["error"]["code"] == "unauthorized"
     assert denied.headers["WWW-Authenticate"] == "Bearer"
-    assert secured_client.get("/v1/documents", headers={"X-API-Key": "wrong"}).status_code == 401
-    assert (
-        secured_client.get(
-            "/v1/documents", headers={"Authorization": "Bearer top-secret"}
-        ).status_code
-        == 200
-    )
-    assert (
-        secured_client.get("/v1/documents", headers={"X-API-Key": "top-secret"}).status_code == 200
-    )
+    assert status({"X-API-Key": "wrong"}) == 401
+    assert status({"X-API-Key": ""}) == 401
+    assert status({"Authorization": f"Bearer {API_KEY}"}) == 200
+    assert status({"X-API-Key": API_KEY}) == 200
     assert secured_client.get("/health").status_code == 200  # probes stay open
 
 

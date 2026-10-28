@@ -1,5 +1,6 @@
 import json
 import logging
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -11,12 +12,46 @@ from production_rag.observability import JsonFormatter, Timer, request_id_var
 def test_settings_read_prefixed_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("RAG_TOP_K", "7")
     monkeypatch.setenv("RAG_GENERATOR", "anthropic")
-    monkeypatch.setenv("RAG_API_KEY", "s3cret")
+    monkeypatch.setenv("RAG_API_KEY", "s3cret-s3cret-s3cret")
     settings = get_settings()
     assert settings.top_k == 7
     assert settings.generator == "anthropic"
-    assert settings.api_key is not None and settings.api_key.get_secret_value() == "s3cret"
-    assert "s3cret" not in repr(settings)
+    assert settings.api_key is not None
+    assert settings.api_key.get_secret_value() == "s3cret-s3cret-s3cret"
+    assert "s3cret-s3cret-s3cret" not in repr(settings)
+
+
+def test_empty_values_in_dotenv_mean_unset(tmp_path: Path) -> None:
+    # Regression: `RAG_API_KEY=` (as shipped in .env.example) used to enable auth with an
+    # empty key, so every request was rejected or an empty X-API-Key header was accepted.
+    env = tmp_path / ".env"
+    env.write_text("RAG_API_KEY=\nANTHROPIC_API_KEY=\nRAG_MIN_VECTOR_SCORE=\n", encoding="utf-8")
+    settings = Settings(_env_file=env)  # type: ignore[call-arg]
+    assert settings.api_key is None
+    assert settings.anthropic_api_key is None
+    assert settings.min_vector_score is None
+
+
+def test_short_api_keys_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RAG_API_KEY", "short")
+    with pytest.raises(ValidationError, match="at least 16 characters"):
+        Settings(_env_file=None)  # type: ignore[call-arg]
+
+
+@pytest.mark.parametrize("name", ["ANTHROPIC_API_KEY", "RAG_ANTHROPIC_API_KEY"])
+def test_anthropic_key_is_read_from_dotenv(tmp_path: Path, name: str) -> None:
+    # Regression: the SDK only reads the process environment, so a key placed in .env was
+    # silently ignored. Settings now read it and pass it to the client.
+    env = tmp_path / ".env"
+    env.write_text(f"{name}=sk-test-from-dotenv\n", encoding="utf-8")
+    settings = Settings(_env_file=env)  # type: ignore[call-arg]
+    assert settings.anthropic_api_key is not None
+    assert settings.anthropic_api_key.get_secret_value() == "sk-test-from-dotenv"
+
+    from production_rag.generation.anthropic_generator import AnthropicGenerator
+
+    generator = AnthropicGenerator(settings)
+    assert generator._client.api_key == "sk-test-from-dotenv"
 
 
 def test_chunk_overlap_must_be_smaller_than_size() -> None:
