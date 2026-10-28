@@ -54,7 +54,7 @@ meantime. Re-run `rag eval` with the new model and recalibrate `RAG_MIN_VECTOR_S
 Logs are JSON lines on stderr. Useful fields and signals:
 
 | Signal | Source |
-|---|---|
+| --- | --- |
 | Request rate, latency and errors by path | `event = http.request` (`status`, `duration_ms`, `path`) |
 | Answer outcomes | `event = query.completed`: count by `status`; watch the `insufficient_evidence` share |
 | Pre-generation abstentions | `query.completed` with `abstained_before_generation = true` |
@@ -90,7 +90,7 @@ extracted text and ingestion metadata.
 ## Troubleshooting
 
 | Symptom | Cause and fix |
-|---|---|
+| --- | --- |
 | `/ready` 503 with `schema: not at head` | Run `rag db upgrade` |
 | HTTP 502 `generation_failed`, "no Claude API credentials configured" | Set `ANTHROPIC_API_KEY` (read by the SDK, without the `RAG_` prefix) |
 | HTTP 503 `generation_unavailable` | Rate limit, overload or network failure after SDK retries; retry later, check `generation.failed` logs |

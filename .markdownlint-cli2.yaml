@@ -10,3 +10,6 @@ config:
 ignores:
   - "node_modules/**"
   - ".venv/**"
+  - ".pytest_cache/**"
+  # Evaluation corpus documents are test data: editing them changes the metrics.
+  - "eval/corpus/**"

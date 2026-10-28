@@ -51,7 +51,7 @@ fingerprint of the corpus.
 Retrieval metrics are computed over answerable questions, at `top_k`:
 
 | Metric | Definition |
-|---|---|
+| --- | --- |
 | `retrieval.hit_rate` | Share of questions with at least one relevant chunk retrieved |
 | `retrieval.recall` | Mean share of a question's relevant sections covered by the retrieved chunks |
 | `retrieval.mrr` | Mean of 1 / rank of the first relevant chunk (0 if none) |
@@ -60,14 +60,14 @@ Retrieval metrics are computed over answerable questions, at `top_k`:
 Abstention is retrieval-level, before any model call:
 
 | Metric | Definition |
-|---|---|
+| --- | --- |
 | `abstention.false_abstention_rate` | Share of answerable questions the system refused to attempt (should be 0) |
 | `abstention.unanswerable_abstention_rate` | Share of unanswerable questions caught at retrieval |
 
 Generation metrics (with `--generation`) use the configured generator:
 
 | Metric | Definition |
-|---|---|
+| --- | --- |
 | `generation.answered_rate` | Share of answerable questions with status `answered` |
 | `generation.unanswerable_declined_rate` | Share of unanswerable questions *not* answered (abstained, declined or refused) |
 | `generation.citation_precision` | Mean share of an answer's citations that point at a relevant section |
@@ -80,7 +80,7 @@ Latency: `latency_ms.retrieval_p50/p95` and `generation_p50/p95` (nearest-rank p
 Retrieval, by embedder and mode, with abstention disabled to show raw retrieval quality:
 
 | Embeddings | Mode | Hit rate | Recall | MRR | p95 |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | hashing | lexical | 0.967 | 0.967 | 0.900 | 1.2 ms |
 | hashing | vector | 0.900 | 0.883 | 0.817 | 1.1 ms |
 | hashing | hybrid | 0.967 | 0.950 | 0.906 | 1.3 ms |
@@ -91,7 +91,7 @@ Retrieval, by embedder and mode, with abstention disabled to show raw retrieval 
 Full runs with default thresholds, hybrid mode and the extractive generator:
 
 | Metric | hashing | fastembed |
-|---|---|---|
+| --- | --- | --- |
 | false abstention | 0.000 | 0.000 |
 | unanswerable abstained at retrieval | 0.167 | 0.500 |
 | answered rate (extractive) | 1.000 | 1.000 |
