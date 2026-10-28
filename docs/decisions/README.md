@@ -1,38 +1,25 @@
-\# Architecture Decision Records
-
-
+# Architecture Decision Records
 
 This directory contains Architecture Decision Records (ADRs).
 
-
-
 ADRs document important technical decisions, including:
 
+- The problem being solved
+- Context
+- Options considered
+- Trade-offs
+- Decision
+- Consequences
 
+## Index
 
-\- The problem being solved
+| ADR | Title | Status |
+| --- | --- | --- |
+| [0001](0001-technology-stack.md) | Technology stack for v1 | Proposed (accepted on merge) |
 
-\- Context
+## Process
 
-\- Options considered
-
-\- Trade-offs
-
-\- Decision
-
-\- Consequences
-
-
-
-\## Status
-
-
-
-No architecture decisions have been finalized yet.
-
-
-
-The first ADR will be created after the project requirements and architecture options have been evaluated.
-
-
-
+1. Copy [template.md](template.md) to `NNNN-short-title.md`, using the next number.
+2. Open it as part of the pull request that introduces the decision.
+3. Once merged, an ADR is not rewritten. A later decision supersedes it with a
+   new ADR, and the old one's status is updated to point to it.
