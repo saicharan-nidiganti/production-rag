@@ -109,6 +109,17 @@ def test_corrupt_pdf_is_an_extraction_error() -> None:
         extract("bad.pdf", b"%PDF-1.4 this is not really a pdf")
 
 
+@pytest.mark.parametrize("data", [b"MZ\x90\x00 executable", b"<html>not a pdf</html>", b""])
+def test_pdf_type_is_checked_by_content_not_extension(data: bytes) -> None:
+    with pytest.raises(UnsupportedDocumentError, match="not a PDF"):
+        extract("renamed.pdf", data)
+
+
+def test_pdf_header_may_follow_leading_bytes() -> None:
+    doc = extract("lead.pdf", b"\n\n" + _pdf(["Leading bytes are allowed"]))
+    assert "Leading bytes are allowed" in doc.text
+
+
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [

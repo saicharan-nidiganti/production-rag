@@ -20,6 +20,9 @@ SUPPORTED_TYPES: dict[str, str] = {
 }
 
 
+PDF_SIGNATURE = b"%PDF-"
+
+
 class UnsupportedDocumentError(ValueError):
     pass
 
@@ -118,6 +121,9 @@ def _extract_pdf(data: bytes, stem: str, max_pages: int) -> ExtractedDocument:
     from pypdf import PdfReader
     from pypdf.errors import PdfReadError
 
+    # Validate by content, not extension (NFR-2): the header must appear in the first 1024 bytes.
+    if PDF_SIGNATURE not in data[:1024]:
+        raise UnsupportedDocumentError("file has a .pdf extension but is not a PDF")
     try:
         reader = PdfReader(io.BytesIO(data))
         if reader.is_encrypted:
