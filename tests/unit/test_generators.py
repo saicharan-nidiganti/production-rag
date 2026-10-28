@@ -266,3 +266,13 @@ def test_extractive_generator_abstains_without_overlap() -> None:
     answer = ExtractiveGenerator().generate("sourdough recipe", CHUNKS)
     assert answer.status == "insufficient_evidence"
     assert answer.citations == []
+
+
+def test_extractive_min_coverage() -> None:
+    # "canary" is 1 of the question's 4 content terms: 0.25 coverage.
+    question = "Which canary dashboard shows latency?"
+    assert ExtractiveGenerator().generate(question, CHUNKS).status == "answered"
+    strict = ExtractiveGenerator(min_coverage=0.5).generate(question, CHUNKS)
+    assert strict.status == "insufficient_evidence"
+    lenient = ExtractiveGenerator(min_coverage=0.25).generate(question, CHUNKS)
+    assert lenient.status == "answered"

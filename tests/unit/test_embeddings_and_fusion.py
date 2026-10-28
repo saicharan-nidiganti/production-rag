@@ -2,6 +2,14 @@ import numpy as np
 
 from production_rag.embeddings import HashingEmbedder, from_blob, to_blob
 from production_rag.retrieval import build_fts_query, reciprocal_rank_fusion
+from production_rag.text import content_tokens
+
+
+def test_content_tokens_drop_possessive_fragments_but_keep_digits() -> None:
+    # Regression: "what's" and "customer's" produced an "s" token that matched unrelated
+    # text, so an off-topic question was answered from the retention policy.
+    assert content_tokens("What's the customer's 5-day rule?") == ["customer", "5", "day", "rule"]
+    assert content_tokens("a i") == ["a", "i"]  # falls back rather than returning nothing
 
 
 def test_hashing_embedder_is_deterministic_and_normalised() -> None:
@@ -51,7 +59,7 @@ def test_rrf_with_empty_lists() -> None:
 
 def test_fts_query_quotes_terms_and_neutralises_operators() -> None:
     assert build_fts_query('rollback NEAR("x") OR *drop* "quote') == (
-        '"rollback" OR "near" OR "x" OR "drop" OR "quote"'
+        '"rollback" OR "near" OR "drop" OR "quote"'
     )
     assert build_fts_query("the of and") == '"the" OR "of" OR "and"'  # stopwords kept if all stop
     assert build_fts_query("  ?!  ") is None

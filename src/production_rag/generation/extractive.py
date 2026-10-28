@@ -37,8 +37,11 @@ def sentences(text: str) -> list[str]:
 
 
 class ExtractiveGenerator:
-    def __init__(self, max_sentences: int = 3) -> None:
+    def __init__(self, max_sentences: int = 3, min_coverage: float = 0.0) -> None:
+        """``min_coverage``: the share of the question's content terms a sentence must contain
+        to be quoted. Below it for every sentence, the generator abstains."""
         self._max_sentences = max_sentences
+        self._min_coverage = min_coverage
 
     @property
     def model_id(self) -> str:
@@ -49,11 +52,10 @@ class ExtractiveGenerator:
         candidates: list[tuple[float, int, int, str]] = []  # (-score, chunk rank, position, text)
         for rank, chunk in enumerate(chunks):
             for position, sentence in enumerate(sentences(chunk.text)):
-                tokens = set(content_tokens(sentence))
-                overlap = len(terms & tokens)
-                if overlap:
+                coverage = len(terms & set(content_tokens(sentence))) / len(terms)
+                if coverage > 0 and coverage >= self._min_coverage:
                     # Prefer sentences that cover more of the question, from higher-ranked chunks.
-                    score = overlap / len(terms) + 0.01 * (len(chunks) - rank)
+                    score = coverage + 0.01 * (len(chunks) - rank)
                     candidates.append((-score, rank, position, sentence))
 
         if not candidates:
