@@ -1,0 +1,36 @@
+{"id": "dep-01", "question": "How long does a canary run before the rollout continues?", "relevant": [{"source": "deployment-runbook.md", "heading": "Canary releases"}], "must_include": ["30 minutes"]}
+{"id": "dep-02", "question": "What share of production traffic does the canary receive?", "relevant": [{"source": "deployment-runbook.md", "heading": "Canary releases"}], "must_include": ["5%"]}
+{"id": "dep-03", "question": "Which command rolls back a service?", "relevant": [{"source": "deployment-runbook.md", "heading": "Rollback"}], "must_include": ["tessera rollout undo"]}
+{"id": "dep-04", "question": "Are database migrations reverted when a release is rolled back?", "relevant": [{"source": "deployment-runbook.md", "heading": "Rollback"}], "must_include": ["not reverted"]}
+{"id": "dep-05", "question": "When are production deployments not allowed?", "relevant": [{"source": "deployment-runbook.md", "heading": "Deployment freeze windows"}], "must_include": ["Fridays after 14:00 UTC"]}
+{"id": "dep-06", "question": "How long must a build soak in staging before going to production?", "relevant": [{"source": "deployment-runbook.md", "heading": "Release pipeline"}], "must_include": ["two hours"]}
+{"id": "dep-07", "question": "What makes a new release stop automatically while it is serving a small slice of users?", "relevant": [{"source": "deployment-runbook.md", "heading": "Canary releases"}], "must_include": ["0.5 percentage points"]}
+{"id": "dep-08", "question": "Do I need someone's sign-off to undo a bad release?", "relevant": [{"source": "deployment-runbook.md", "heading": "Rollback"}], "must_include": ["never requires approval"]}
+{"id": "inc-01", "question": "How quickly must a SEV1 page be acknowledged?", "relevant": [{"source": "incident-response.md", "heading": "Severity levels"}], "must_include": ["5 minutes"]}
+{"id": "inc-02", "question": "How often are status page updates posted during a SEV1?", "relevant": [{"source": "incident-response.md", "heading": "Severity levels"}], "must_include": ["30 minutes"]}
+{"id": "inc-03", "question": "What does the incident commander do?", "relevant": [{"source": "incident-response.md", "heading": "Roles during an incident"}], "must_include": ["coordinates"]}
+{"id": "inc-04", "question": "When is the postmortem draft due?", "relevant": [{"source": "incident-response.md", "heading": "Postmortems"}], "must_include": ["5 business days"]}
+{"id": "inc-05", "question": "Who gets paged if the primary on-call engineer does not respond?", "relevant": [{"source": "incident-response.md", "heading": "Escalation"}], "must_include": ["secondary on-call"]}
+{"id": "inc-06", "question": "Who is allowed to downgrade an outage's classification?", "relevant": [{"source": "incident-response.md", "heading": "Escalation"}], "must_include": ["incident commander"]}
+{"id": "api-01", "question": "What is the rate limit on the Standard plan?", "relevant": [{"source": "api-rate-limits.md", "heading": "Rate limits by plan"}], "must_include": ["600 requests per minute"]}
+{"id": "api-02", "question": "What should a client do after receiving a 429 response?", "relevant": [{"source": "api-rate-limits.md", "heading": "Handling 429 responses"}], "must_include": ["Retry-After"]}
+{"id": "api-03", "question": "How often must API keys be rotated?", "relevant": [{"source": "api-rate-limits.md", "heading": "API keys"}], "must_include": ["90 days"]}
+{"id": "api-04", "question": "When do monthly quotas reset?", "relevant": [{"source": "api-rate-limits.md", "heading": "Monthly quotas"}], "must_include": ["first day"]}
+{"id": "api-05", "question": "How fast does a deactivated credential stop working?", "relevant": [{"source": "api-rate-limits.md", "heading": "API keys"}], "must_include": ["60 seconds"]}
+{"id": "api-06", "question": "Is it okay to briefly exceed the per-minute request allowance?", "relevant": [{"source": "api-rate-limits.md", "heading": "Rate limits by plan"}], "must_include": ["twice"]}
+{"id": "ret-01", "question": "How long are application logs retained?", "relevant": [{"source": "data-retention-policy.md", "heading": "Retention periods"}], "must_include": ["30 days"]}
+{"id": "ret-02", "question": "How long until a deleted account's data is gone from backups?", "relevant": [{"source": "data-retention-policy.md", "heading": "Deletion requests"}], "must_include": ["35 days"]}
+{"id": "ret-03", "question": "Which encryption algorithm protects customer data at rest?", "relevant": [{"source": "data-retention-policy.md", "heading": "Encryption"}], "must_include": ["AES-256"]}
+{"id": "ret-04", "question": "Can customers keep their data inside the EU?", "relevant": [{"source": "data-retention-policy.md", "heading": "Data residency"}, {"source": "platform-overview.md", "heading": "Regions"}], "must_include": ["Frankfurt"]}
+{"id": "ret-05", "question": "How frequently are database backups taken?", "relevant": [{"source": "data-retention-policy.md", "heading": "Retention periods"}], "must_include": ["6 hours"]}
+{"id": "onb-01", "question": "When do new engineers start shadowing on-call?", "relevant": [{"source": "onboarding-guide.md", "heading": "Joining the on-call rotation"}], "must_include": ["three weeks"]}
+{"id": "onb-02", "question": "What command sets up the local development environment?", "relevant": [{"source": "onboarding-guide.md", "heading": "Development environment"}], "must_include": ["make bootstrap"]}
+{"id": "onb-03", "question": "What do I need before I can get write access to production?", "relevant": [{"source": "onboarding-guide.md", "heading": "Production access"}], "must_include": ["approval"]}
+{"id": "plt-01", "question": "What are the three main components of the platform?", "relevant": [{"source": "platform-overview.md", "heading": "Components"}], "must_include": ["Relay", "Strata", "Lens"]}
+{"id": "plt-02", "question": "Is cross-region replication available?", "relevant": [{"source": "platform-overview.md", "heading": "Regions"}], "must_include": ["not offered"]}
+{"id": "na-01", "question": "What is the company's parental leave policy?", "relevant": []}
+{"id": "na-02", "question": "Where is the London office located?", "relevant": []}
+{"id": "na-03", "question": "Who founded the company and when?", "relevant": []}
+{"id": "na-04", "question": "What's a good recipe for sourdough bread?", "relevant": []}
+{"id": "na-05", "question": "How much does the Enterprise plan cost per month?", "relevant": []}
+{"id": "na-06", "question": "Which programming language is the query engine written in?", "relevant": []}

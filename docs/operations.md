@@ -1,0 +1,100 @@
+# Operations
+
+Running the backend outside a development laptop.
+
+## Install and configure
+
+```bash
+uv sync --frozen --all-extras --no-dev   # exact versions from uv.lock
+cp .env.example .env                     # or set the variables in your process manager
+```
+
+Recommended production settings: `RAG_EMBEDDING_PROVIDER=fastembed`,
+`RAG_GENERATOR=anthropic`, `ANTHROPIC_API_KEY` from your secret store, `RAG_API_KEY` set, and
+`RAG_DATABASE_URL` pointing at a persistent volume.
+
+Pre-download the embedding model into the image or volume so the service doesn't fetch it at
+startup. `RAG_FASTEMBED_CACHE_DIR` sets where it lives:
+
+```bash
+RAG_FASTEMBED_CACHE_DIR=/opt/models uv run python -c \
+  "from production_rag.embeddings import FastEmbedEmbedder; FastEmbedEmbedder('BAAI/bge-small-en-v1.5', '/opt/models')"
+```
+
+## Deploy sequence
+
+1. `uv run rag db upgrade`: apply migrations. This is an explicit step; the service doesn't
+   migrate on startup. `/ready` returns 503 until the schema is at head.
+2. Start the API: `uv run uvicorn --factory production_rag.api.app:app_factory --host 0.0.0.0
+   --port 8000 --workers 4`, or `uv run rag serve --host 0.0.0.0` for a single process.
+3. Point the liveness probe at `GET /health` and the readiness probe at `GET /ready`.
+
+Run several workers on one machine if you need to. Each keeps its own vector cache, and caches
+stay consistent through the `index_state` generation counter. SQLite allows a single writer, so
+don't share the database file across machines or over network filesystems
+([ADR-0002](decisions/0002-v0-storage-and-scope.md) lists when to move to PostgreSQL).
+
+Put a reverse proxy in front for TLS and to cap request bodies at `RAG_MAX_UPLOAD_BYTES`. The
+app enforces the limit too, but only after the body has been received.
+
+## Changing the embedding model
+
+Each chunk records the model that embedded it, and vector search uses only chunks from the
+configured model. After changing `RAG_EMBEDDING_PROVIDER` or `RAG_FASTEMBED_MODEL`:
+
+```bash
+uv run rag reindex      # re-embeds every chunk from another model; prints counts
+```
+
+`/ready` reports `stale_chunks` until this has run. Lexical search keeps working in the
+meantime. Re-run `rag eval` with the new model and recalibrate `RAG_MIN_VECTOR_SCORE`.
+
+## Logs and monitoring
+
+Logs are JSON lines on stderr. Useful fields and signals:
+
+| Signal | Source |
+|---|---|
+| Request rate, latency and errors by path | `event = http.request` (`status`, `duration_ms`, `path`) |
+| Answer outcomes | `event = query.completed`: count by `status`; watch the `insufficient_evidence` share |
+| Pre-generation abstentions | `query.completed` with `abstained_before_generation = true` |
+| Stage latency | `query.completed.timings_ms.retrieval` / `.generation` |
+| Model usage and cost | `event = generation.completed`: `input_tokens`, `output_tokens`, `model` |
+| Refusals | `event = generation.refused` (`category`) |
+| Upstream failures | `event = generation.failed` (`retryable`); HTTP 502/503 |
+
+Every log line within a request carries `request_id`, which is also returned as `X-Request-ID`.
+`generation.completed` also logs `anthropic_request_id`; quote it when reporting an API problem
+to Anthropic. Question text and document contents are never logged.
+
+## Backups
+
+The database is a single SQLite file in WAL mode. Take consistent backups with the SQLite backup
+API or `sqlite3 rag.db ".backup 'rag-backup.db'"` (copying the file alone can miss WAL
+contents). Documents can be re-ingested from source, but the database is the only copy of
+extracted text and ingestion metadata.
+
+## Security notes
+
+- **Authentication**: set `RAG_API_KEY`. It is compared in constant time. Rotate it by
+  deploying a new value; there is no multi-key support yet.
+- **Untrusted documents**: anyone who can upload can influence answers. Uploaded text reaches
+  the model as search results, which the system prompt treats as data, not instructions, and
+  citations show users where each claim came from. That mitigates prompt injection but doesn't
+  prevent it: restrict upload access to trusted users.
+- **Untrusted files**: PDFs are parsed with pypdf, and page count and size are capped. Run the
+  service with least privilege. Raw files are never written to disk.
+- **Data sent to Anthropic**: with `RAG_GENERATOR=anthropic`, the question and the retrieved
+  chunks are sent to the Claude API on every query. Check that this fits your data policy.
+
+## Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `/ready` 503 with `schema: not at head` | Run `rag db upgrade` |
+| HTTP 502 `generation_failed`, "no Claude API credentials configured" | Set `ANTHROPIC_API_KEY` (read by the SDK, without the `RAG_` prefix) |
+| HTTP 503 `generation_unavailable` | Rate limit, overload or network failure after SDK retries; retry later, check `generation.failed` logs |
+| Many `insufficient_evidence` answers | Check `best_vector_score` in `query.completed`: if it's low, the corpus may lack the content; if retrieval looks right, run `rag eval` and recalibrate the threshold |
+| fastembed fails with "Could not load model … from any source" | Often not the network: Hugging Face downloads large files through its Xet client, which writes to `~/.cache/huggingface`. If that isn't writable, set `HF_HOME` and `RAG_FASTEMBED_CACHE_DIR` to writable directories |
+| `database is locked` | Concurrent writers beyond what SQLite handles; reduce concurrent ingestion or move to PostgreSQL ([ADR-0002](decisions/0002-v0-storage-and-scope.md)) |
+| Windows: "An Application Control policy has blocked this file" for `pytest.exe` | OS policy on unsigned launcher shims; run `uv run python -m pytest` instead |

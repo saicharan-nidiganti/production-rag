@@ -50,12 +50,20 @@ pnpm-debug.log*
 /frontend/playwright-report/
 
 # --- Local databases, vector stores and model caches -------------------------
+# The default SQLite database is data/rag.db; WAL mode adds -wal and -shm files.
 *.sqlite
 *.sqlite3
 *.db
+*.db-journal
+*.db-wal
+*.db-shm
 /.pgdata/
 /.cache/
 /.models/
+
+# --- Generated evaluation reports --------------------------------------------
+# Commit a report deliberately with `git add -f` when it documents a decision.
+/eval/reports/
 
 # --- Logs --------------------------------------------------------------------
 *.log

@@ -15,11 +15,20 @@ ADRs document important technical decisions, including:
 
 | ADR | Title | Status |
 | --- | --- | --- |
-| [0001](0001-technology-stack.md) | Technology stack for v1 | Proposed (accepted on merge) |
+| [0001](0001-technology-stack.md) | Technology stack for v1 | Proposed (v1 target) |
+| [0002](0002-v0-storage-and-scope.md) | v0 storage and scope: SQLite, single tenant, synchronous ingestion | Proposed (implemented in v0) |
+| [0003](0003-generation-provider-claude.md) | Generation provider: Claude with search-result citations | Proposed (implemented in v0; decision D-2) |
+| [0004](0004-embeddings-hybrid-retrieval-and-abstention.md) | Embedding providers, hybrid retrieval and calibrated abstention | Accepted |
+
+Open decisions that these ADRs depend on are tracked in
+[status.md](../status.md#open-decisions).
 
 ## Process
 
 1. Copy [template.md](template.md) to `NNNN-short-title.md`, using the next number.
-2. Open it as part of the pull request that introduces the decision.
-3. Once merged, an ADR is not rewritten. A later decision supersedes it with a
+2. Commit it with the change that introduces the decision.
+3. An ADR that needs the project owner's decision stays **Proposed** until the
+   owner accepts it. Being merged to `main` does not make it Accepted. The
+   acceptance date is recorded in the status line.
+4. Once accepted, an ADR is not rewritten. A later decision supersedes it with a
    new ADR, and the old one's status is updated to point to it.

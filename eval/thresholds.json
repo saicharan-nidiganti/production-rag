@@ -1,0 +1,18 @@
+{
+  "description": "Regression gate for the default offline configuration (hashing embeddings, hybrid retrieval). Calibrated on golden_v1 at hit_rate 0.967 / recall 0.950 / MRR 0.906; bounds leave room for one additional miss. Raise them deliberately when retrieval improves.",
+  "config": {
+    "embedding_model": "hashing-v1-d512",
+    "retrieval_mode": "hybrid",
+    "top_k": 5,
+    "chunk_size": 1000,
+    "chunk_overlap": 150
+  },
+  "min": {
+    "retrieval.hit_rate": 0.93,
+    "retrieval.recall": 0.91,
+    "retrieval.mrr": 0.85
+  },
+  "max": {
+    "abstention.false_abstention_rate": 0.0
+  }
+}

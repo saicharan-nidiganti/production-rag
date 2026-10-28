@@ -1,77 +1,274 @@
 # Architecture
 
-> **Status:** target architecture for v1. **Nothing is implemented yet.** Each
-> section names the roadmap phase where it lands. Technology choices and their
-> trade-offs are recorded in [ADR-0001](decisions/0001-technology-stack.md);
-> requirements are in [requirements.md](requirements.md).
+This document describes the **v0 backend as implemented**, then the path to the
+v1 target defined in [ADR-0001](decisions/0001-technology-stack.md) and
+[requirements.md](requirements.md). The reasoning behind each choice is in
+[decisions/](decisions/).
 
 ## 1. Principles
 
 1. **Evidence first.** Every answer can be traced back to stored chunks. A
    citation that does not map to retrieved evidence is a bug.
-2. **Isolation at the data layer.** Ownership filters are part of every query
-   that reads documents, chunks or vectors. They are never applied afterwards
-   in application code.
-3. **Documents are untrusted input.** They can contain malicious files or
+2. **Documents are untrusted input.** They can contain malicious files or
    prompt-injection text, and are handled as data, never as instructions.
-4. **Swappable, measurable stages.** Parsing, chunking, embedding, retrieval,
-   reranking and generation sit behind interfaces, so each can be evaluated
+3. **Swappable, measurable stages.** Extraction, chunking, embedding,
+   retrieval and generation sit behind interfaces, so each can be evaluated
    and replaced on its own.
-5. **Few moving parts.** One database, one API service, one worker and one
-   frontend.
+4. **Few moving parts.** v0 is one process type and one database file.
+5. **Isolation at the data layer** (v1). Ownership filters will be part of
+   every query that reads documents, chunks or vectors. v0 is single tenant.
 
-## 2. System context
+## 2. System context (v0)
 
 ```mermaid
 flowchart LR
-    user([User]) -->|HTTPS| spa[Web app<br/>React + TypeScript]
-    spa -->|JSON / SSE| api[API service<br/>FastAPI]
-    api --> db[(PostgreSQL<br/>pgvector + full-text)]
-    api --> files[(File storage<br/>local disk / object store)]
-    worker[Ingestion worker] --> db
-    worker --> files
-    worker --> emb[Embedding model<br/>local by default]
-    api --> emb
-    api --> llm[Generation model<br/>provider per D-2]
-    eval[Evaluation harness] --> api
-    eval --> reports[(reports/)]
+    client([HTTP client]) -->|JSON| api[FastAPI app]
+    operator([Operator / CI]) --> cli[rag CLI]
+    api --> container[Container]
+    cli --> container
+    container --> ingestion[IngestionService]
+    container --> rag[RagService]
+    rag --> retriever[Retriever]
+    rag --> generator[Generator<br/>Claude or extractive]
+    ingestion --> embedder[Embedder<br/>hashing or fastembed]
+    retriever --> embedder
+    ingestion --> db[(SQLite<br/>documents, chunks,<br/>chunks_fts, index_state)]
+    retriever --> db
+    generator -->|HTTPS| claude[Claude API]
+    evalrunner[Evaluation runner] --> container
 ```
 
-| Component | Responsibility | Phase |
-| --- | --- | --- |
-| Web app | Sign-in, upload, document library, chat, citation viewer | 6 |
-| API service | Auth, validation, document CRUD, retrieval, answer streaming | 1–5 |
-| Ingestion worker | Parse → normalize → chunk → embed → index, with status and retries | 2–3 |
-| PostgreSQL | Users, sessions, documents, chunks, vectors, full-text index, job queue | 1 |
-| File storage | Original uploaded files, stored under generated names | 2 |
-| Embedding model | Text → vectors for chunks and queries | 3 |
-| Generation model | Grounded answer with citation markers | 4 |
-| Evaluation harness | Golden dataset runs, metrics, reports, CI regression gate | 3, 7 |
+`container.build_container(settings)` constructs every component from
+`Settings`. The API, the CLI and the evaluation runner all use it, so they
+can't drift apart in how they assemble the system.
 
-## 3. Repository layout (target)
+## 3. Code layout
 
 ```text
-src/production_rag/        Python package (backend + worker + evaluation)
-  api/                     FastAPI routers, request/response schemas
-  core/                    settings, logging, errors, security helpers
-  db/                      SQLAlchemy models, repositories, session handling
-  ingestion/               file validation, parsers, normalization, chunking, pipeline
-  retrieval/               embedding providers, vector + keyword search, fusion, reranking
-  generation/              context assembly, prompts, LLM providers, citation verification
-  auth/                    accounts, password hashing, sessions
-  worker/                  job queue consumer
-  evaluation/              dataset loading, metrics, runners, report writers
-migrations/                Alembic migrations
-tests/                     unit/, integration/, e2e/, fixtures/ (synthetic or public-domain only)
-frontend/                  React + Vite application
-configs/                   retrieval and evaluation configuration files
-evaluations/               versioned golden datasets
-reports/                   generated evaluation reports
-data/                      local-only working data (git-ignored)
-docs/                      requirements, architecture, methodology, ADRs, status
+src/production_rag/
+  config.py          Settings (RAG_* environment variables, .env)
+  observability.py   JSON logging, request-id context, stage timer
+  text.py            tokenization shared by embeddings, lexical search, evaluation
+  db/                SQLAlchemy models, engine, Alembic migrations (single source of schema truth)
+  embeddings.py      Embedder protocol: hashing and fastembed providers
+  ingestion/         extraction (txt, md, pdf), chunking, ingestion pipeline
+  retrieval/         vector index, FTS5 search, RRF fusion, retriever
+  generation/        Generator protocol: Claude and extractive generators, answer types
+  rag.py             query orchestration and abstention
+  container.py       component wiring
+  api/               FastAPI app, routes, schemas, auth, error mapping (transport only)
+  cli.py             rag command (transport only)
+  evaluation/        golden dataset, metrics, runner, regression gate
+eval/                corpus, golden dataset, gate thresholds (versioned evaluation inputs)
+tests/               unit/ and integration/ (offline), plus live tests behind a flag
 ```
 
-## 4. Data model (initial)
+Dependencies point one way: `api`, `cli` and `evaluation` depend on
+`container`; `container` wires `ingestion`, `retrieval`, `generation` and
+`rag`; those depend on `db`, `embeddings`, `text` and `config`. Nothing below
+the transport layer imports `api` or `cli`.
+
+## 4. Ingestion
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as API
+    participant I as IngestionService
+    participant E as Embedder
+    participant D as SQLite
+    C->>A: POST /v1/documents (multipart)
+    A->>I: ingest(filename, bytes)
+    I->>I: bare filename, supported type, size limit, SHA-256
+    I->>D: look up content hash
+    alt duplicate content
+        I-->>A: existing document
+        A-->>C: 200, created=false
+    else new content
+        I->>I: extract sections, chunk with offsets
+        I->>E: embed heading path + chunk text
+        I->>D: one transaction: document + chunks
+        Note over D: triggers update chunks_fts and index_state.generation
+        A-->>C: 201, created=true
+    end
+```
+
+1. **Validate.** The filename is reduced to a bare name. The type must be
+   `.txt`, `.md`/`.markdown` or `.pdf`, and the size within
+   `RAG_MAX_UPLOAD_BYTES`.
+2. **Deduplicate** by SHA-256 of the raw bytes (FR-4). A unique index also
+   covers concurrent uploads of the same file.
+3. **Extract** ([extract.py](../src/production_rag/ingestion/extract.py)) full
+   text plus *sections*:
+   - Markdown: one section per heading, carrying the heading path
+     (`Guide > Install > Windows`). Headings inside code fences are ignored, and
+     headings without a body of their own are skipped.
+   - PDF: one section per page (pypdf), carrying the page number. Encrypted
+     PDFs, PDFs over `RAG_MAX_PDF_PAGES`, and PDFs without a text layer (scanned)
+     are rejected with a clear error.
+   - Text: UTF-8 (BOM tolerated), newlines normalized. Other encodings are
+     rejected rather than guessed.
+4. **Chunk** ([chunking.py](../src/production_rag/ingestion/chunking.py)).
+   Chunks never cross a section boundary. Each is at most `RAG_CHUNK_SIZE`
+   characters (default 1000) and ends at the best break in the second half of
+   the window: a paragraph break, else a sentence end, else whitespace, else a
+   hard cut. Consecutive chunks overlap by up to `RAG_CHUNK_OVERLAP` characters
+   (default 150), and a chunk starts on a word boundary where possible.
+   `text[start:end] == chunk.text` is a tested invariant.
+5. **Embed** the chunk text, prefixed with its heading path for context.
+6. **Persist** the document (including the extracted text, for re-chunking and
+   audit) and its chunks in one transaction. A failure leaves nothing behind
+   (NFR-5).
+
+Raw uploaded files are never written to disk. Only extracted text is stored.
+
+## 5. Storage
+
+SQLite through SQLAlchemy 2, with the schema owned by Alembic migrations
+([0001_initial_schema.py](../src/production_rag/db/migrations/versions/0001_initial_schema.py)).
+[ADR-0002](decisions/0002-v0-storage-and-scope.md) (proposed) explains why v0
+departs from ADR-0001's PostgreSQL design.
+
+| Table | Purpose |
+| --- | --- |
+| `documents` | One row per unique upload: name, title, type, content hash, size, chunk count, extracted text, metadata |
+| `chunks` | Text, character offsets, heading path, page, embedding (float32 little-endian blob) and the embedding model id |
+| `chunks_fts` | External-content FTS5 index over `chunks.text`, using the Porter stemmer |
+| `index_state` | Single row with a `generation` counter |
+
+Triggers on `chunks` keep `chunks_fts` in sync and increment
+`index_state.generation` on every insert, update and delete. Foreign keys
+cascade document deletes to chunks, and the triggers then clean the FTS index.
+Connections enable `foreign_keys`, WAL journaling and a 5 s busy timeout. An
+integration test compares the ORM models with the migrated schema, so a model
+change without a migration fails CI.
+
+## 6. Retrieval
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant R as RagService
+    participant V as Vector index
+    participant L as FTS5
+    participant G as Generator
+    C->>R: POST /v1/query {question}
+    par vector search
+        R->>V: cosine, top candidate_pool
+    and keyword search
+        R->>L: BM25, top candidate_pool
+    end
+    R->>R: RRF fusion, top_k, hydrate chunks
+    alt nothing retrieved, or best cosine below threshold
+        R-->>C: insufficient_evidence (no model call)
+    else evidence found
+        R->>G: question + one search_result block per chunk
+        G-->>R: text blocks with search_result_location citations
+        R-->>C: answer segments, citations, retrieved chunks, timings
+    end
+```
+
+[retriever.py](../src/production_rag/retrieval/retriever.py) supports three
+modes:
+
+- **lexical:** BM25 from FTS5. The query is reduced to content terms, each term
+  is quoted (which neutralizes FTS5 operators in user input), and the terms are
+  OR-ed together.
+- **vector:** exact cosine similarity against an in-memory matrix of the
+  current embedding model's vectors. The matrix is reloaded only when
+  `index_state.generation` changes, which keeps separate worker processes
+  consistent without shared memory. Measured cost: about 0.5 ms per query at
+  10k chunks and 6 ms at 100k.
+- **hybrid** (default): both retrievers fetch `RAG_CANDIDATE_POOL` candidates
+  (default 30), then Reciprocal Rank Fusion (`k = 60`) merges them. RRF uses
+  only ranks, so BM25 and cosine scores never need calibrating against each
+  other.
+
+Embeddings: `hashing` is a deterministic, dependency-free feature-hashing
+model (lexical only). `fastembed` runs `BAAI/bge-small-en-v1.5` locally through
+ONNX Runtime. Each chunk records its embedding model id. Vectors from other
+models are never compared, `/ready` reports them as stale chunks, and
+`rag reindex` re-embeds them.
+[ADR-0004](decisions/0004-embeddings-hybrid-retrieval-and-abstention.md) has
+the measurements.
+
+## 7. Generation and citations
+
+[rag.py](../src/production_rag/rag.py) orchestrates a query:
+
+1. Retrieve `top_k` chunks.
+2. **Abstain before generation** when nothing was retrieved, or when the best
+   cosine is below the provider's calibrated threshold. The result is
+   `insufficient_evidence` with no model call.
+3. Generate.
+
+[anthropic_generator.py](../src/production_rag/generation/anthropic_generator.py)
+sends each retrieved chunk to Claude as a `search_result` content block with
+citations enabled, followed by the question
+([ADR-0003](decisions/0003-generation-provider-claude.md), proposed). The system
+prompt tells the model to answer only from those results, to treat their
+contents as data rather than instructions, and to say plainly when they don't
+answer the question. The response arrives as text blocks whose
+`search_result_location` citations name the block they rely on by index, and
+those indexes map directly to chunks. A citation can therefore only point at
+evidence that was actually retrieved, and an out-of-range index is dropped.
+
+The answer is returned as **segments**: text plus indexes into a
+de-duplicated `citations` list, so a UI can render inline citation markers.
+
+| Condition | `status` |
+| --- | --- |
+| At least one citation | `answered` |
+| Text but no citations (the model declined, or answered without grounding) | `insufficient_evidence` |
+| `stop_reason == "refusal"` | `refused` |
+
+SDK errors are classified. Rate limits, 5xx responses and connection failures
+are retryable (HTTP 503). Bad or missing credentials, invalid requests and
+unknown models are not (HTTP 502). The SDK retries transient failures itself.
+
+The **extractive** generator is an offline, deterministic baseline. It quotes
+the retrieved sentences that overlap most with the question, each with its own
+citation. It keeps the pipeline runnable and testable without credentials, but
+it can't synthesize, and word overlap makes it answer some unanswerable
+questions.
+
+## 8. API, observability and security
+
+FastAPI with sync handlers, so blocking database and model calls run in the
+threadpool instead of on the event loop. Middleware assigns each request an id
+(accepting a well-formed incoming `X-Request-ID`), places it in a context
+variable that every log line includes, returns it as a response header, and
+logs one `http.request` line with timing. Domain exceptions map to status codes
+with one error shape. An unexpected exception becomes a 500 that keeps the
+request id and hides internals.
+
+Logs are one JSON object per line on stderr. The main events are
+`ingest.completed`, `query.completed` (status, mode, counts, best vector score,
+whether generation was skipped, per-stage timings), `generation.completed`
+(model, stop reason, token usage, Anthropic request id), `generation.refused`
+and `http.request`. Question text and document content are never logged
+(NFR-4).
+
+Security controls in v0: an optional static API key with constant-time
+comparison (`/health` and `/ready` stay open for probes), upload size and PDF
+page limits, filenames used only as metadata, bound SQL parameters and FTS5
+operator neutralization, untrusted-data framing for retrieved text, and
+secrets as `SecretStr`, never logged. [operations.md](operations.md) covers
+deployment and the remaining gaps.
+
+## 9. Path to the v1 target
+
+| Area | v0 (implemented) | v1 target | Phase |
+| --- | --- | --- | --- |
+| Storage | SQLite, FTS5 BM25, exact in-memory vectors | PostgreSQL + pgvector + full-text search (ADR-0001 §2) | decided with ADR-0002 |
+| Tenancy | Single tenant, optional API key | Accounts, Argon2id, cookie sessions, `owner_id` in every query (ADR-0001 §10) | 5 |
+| Ingestion | Synchronous, in the request | Postgres job queue and worker, `queued`/`processing`/`ready`/`failed` (FR-3) | 2 |
+| File types | PDF, TXT, Markdown | Also DOCX and HTML (FR-2); OCR later (FR-12) | 2, 8 |
+| Answers | Single request/response | Streaming (FR-9), conversations (FR-11) | 4 |
+| Interface | HTTP API and CLI | React + Vite web app (ADR-0001 §11) | 6 |
+| Reranking | None | Evaluate a cross-encoder (ADR-0001 §7) | 7 |
+
+The v1 data model planned in Session 0:
 
 ```mermaid
 erDiagram
@@ -129,143 +326,20 @@ erDiagram
     }
 ```
 
-Notes:
+`chunks.owner_id` is denormalized so vector and full-text queries filter by
+owner without a join, and `(owner_id, sha256)` is unique on `documents`. v0
+already stores the per-chunk fields this model needs (offsets, section path,
+page, embedding model), so moving to it is a storage change rather than a
+redesign. The v1 security boundaries (CSRF, CORS, rate limits, row-level
+security as defense in depth) are listed in ADR-0001 §10 and
+[SECURITY.md](../SECURITY.md#scope).
 
-- `chunks.owner_id` is denormalized deliberately. Vector and full-text queries
-  can then filter by owner without a join, and the filter cannot be forgotten.
-- `(owner_id, sha256)` is unique on `documents`, which implements duplicate
-  detection (FR-4).
-- `embedding_model` and the vector dimension are recorded per chunk. A model
-  change is an explicit re-embedding migration.
-- Deleting a document cascades to its chunks, jobs and citations, and deletes
-  the stored file (FR-5).
+## 10. Known limits of v0
 
-## 5. Ingestion flow (Phases 2–3)
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant A as API
-    participant S as File storage
-    participant D as PostgreSQL
-    participant W as Worker
-    participant E as Embedding model
-
-    C->>A: POST /documents (multipart)
-    A->>A: auth, size limit, magic-byte type check, SHA-256
-    alt duplicate for this owner
-        A-->>C: 200 existing document
-    else new
-        A->>S: store under generated key
-        A->>D: insert document(status=queued) + job
-        A-->>C: 202 document id, status=queued
-    end
-    W->>D: claim job (FOR UPDATE SKIP LOCKED)
-    W->>S: read file
-    W->>W: parse → normalize → structure-aware chunking
-    W->>E: embed chunks (batched)
-    W->>D: in one transaction: insert chunks + vectors, status=ready
-    Note over W,D: on failure: roll back, status=failed with error_code, retry with backoff
-    C->>A: GET /documents/{id} (poll or SSE)
-```
-
-Failure handling covers empty files, encrypted or corrupt PDFs, files with no
-extractable text (scanned PDFs until OCR lands), files over the size limit,
-and unsupported types. Each produces a stable `error_code` and a clear message
-for the user.
-
-## 6. Question-answering flow (Phases 3–4)
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant A as API
-    participant D as PostgreSQL
-    participant E as Embedding model
-    participant L as Generation model
-
-    C->>A: POST /ask {question, document_ids?}
-    A->>E: embed query
-    par vector search
-        A->>D: top-k by cosine WHERE owner_id = :user [AND document_id IN :ids]
-    and keyword search
-        A->>D: top-k by full-text rank WHERE owner_id = :user [...]
-    end
-    A->>A: RRF fusion → (optional rerank) → dedupe → token-budget packing
-    alt evidence below threshold
-        A-->>C: "Your documents don't contain enough information…"
-    else
-        A->>L: system rules + numbered evidence blocks + question
-        L-->>A: streamed answer with [n] markers
-        A->>A: verify every [n] maps to supplied evidence
-        A-->>C: SSE: answer tokens, then citations (doc, page, passage)
-        A->>D: store message + cited chunk ids + retrieval config
-    end
-```
-
-### Retrieval details
-
-- Both retrievers apply the owner filter, and the optional document filter,
-  **inside** the SQL query.
-- Candidate depth (for example, 50 per retriever), the RRF `k` and the final
-  evidence count are configuration values in `configs/`, recorded with every
-  evaluation run.
-- Near-duplicate chunks (overlap or repeated boilerplate) are removed before
-  context packing.
-
-### Grounding and citation verification
-
-- Evidence is passed as numbered, delimited blocks. Each block carries its
-  document title and page, with clear boundaries around the text.
-- The system prompt states that the evidence is **untrusted data**, that
-  instructions inside it must be ignored, and that every claim must cite an
-  evidence number or be marked as unsupported.
-- After generation, the server parses the citation markers:
-  - A marker pointing to evidence that was not supplied is removed, and the
-    event is logged as a citation-validity failure (target: never).
-  - A sentence that makes a factual claim without a citation is flagged in
-    evaluation.
-  - A quoted span must appear verbatim in the cited chunk.
-- **Abstention** has two layers: a retrieval-score threshold before
-  generation, and an explicit "insufficient evidence" response format the
-  model is instructed to use.
-
-## 7. Security architecture (Phase 5, with rules applied from Phase 1)
-
-| Boundary | Control |
-| --- | --- |
-| Browser ↔ API | HTTPS. HttpOnly, Secure, SameSite session cookies. CSRF protection. Strict CORS. Rate limits on auth, upload and ask. |
-| API ↔ data | Every repository function requires `owner_id`. Isolation test suite. Row-level security considered as defense in depth. |
-| Uploaded files | Content-based type detection, size limits, generated storage names (never a path built from the user's filename), parsing in the worker process only, page and character limits to prevent resource exhaustion. |
-| Documents ↔ model | Evidence delimited and labeled as untrusted. No tools or actions available to the model. Output post-processed and verified. |
-| Secrets | Read from environment variables only. `.env` git-ignored. gitleaks in CI. Secrets never logged. |
-| Logs | Structured metadata only: IDs, timings, counts, error codes. No document text, questions or answers. |
-
-## 8. Observability (Phases 1 and 8)
-
-- Structured JSON logs with a request ID that is propagated to the worker.
-- Per-stage timings: parse, chunk, embed, vector search, keyword search,
-  fusion, rerank, generation (time to first token and total).
-- Token counts and model identifiers per answer, for cost tracking.
-- Health and readiness endpoints for the API and the worker.
-
-## 9. Evaluation architecture (Phases 3 and 7)
-
-- **Golden dataset:** versioned JSONL files in `evaluations/`. Each item has
-  an `id`, `question`, `answerable`, the expected document and chunk or page
-  references, a `reference_answer`, and `tags` (for example `multi-hop`,
-  `conflicting`, `unanswerable`, `injection`).
-- **Runner:** ingests a fixed public corpus and runs each question with a named
-  configuration. It writes raw results (per-question retrievals, answers and
-  citations) separately from aggregated reports in `reports/`.
-- **Metrics:** Recall@k, MRR, nDCG; citation validity and precision;
-  groundedness; answer correctness; abstention accuracy; latency percentiles.
-- **CI gate:** deterministic retrieval metrics run on every pull request that
-  touches retrieval code. Model-judged metrics run on demand, with the judge
-  model and prompt version pinned.
-
-## 10. Deployment (Phase 8)
-
-Docker images for the API, worker and frontend, plus Docker Compose for local
-and single-host deployment. The production hosting target has not been chosen.
-Deploying to a live environment requires the project owner's explicit approval.
+- SQLite means a single writer and a single node. Vector search is exact and in
+  memory, which is comfortable to about 100k chunks per process.
+- No reranker yet. Hybrid retrieval already reaches recall@5 = 1.0 on the
+  current dataset, so a reranker needs a harder dataset to justify it.
+- Ingestion is synchronous. Large PDFs block a worker for the duration.
+- No OCR: scanned PDFs without a text layer are rejected as having no
+  extractable text.

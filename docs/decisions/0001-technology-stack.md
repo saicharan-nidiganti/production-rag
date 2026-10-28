@@ -1,8 +1,13 @@
 # ADR-0001: Technology stack for v1
 
-- **Status:** Proposed, 2026-10-28. It becomes Accepted when merged to `main`.
-  The generation model provider is pending decision D-2 (see §8).
-- **Deciders:** Project owner (merge approval), with engineering analysis
+- **Status:** Proposed, 2026-10-28. Merged to `main` on 2026-10-29 together with
+  the v0 backend. Merging is not acceptance: the project owner accepts this ADR
+  explicitly. The v0 implementation departs from §2 (storage), §9 (background
+  ingestion) and §10 (authentication) as proposed in
+  [ADR-0002](0002-v0-storage-and-scope.md). The generation model provider (§8)
+  is pending decision D-2; [ADR-0003](0003-generation-provider-claude.md)
+  proposes one.
+- **Deciders:** Project owner, with engineering analysis
 - **Supersedes:** none
 
 ## Context

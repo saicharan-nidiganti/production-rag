@@ -84,3 +84,8 @@ Experiments should document:
 - Interpretation
 
 Raw experimental evidence should be preserved separately from derived reports.
+
+## Implementation
+
+[evaluation.md](evaluation.md) describes how these principles are applied: the
+golden dataset, the metrics, the reports and the regression gate.

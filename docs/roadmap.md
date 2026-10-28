@@ -1,7 +1,12 @@
 # Roadmap
 
-Each phase maps to one working session and lands as one or more pull requests.
-Current progress, checks run and open decisions are tracked in [status.md](status.md).
+Phases are planning units. Work lands on `main` in focused commits (see
+[CONTRIBUTING.md](../CONTRIBUTING.md#branches-and-commits)). Current progress,
+checks run and open decisions are tracked in [status.md](status.md).
+
+The v0 backend delivered most of Phases 1–4, and parts of 7 and 8, ahead of the
+original order. Where it departs from [ADR-0001](decisions/0001-technology-stack.md),
+the item notes the proposed decision.
 
 ## Phase 0 — Foundation
 
@@ -15,55 +20,58 @@ Current progress, checks run and open decisions are tracked in [status.md](statu
 
 ## Phase 1 — Platform Skeleton
 
-- [ ] Python project with pinned dependencies (uv), Ruff, mypy, pytest
-- [ ] FastAPI application with settings, structured logging and health checks
-- [ ] PostgreSQL + pgvector via Docker Compose
-- [ ] Initial database schema and migrations (Alembic)
-- [ ] `.env.example` and reproducible local setup instructions
-- [ ] GitHub Actions CI (lint, type-check, tests, secret scan, dependency audit)
+- [x] Python project with pinned dependencies (uv), Ruff, mypy, pytest
+- [x] FastAPI application with settings, structured logging and health checks
+- [ ] PostgreSQL + pgvector via Docker Compose — v0 uses SQLite instead ([ADR-0002](decisions/0002-v0-storage-and-scope.md), proposed)
+- [x] Initial database schema and migrations (Alembic)
+- [x] `.env.example` and reproducible local setup instructions
+- [ ] GitHub Actions CI (lint, type-check, tests, secret scan, dependency audit) — lint, type-check, tests and the eval gate run; secret scan and dependency audit pending
 
 ## Phase 2 — Document Ingestion
 
-- [ ] Define supported document types
-- [ ] Design ingestion pipeline
-- [ ] Implement document loading
-- [ ] Implement text extraction
-- [ ] Design chunking strategy
-- [ ] Implement chunking
-- [ ] Preserve document metadata
-- [ ] Upload validation, duplicate detection and ingestion status reporting
-- [ ] Handle empty, encrypted, corrupt and oversized files
-- [ ] Add ingestion tests
+- [x] Define supported document types — PDF, TXT, Markdown
+- [ ] DOCX and HTML support (FR-2)
+- [x] Design ingestion pipeline
+- [x] Implement document loading
+- [x] Implement text extraction
+- [x] Design chunking strategy
+- [x] Implement chunking
+- [x] Preserve document metadata — heading path, page, character offsets, content hash
+- [ ] Upload validation, duplicate detection and ingestion status reporting — validation and duplicate detection done; status reporting (FR-3) needs background ingestion
+- [x] Handle empty, encrypted, corrupt and oversized files
+- [x] Add ingestion tests
 
 ## Phase 3 — Retrieval
 
-- [ ] Define retrieval requirements
-- [ ] Design retrieval interface
-- [ ] Implement embedding pipeline
-- [ ] Implement vector retrieval
-- [ ] Implement keyword (full-text) retrieval, so hybrid retrieval can be evaluated
-- [ ] Enforce owner and metadata filters inside retrieval queries
-- [ ] Create retrieval evaluation dataset
-- [ ] Measure retrieval quality (baseline)
-- [ ] Add retrieval tests
+- [x] Define retrieval requirements
+- [x] Design retrieval interface
+- [x] Implement embedding pipeline — `hashing` and `fastembed` providers
+- [x] Implement vector retrieval
+- [x] Implement keyword (full-text) retrieval, so hybrid retrieval can be evaluated — SQLite FTS5 BM25
+- [ ] Enforce owner and metadata filters inside retrieval queries — v0 is single tenant
+- [x] Create retrieval evaluation dataset — `eval/golden_v1.jsonl`
+- [x] Measure retrieval quality (baseline) — [evaluation.md](evaluation.md)
+- [x] Add retrieval tests
 
 ## Phase 4 — Generation
 
-- [ ] Integrate generation model
-- [ ] Design context assembly
-- [ ] Implement grounded generation
-- [ ] Implement citation generation
-- [ ] Verify citations against retrieved evidence
-- [ ] Implement unsupported-answer handling
-- [ ] Defend against prompt injection in document content
-- [ ] Add generation tests
+- [x] Integrate generation model — Claude ([ADR-0003](decisions/0003-generation-provider-claude.md), pending D-2)
+- [x] Design context assembly — one `search_result` block per chunk
+- [x] Implement grounded generation
+- [x] Implement citation generation
+- [x] Verify citations against retrieved evidence — enforced structurally
+- [x] Implement unsupported-answer handling — pre-generation abstention and the uncited-answer rule
+- [ ] Defend against prompt injection in document content — system-prompt mitigation in place; injection test suite pending
+- [x] Add generation tests
+- [ ] Stream answers to the client (FR-9)
+- [ ] Measure Claude answers with `rag eval --generation` (needs an API key)
 
 ## Phase 5 — Security and Multi-User Isolation
 
-- [ ] User accounts and session authentication
+- [ ] User accounts and session authentication — v0 has an optional static API key
 - [ ] Server-side document ownership checks on every endpoint
 - [ ] Cross-tenant isolation test suite
-- [ ] Rate limiting and upload hardening
+- [ ] Rate limiting and upload hardening — size and page limits done; rate limiting pending
 - [ ] Security review
 
 ## Phase 6 — Frontend
@@ -76,29 +84,30 @@ Current progress, checks run and open decisions are tracked in [status.md](statu
 
 ## Phase 7 — Advanced Retrieval and Evaluation
 
-- [ ] Investigate hybrid retrieval
-- [ ] Implement hybrid retrieval if justified
-- [ ] Evaluate reranking approaches
+- [x] Investigate hybrid retrieval
+- [x] Implement hybrid retrieval if justified — it beats either retriever alone ([ADR-0004](decisions/0004-embeddings-hybrid-retrieval-and-abstention.md))
+- [ ] Evaluate reranking approaches — needs a harder dataset: recall@5 is already 1.0
 - [ ] Implement reranking if justified
-- [ ] Compare retrieval strategies
-- [ ] Create golden evaluation dataset
-- [ ] Define evaluation metrics
-- [ ] Implement retrieval evaluation
-- [ ] Implement answer evaluation
-- [ ] Implement citation evaluation
-- [ ] Add regression evaluation
-- [ ] Generate evaluation reports
+- [x] Compare retrieval strategies
+- [x] Create golden evaluation dataset — v1, 36 questions; grow it from real questions
+- [x] Define evaluation metrics
+- [x] Implement retrieval evaluation
+- [x] Implement answer evaluation — fact-recall proxy
+- [x] Implement citation evaluation — citation precision
+- [x] Add regression evaluation — threshold gate in CI
+- [x] Generate evaluation reports
+- [ ] LLM-as-judge groundedness and answer correctness
 
 ## Phase 8 — Production Readiness
 
-- [ ] Error handling
-- [ ] Configuration management
-- [ ] Logging
-- [ ] Observability
+- [x] Error handling
+- [x] Configuration management
+- [x] Logging
+- [ ] Observability — JSON logs, request ids and per-stage timings done; metrics export pending
 - [ ] Performance testing
 - [ ] OCR for scanned PDFs
 - [ ] Container images
-- [ ] Operational documentation
+- [x] Operational documentation — [operations.md](operations.md)
 
 ## Phase 9 — Release
 
