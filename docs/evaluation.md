@@ -77,25 +77,29 @@ Latency: `latency_ms.retrieval_p50/p95` and `generation_p50/p95` (nearest-rank p
 
 ## Current results
 
-Retrieval, by embedder and mode, with abstention disabled to show raw retrieval quality:
+Every table in this section is printed by `uv run python scripts/compare_configs.py`
+(add `--providers hashing` to skip the model download). Latencies vary by machine and run.
+
+Retrieval, by embedder and mode:
 
 | Embeddings | Mode | Hit rate | Recall | MRR | p95 |
 | --- | --- | --- | --- | --- | --- |
-| hashing | lexical | 0.967 | 0.967 | 0.900 | 1.2 ms |
-| hashing | vector | 0.900 | 0.883 | 0.817 | 1.1 ms |
-| hashing | hybrid | 0.967 | 0.950 | 0.906 | 1.3 ms |
-| fastembed bge-small | lexical | 0.967 | 0.967 | 0.900 | 1.0 ms |
-| fastembed bge-small | vector | 1.000 | 1.000 | 0.934 | 6.3 ms |
-| fastembed bge-small | hybrid | 1.000 | 1.000 | 0.957 | 7.5 ms |
+| hashing | lexical | 0.967 | 0.967 | 0.900 | 1.4 ms |
+| hashing | vector | 0.900 | 0.883 | 0.792 | 0.9 ms |
+| hashing | hybrid | 0.967 | 0.950 | 0.906 | 2.0 ms |
+| fastembed bge-small | lexical | 0.967 | 0.967 | 0.900 | 1.2 ms |
+| fastembed bge-small | vector | 1.000 | 1.000 | 0.934 | 9.9 ms |
+| fastembed bge-small | hybrid | 0.967 | 0.967 | 0.950 | 8.2 ms |
 
-Full runs with default thresholds, hybrid mode and the extractive generator:
+Full runs with the default configuration (hybrid, per-provider abstention threshold, extractive
+generator):
 
 | Metric | hashing | fastembed |
 | --- | --- | --- |
 | false abstention | 0.000 | 0.000 |
 | unanswerable abstained at retrieval | 0.167 | 0.500 |
 | answered rate (extractive) | 1.000 | 1.000 |
-| unanswerable declined (extractive) | 0.333 | 0.500 |
+| unanswerable declined (extractive) | 0.500 | 0.500 |
 | citation precision (extractive) | 0.633 | 0.622 |
 | fact recall (extractive) | 0.833 | 0.867 |
 
@@ -106,15 +110,41 @@ environment where this was built had no API credentials. Run
 `RAG_GENERATOR=anthropic uv run rag eval --generation --output eval/reports` to produce the
 first numbers.
 
+### Extractive baseline: why it can't meet the abstention target
+
+`ExtractiveGenerator(min_coverage=…)` quotes a sentence only if it contains at least that share
+of the question's content terms. Sweeping it (hybrid retrieval, hashing embeddings):
+
+| Min coverage | Answered | Unanswerable declined | Citation precision | Fact recall |
+| --- | --- | --- | --- | --- |
+| 0.00 (default) | 1.000 | 0.500 | 0.633 | 0.833 |
+| 0.25 | 0.867 | 0.500 | 0.654 | 0.767 |
+| 0.34 | 0.733 | 0.667 | 0.841 | 0.667 |
+| 0.50 | 0.700 | 0.833 | 0.952 | 0.633 |
+
+No setting meets both requirements targets (false abstention ≤ 0.10 and correct abstention
+≥ 0.90): word overlap can't tell an on-topic unanswerable question ("How much does the
+Enterprise plan cost?") from an answerable one. The default stays at 0, so the baseline never
+refuses an answerable question; declining is the job of an LLM generator.
+
+### Change log
+
+- **2026-10-29, tokenizer fix.** Possessives and contractions ("what's", "customer's") used to
+  produce a stray `s` token that matched unrelated text. Dropping single-letter tokens raised
+  extractive unanswerable declines from 0.333 to 0.500, and lexical-only retrieval now abstains
+  on 3 of 6 unanswerable questions instead of 0. Two scores that depended on the stray token
+  fell: fastembed hybrid hit rate 1.000 → 0.967 (`inc-06`, a paraphrase, dropped from rank 5
+  to rank 6) and hashing vector MRR 0.817 → 0.792. The gates still pass.
+
 ## Calibrating abstention
 
 `RAG_MIN_VECTOR_SCORE` (unset means the per-provider default) is the cosine below which the
 system abstains without calling the model. The defaults were chosen from the score
 distributions in the full report (`per_query[].retrieval.best_vector_score`):
 
-- **hashing**: answerable questions score 0.071 at the lowest; unanswerable ones 0.040–0.179.
+- **hashing**: answerable questions score 0.071 at the lowest; unanswerable ones 0.040 to 0.179.
   The ranges overlap, so the threshold (0.05) catches only the clearly off-topic case.
-- **fastembed**: answerable questions score 0.624 at the lowest; unanswerable ones 0.448–0.690.
+- **fastembed**: answerable questions score 0.624 at the lowest; unanswerable ones 0.448 to 0.690.
   The threshold (0.55) catches half, with about 0.07 margin below the lowest answerable score.
 
 Always set the threshold so that `false_abstention_rate` stays 0: refusing an answerable question

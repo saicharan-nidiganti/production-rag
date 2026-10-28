@@ -91,3 +91,21 @@ chunk higher than either retriever alone.
   evaluated.
 - CI caches the fastembed model. The code default could then move to
   `fastembed`.
+
+## Amendment, 2026-10-29: tokenizer fix
+
+The measurements above included a tokenizer bug: possessives and contractions
+("what's", "customer's") produced a stray `s` token that matched unrelated text.
+After the fix, re-measured with `scripts/compare_configs.py`:
+
+| Embeddings | Mode | Hit rate | Recall | MRR |
+| --- | --- | --- | --- | --- |
+| hashing | vector | 0.900 | 0.883 | 0.792 (was 0.817) |
+| fastembed bge-small | hybrid | 0.967 (was 1.000) | 0.967 (was 1.000) | 0.950 (was 0.957) |
+
+All other rows are unchanged. With fastembed, vector-only now has the higher
+hit rate (1.000) while hybrid keeps the best MRR (0.950 against 0.934). The
+question hybrid now misses (`inc-06`, a paraphrase) sits at rank 6. The
+decision stands: hybrid stays the default for its ranking quality and for exact
+terms such as command names, and the difference is one question on a small
+dataset. The abstention calibration is unchanged.

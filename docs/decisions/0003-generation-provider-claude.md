@@ -75,7 +75,7 @@ Proposed:
 - Live Claude results have not been measured yet: the development PC has no
   API credentials. `rag eval --generation` with `RAG_GENERATOR=anthropic`
   produces them.
-- The extractive baseline answers some unanswerable questions (2 of 6 declined
+- The extractive baseline answers some unanswerable questions (3 of 6 declined
   on golden v1), because word overlap is a weak relevance signal. It is a
   floor, not a candidate for production.
 - No streaming yet (FR-9).

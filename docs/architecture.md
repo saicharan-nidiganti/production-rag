@@ -60,6 +60,7 @@ src/production_rag/
   cli.py             rag command (transport only)
   evaluation/        golden dataset, metrics, runner, regression gate
 eval/                corpus, golden dataset, gate thresholds (versioned evaluation inputs)
+scripts/             reproducible experiments (compare_configs.py prints the evaluation tables)
 tests/               unit/ and integration/ (offline), plus live tests behind a flag
 ```
 

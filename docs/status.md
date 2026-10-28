@@ -17,10 +17,10 @@ ingestion with status reporting (FR-3), DOCX/HTML (FR-2) and accounts (Phase 5).
 
 | Area | State |
 | --- | --- |
-| Retrieval targets (Recall@5 ≥ 0.85, MRR ≥ 0.70) | Met on golden v1 with both embedders (recall 0.95 / 1.00, MRR 0.906 / 0.957) |
+| Retrieval targets (Recall@5 ≥ 0.85, MRR ≥ 0.70) | Met on golden v1 with both embedders (recall 0.950 / 0.967, MRR 0.906 / 0.950) |
 | Citation validity 100% | Enforced in code: citations map to retrieved chunks by index |
 | False abstention ≤ 0.10 | Met: 0.00 at retrieval level |
-| Correct abstention on unanswerable ≥ 0.90 | **Not met by the offline baseline**: the extractive generator answers 4 of 6 unanswerable questions; Claude not yet measured |
+| Correct abstention on unanswerable ≥ 0.90 | **Not met by the offline baseline**: the extractive generator answers 3 of 6 unanswerable questions, and no setting of it meets both abstention targets ([evaluation.md](evaluation.md#extractive-baseline-why-it-cant-meet-the-abstention-target)); Claude not yet measured |
 | Accounts and isolation (FR-1, NFR-1) | Not started; v0 is single tenant ([ADR-0002](decisions/0002-v0-storage-and-scope.md)) |
 | Ingestion status (FR-3), streaming (FR-9), DOCX/HTML (FR-2) | Not started |
 

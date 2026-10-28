@@ -124,7 +124,8 @@ Scopes follow the system's components, for example `ingestion`, `retrieval`,
 ## Changes That Affect Quality
 
 - **Retrieval, chunking or embedding changes:** include `rag eval` results
-  before and after. If metrics improve, raise the thresholds in
+  before and after (`uv run python scripts/compare_configs.py` prints the full
+  comparison tables). If metrics improve, raise the thresholds in
   `eval/thresholds.json` in the same change. Never lower a threshold without
   explaining why.
 - **Dataset changes:** add a new version (`golden_v2.jsonl`) instead of editing

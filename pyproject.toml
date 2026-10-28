@@ -76,7 +76,7 @@ ignore = ["S101"]  # assert is fine in tests and for invariants
 [tool.mypy]
 python_version = "3.12"
 strict = true
-packages = ["production_rag"]
+files = ["src", "scripts"]
 mypy_path = "src"
 plugins = ["pydantic.mypy"]
 

@@ -164,13 +164,13 @@ Results on `eval/golden_v1.jsonl` (36 questions over 6 documents, 6 of them unan
 
 | Embeddings | Mode | Hit rate | Recall | MRR | Retrieval p95 |
 | --- | --- | --- | --- | --- | --- |
-| hashing | lexical | 0.967 | 0.967 | 0.900 | 1.2 ms |
-| hashing | vector | 0.900 | 0.883 | 0.817 | 1.1 ms |
-| hashing | hybrid | 0.967 | 0.950 | 0.906 | 1.3 ms |
-| fastembed (bge-small) | vector | 1.000 | 1.000 | 0.934 | 6.3 ms |
-| **fastembed (bge-small)** | **hybrid** | **1.000** | **1.000** | **0.957** | 7.5 ms |
+| hashing | lexical | 0.967 | 0.967 | 0.900 | 1.4 ms |
+| hashing | vector | 0.900 | 0.883 | 0.792 | 0.9 ms |
+| hashing | hybrid | 0.967 | 0.950 | 0.906 | 2.0 ms |
+| fastembed (bge-small) | vector | 1.000 | 1.000 | 0.934 | 9.9 ms |
+| **fastembed (bge-small)** | **hybrid** | 0.967 | 0.967 | **0.950** | 8.2 ms |
 
-The dataset is small and was written alongside the corpus, so treat these numbers as a regression baseline, not a benchmark. Claude answers haven't been measured yet. [docs/evaluation.md](docs/evaluation.md) defines every metric and covers abstention calibration and the limitations.
+Hybrid with semantic embeddings ranks the right chunk highest (best MRR); vector-only finds one more paraphrased question in the top 5. `uv run python scripts/compare_configs.py` reproduces this table. The dataset is small and was written alongside the corpus, so treat these numbers as a regression baseline, not a benchmark. Claude answers haven't been measured yet. [docs/evaluation.md](docs/evaluation.md) defines every metric and covers abstention calibration and the limitations.
 
 ## Configuration
 
@@ -212,6 +212,7 @@ src/production_rag/   Python package: API, CLI, ingestion, retrieval, generation
 tests/                unit/ and integration/ tests (offline), live tests behind RAG_RUN_LIVE_TESTS=1
 eval/                 evaluation corpus, golden dataset and regression thresholds
 docs/                 requirements, architecture, decisions, evaluation, operations, roadmap, status
+scripts/              reproducible experiments (configuration comparison tables)
 data/                 local-only working data and the default SQLite database (contents git-ignored)
 .github/              CI workflow, issue and pull request templates
 ```
