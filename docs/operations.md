@@ -74,18 +74,11 @@ API or `sqlite3 rag.db ".backup 'rag-backup.db'"` (copying the file alone can mi
 contents). Documents can be re-ingested from source, but the database is the only copy of
 extracted text and ingestion metadata.
 
-## Security notes
+## Security
 
-- **Authentication**: set `RAG_API_KEY`. It is compared in constant time. Rotate it by
-  deploying a new value; there is no multi-key support yet.
-- **Untrusted documents**: anyone who can upload can influence answers. Uploaded text reaches
-  the model as search results, which the system prompt treats as data, not instructions, and
-  citations show users where each claim came from. That mitigates prompt injection but doesn't
-  prevent it: restrict upload access to trusted users.
-- **Untrusted files**: PDFs are parsed with pypdf, and page count and size are capped. Run the
-  service with least privilege. Raw files are never written to disk.
-- **Data sent to Anthropic**: with `RAG_GENERATOR=anthropic`, the question and the retrieved
-  chunks are sent to the Claude API on every query. Check that this fits your data policy.
+Security controls, data flows to the model provider, known gaps and an operator
+checklist are in [security.md](security.md). All settings are listed in
+[configuration.md](configuration.md).
 
 ## Troubleshooting
 

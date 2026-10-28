@@ -25,7 +25,7 @@ the item notes the proposed decision.
 - [ ] PostgreSQL + pgvector via Docker Compose — v0 uses SQLite instead ([ADR-0002](decisions/0002-v0-storage-and-scope.md), proposed)
 - [x] Initial database schema and migrations (Alembic)
 - [x] `.env.example` and reproducible local setup instructions
-- [ ] GitHub Actions CI (lint, type-check, tests, secret scan, dependency audit) — lint, type-check, tests and the eval gate run; secret scan and dependency audit pending
+- [x] GitHub Actions CI (lint, type-check, tests, secret scan, dependency audit) — plus the eval gate and Markdown lint; the audit also runs weekly
 
 ## Phase 2 — Document Ingestion
 
@@ -37,7 +37,7 @@ the item notes the proposed decision.
 - [x] Design chunking strategy
 - [x] Implement chunking
 - [x] Preserve document metadata — heading path, page, character offsets, content hash
-- [ ] Upload validation, duplicate detection and ingestion status reporting — validation and duplicate detection done; status reporting (FR-3) needs background ingestion
+- [ ] Upload validation, duplicate detection and ingestion status reporting — content-based validation and duplicate detection done; status reporting (FR-3) needs background ingestion
 - [x] Handle empty, encrypted, corrupt and oversized files
 - [x] Add ingestion tests
 

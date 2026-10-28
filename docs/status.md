@@ -35,7 +35,33 @@ ingestion with status reporting (FR-3), DOCX/HTML (FR-2) and accounts (Phase 5).
   generation choices are recorded as **Proposed** ADR-0002 and ADR-0003 for the
   owner's decision. ADR-0001 stays Proposed: merging it isn't acceptance.
 - Architecture, README, CONTRIBUTING and the roadmap now describe the code as
-  it is, with the v1 target kept as a labelled section.
+  it is, with the v1 target kept as a labelled section. New references:
+  [api.md](api.md), [configuration.md](configuration.md),
+  [security.md](security.md). Requirements gained v0 status columns.
+- CI: secret scan (gitleaks), dependency audit (pip-audit, also weekly),
+  Markdown lint and `uv lock --check`; third-party actions pinned to commit
+  SHAs. The first run failed because `astral-sh/setup-uv@v10` no longer exists
+  as a tag; fixed by pinning.
+- Fixes, each with a regression test: an empty `RAG_API_KEY=` enabled auth
+  with an empty key; `ANTHROPIC_API_KEY` in `.env` never reached the SDK; PDF
+  uploads were checked by extension only (NFR-2); possessives produced a stray
+  `s` token that matched unrelated text; validation errors didn't use the
+  common error envelope; the CLI treated a directory named `x.md` as a document.
+- `Container` is wiring only; index maintenance moved to `IngestionService`.
+- `scripts/compare_configs.py` reproduces every evaluation table. Documentation
+  tests check that all relative links resolve and every setting is documented.
+
+Checks at the end of the session:
+
+| Check | Result |
+| --- | --- |
+| Ruff lint and format, mypy `--strict` (src and scripts) | Pass |
+| pytest (offline) | 183 passed, 96.4% coverage (floor 85%) |
+| Retrieval eval gate (`eval/thresholds.json`) | Pass: hit rate 0.967, recall 0.950, MRR 0.906 |
+| fastembed gate (live test) | Pass: hit rate 0.967, recall 0.967, MRR 0.950 |
+| CI on GitHub (Python 3.12 and 3.14, gitleaks, pip-audit, markdownlint) | Pass |
+| OSV query for all 67 locked packages | 0 known vulnerabilities |
+| License inventory | Permissive or MPL-2.0 only |
 
 ### Session 1 — v0 backend (2026-10-28)
 

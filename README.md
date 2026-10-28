@@ -150,7 +150,7 @@ Response shape (illustrative and abridged):
 }
 ```
 
-`status` is `answered`, `insufficient_evidence` or `refused`. When `RAG_API_KEY` is set, `/v1/*` requires `Authorization: Bearer <key>` or `X-API-Key: <key>`. Errors share one shape: `{"error": {"code", "message", "request_id"}}`.
+Full request and response fields, error codes and real examples are in [docs/api.md](docs/api.md). `status` is `answered`, `insufficient_evidence` or `refused`. When `RAG_API_KEY` is set, `/v1/*` requires `Authorization: Bearer <key>` or `X-API-Key: <key>`. Errors share one shape: `{"error": {"code", "message", "request_id"}}`.
 
 ## Evaluation
 
@@ -190,7 +190,7 @@ Settings come from environment variables prefixed `RAG_`, or from a `.env` file.
 | `RAG_API_KEY` | unset | Enables API-key auth |
 | `RAG_MAX_UPLOAD_BYTES` | `26214400` (25 MiB) | FR-2 |
 
-Every setting, with its description, is in [config.py](src/production_rag/config.py). Deployment, migrations and backups are covered in [docs/operations.md](docs/operations.md).
+Every setting is listed in [docs/configuration.md](docs/configuration.md). Deployment, migrations and backups are covered in [docs/operations.md](docs/operations.md).
 
 ## Documentation
 
@@ -198,10 +198,13 @@ Every setting, with its description, is in [config.py](src/production_rag/config
 | --- | --- |
 | [Requirements](docs/requirements.md) | Scope, functional and non-functional requirements, constraints, success criteria |
 | [Architecture](docs/architecture.md) | v0 components and flows, code layout, path to the v1 target |
+| [API](docs/api.md) | Endpoints, request and response fields, errors, examples |
+| [Configuration](docs/configuration.md) | Every environment variable, with defaults |
 | [Decisions](docs/decisions/README.md) | Architecture Decision Records |
 | [Evaluation](docs/evaluation.md) | Dataset, metrics, current results, regression gate |
 | [Methodology](docs/methodology.md) | Evaluation-first engineering principles |
 | [Operations](docs/operations.md) | Deployment, migrations, monitoring, backups, troubleshooting |
+| [Security](docs/security.md) | Controls, data flows, supply chain, known gaps |
 | [Roadmap](docs/roadmap.md) | Phase-by-phase checklist |
 | [Status](docs/status.md) | Current progress, checks run, open decisions |
 
