@@ -47,6 +47,10 @@ Changing the provider, model or dimensions requires `rag reindex`
 | `RAG_CANDIDATE_POOL` | `30` | Candidates each retriever contributes before fusion |
 | `RAG_RRF_K` | `60` | Reciprocal Rank Fusion constant |
 | `RAG_MIN_VECTOR_SCORE` | unset | Abstain without calling the generator when the best cosine is below this value. Unset uses the calibrated default: 0.05 for `hashing`, 0.55 for `fastembed` ([evaluation.md](evaluation.md#calibrating-abstention)). |
+| `RAG_RERANKER` | `none` | `fastembed` reranks retrieved candidates with a local cross-encoder (recommended; needs the `local-embeddings` extra and downloads ~80 MB on first use). Adds about 250 ms per query on a laptop CPU ([ADR-0005](decisions/0005-reranking-and-abstention.md)). |
+| `RAG_RERANKER_MODEL` | `Xenova/ms-marco-MiniLM-L-6-v2` | Cross-encoder used by the `fastembed` reranker |
+| `RAG_RERANK_CANDIDATES` | `20` | Fused candidates the reranker scores before keeping `RAG_TOP_K`. 5 cuts rerank latency about 8× and misses one dev paraphrase question. |
+| `RAG_MIN_RERANK_SCORE` | unset | With a reranker, also abstain when the best rerank score is below this value. Unset uses the calibrated default: −8.4 for `Xenova/ms-marco-MiniLM-L-6-v2`; other models have no default and never abstain on this score. |
 
 ## Generation
 

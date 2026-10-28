@@ -52,3 +52,15 @@ def test_fastembed_hybrid_meets_its_gate() -> None:
     report = run_evaluation(settings, corpus_dir=CORPUS_DIR, dataset_path=DATASET)
     gate = check_gate(report, load_thresholds(REPO_ROOT / "eval" / "thresholds.fastembed.json"))
     assert gate.passed, gate.failures
+
+
+def test_fastembed_with_reranker_meets_its_gate() -> None:
+    settings = Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        embedding_provider="fastembed",
+        reranker="fastembed",
+        fastembed_cache_dir=os.environ.get("RAG_FASTEMBED_CACHE_DIR"),
+    )
+    report = run_evaluation(settings, corpus_dir=CORPUS_DIR, dataset_path=DATASET)
+    gate = check_gate(report, load_thresholds(REPO_ROOT / "eval" / "thresholds.reranked.json"))
+    assert gate.passed, gate.failures

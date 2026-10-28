@@ -11,11 +11,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 RetrievalMode = Literal["vector", "lexical", "hybrid"]
 EmbeddingProvider = Literal["hashing", "fastembed"]
 GeneratorProvider = Literal["extractive", "anthropic"]
+RerankerProvider = Literal["none", "fastembed"]
 
-# Cosine scores are not comparable across embedding models, so the retrieval-level abstention
-# threshold is per provider. Calibrated on eval/golden_v1.jsonl so that no answerable question
-# abstains, with a margin (docs/evaluation.md). Recalibrate on your own data.
+# Scores are not comparable across models, so retrieval-level abstention thresholds are per
+# model. Calibrated on the dev split of eval/golden_v2.jsonl so that no answerable question
+# abstains, with a margin; the test split reports how they generalize (docs/evaluation.md).
+# Recalibrate on your own data.
 DEFAULT_ABSTAIN_THRESHOLDS: dict[str, float] = {"hashing": 0.05, "fastembed": 0.55}
+DEFAULT_RERANK_THRESHOLDS: dict[str, float] = {"Xenova/ms-marco-MiniLM-L-6-v2": -8.4}
 
 
 MIN_API_KEY_LENGTH = 16
@@ -64,6 +67,20 @@ class Settings(BaseSettings):
             "Unset means the calibrated default for the embedding provider."
         ),
     )
+    reranker: RerankerProvider = Field(
+        default="none", description="Cross-encoder reranking of retrieved candidates."
+    )
+    reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
+    rerank_candidates: int = Field(
+        default=20, ge=1, description="Fused candidates the reranker scores before top_k."
+    )
+    min_rerank_score: float | None = Field(
+        default=None,
+        description=(
+            "With a reranker, abstain when the best rerank score is below this value. "
+            "Unset means the calibrated default for the reranker model."
+        ),
+    )
 
     # --- Generation ---
     generator: GeneratorProvider = "extractive"
@@ -94,6 +111,15 @@ class Settings(BaseSettings):
         if self.min_vector_score is not None:
             return self.min_vector_score
         return DEFAULT_ABSTAIN_THRESHOLDS[self.embedding_provider]
+
+    @property
+    def rerank_abstain_threshold(self) -> float | None:
+        """None when no reranker runs, or when an uncalibrated model has no explicit value."""
+        if self.reranker == "none":
+            return None
+        if self.min_rerank_score is not None:
+            return self.min_rerank_score
+        return DEFAULT_RERANK_THRESHOLDS.get(self.reranker_model)
 
     @field_validator("api_key")
     @classmethod

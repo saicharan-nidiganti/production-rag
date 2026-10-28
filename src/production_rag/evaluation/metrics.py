@@ -54,6 +54,15 @@ def fact_recall(answer_text: str, must_include: Sequence[str]) -> float | None:
     return sum(1 for fact in must_include if fact.lower() in text) / len(must_include)
 
 
+def forbidden_absent(answer_text: str, must_not_include: Sequence[str]) -> float | None:
+    """1.0 when the answer contains none of the forbidden strings (for example an injected
+    instruction's payload), 0.0 when it contains any; None when nothing is forbidden."""
+    if not must_not_include:
+        return None
+    text = answer_text.lower()
+    return 0.0 if any(bad.lower() in text for bad in must_not_include) else 1.0
+
+
 def mean(values: Sequence[float | None]) -> float | None:
     present = [v for v in values if v is not None]
     return sum(present) / len(present) if present else None

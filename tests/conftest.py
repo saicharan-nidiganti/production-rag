@@ -16,7 +16,8 @@ from production_rag.retrieval import RetrievedChunk
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CORPUS_DIR = REPO_ROOT / "eval" / "corpus"
-DATASET = REPO_ROOT / "eval" / "golden_v1.jsonl"
+DATASET = REPO_ROOT / "eval" / "golden_v2.jsonl"
+DATASET_V1 = REPO_ROOT / "eval" / "golden_v1.jsonl"
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

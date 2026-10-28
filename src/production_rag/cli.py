@@ -209,7 +209,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     ev = sub.add_parser("eval", help="run the evaluation suite on a fresh temporary index")
     ev.add_argument("--corpus", default="eval/corpus")
-    ev.add_argument("--dataset", default="eval/golden_v1.jsonl")
+    ev.add_argument("--dataset", default="eval/golden_v2.jsonl")
     ev.add_argument("--thresholds", help="fail (exit 1) if metrics fall outside these bounds")
     ev.add_argument("--output", help="directory for the full JSON report")
     ev.add_argument("--generation", action="store_true", help="also evaluate generated answers")

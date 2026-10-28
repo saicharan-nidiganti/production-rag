@@ -1,16 +1,19 @@
 {
-  "description": "Regression gate for the default offline configuration (hashing embeddings, hybrid retrieval). Calibrated on golden_v1 at hit_rate 0.967 / recall 0.950 / MRR 0.906; bounds leave room for one additional miss. Raise them deliberately when retrieval improves.",
+  "description": "CI regression gate for the default offline configuration (hashing embeddings, hybrid retrieval, no reranker). Calibrated on golden_v2 (9 documents) at hit_rate 0.947 / recall 0.941 / MRR 0.867 overall and hit_rate 0.957 on the test split; bounds leave room for about one additional miss. Raise them deliberately when retrieval improves.",
+  "dataset": "golden_v2.jsonl",
   "config": {
     "embedding_model": "hashing-v1-d512",
     "retrieval_mode": "hybrid",
     "top_k": 5,
     "chunk_size": 1000,
-    "chunk_overlap": 150
+    "chunk_overlap": 150,
+    "reranker": "none"
   },
   "min": {
     "retrieval.hit_rate": 0.93,
-    "retrieval.recall": 0.91,
-    "retrieval.mrr": 0.85
+    "retrieval.recall": 0.92,
+    "retrieval.mrr": 0.84,
+    "splits.test.retrieval.hit_rate": 0.93
   },
   "max": {
     "abstention.false_abstention_rate": 0.0

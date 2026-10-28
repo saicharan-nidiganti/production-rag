@@ -137,6 +137,8 @@ def search(container: ContainerDep, body: SearchRequest) -> SearchResponse:
     timer = Timer()
     with timer.stage("retrieval"):
         result = container.rag.search(body.query, top_k=body.top_k, mode=body.mode)
+    if result.rerank_ms is not None:
+        timer.timings_ms["rerank"] = result.rerank_ms  # included in "retrieval"
     return SearchResponse.from_result(result, timer.timings_ms)
 
 

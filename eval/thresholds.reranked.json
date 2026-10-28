@@ -1,0 +1,24 @@
+{
+  "description": "Regression gate for the recommended configuration: fastembed bge-small-en-v1.5, hybrid retrieval, ms-marco-MiniLM-L-6-v2 reranking of 20 candidates, rerank abstention below -8.4. Calibrated on golden_v2 at hit_rate 1.0 / recall 1.0 / MRR 0.958 overall (0.946 on the test split), with 8 of 18 unanswerable questions abstained at retrieval and no false abstentions. Run with RAG_RUN_LIVE_TESTS=1 (downloads two models; free).",
+  "dataset": "golden_v2.jsonl",
+  "config": {
+    "embedding_model": "fastembed:BAAI/bge-small-en-v1.5",
+    "retrieval_mode": "hybrid",
+    "top_k": 5,
+    "chunk_size": 1000,
+    "chunk_overlap": 150,
+    "reranker": "Xenova/ms-marco-MiniLM-L-6-v2",
+    "rerank_candidates": 20,
+    "rerank_abstain_threshold": -8.4
+  },
+  "min": {
+    "retrieval.hit_rate": 0.98,
+    "retrieval.recall": 0.98,
+    "retrieval.mrr": 0.93,
+    "splits.test.retrieval.mrr": 0.92,
+    "abstention.unanswerable_abstention_rate": 0.44
+  },
+  "max": {
+    "abstention.false_abstention_rate": 0.0
+  }
+}

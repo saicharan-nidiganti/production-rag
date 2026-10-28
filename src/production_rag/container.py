@@ -14,7 +14,7 @@ from production_rag.embeddings import Embedder, build_embedder
 from production_rag.generation import Generator, build_generator
 from production_rag.ingestion import IngestionService
 from production_rag.rag import RagService
-from production_rag.retrieval import Retriever
+from production_rag.retrieval import Retriever, build_reranker
 
 
 @dataclass
@@ -35,7 +35,12 @@ def build_container(settings: Settings, *, generator: Generator | None = None) -
     sessions = session_factory(engine)
     embedder = build_embedder(settings)
     retriever = Retriever(
-        sessions, embedder, candidate_pool=settings.candidate_pool, rrf_k=settings.rrf_k
+        sessions,
+        embedder,
+        candidate_pool=settings.candidate_pool,
+        rrf_k=settings.rrf_k,
+        reranker=build_reranker(settings),
+        rerank_candidates=settings.rerank_candidates,
     )
     return Container(
         settings=settings,

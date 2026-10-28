@@ -19,6 +19,7 @@ ADRs document important technical decisions, including:
 | [0002](0002-v0-storage-and-scope.md) | v0 storage and scope: SQLite, single tenant, synchronous ingestion | Proposed (implemented in v0) |
 | [0003](0003-generation-provider-claude.md) | Generation provider: Claude with search-result citations | Proposed (implemented in v0; decision D-2) |
 | [0004](0004-embeddings-hybrid-retrieval-and-abstention.md) | Embedding providers, hybrid retrieval and calibrated abstention | Accepted |
+| [0005](0005-reranking-and-abstention.md) | Cross-encoder reranking and rerank-score abstention | Accepted |
 
 Open decisions that these ADRs depend on are tracked in
 [status.md](../status.md#open-decisions).

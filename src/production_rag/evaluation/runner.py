@@ -21,6 +21,7 @@ from production_rag.evaluation.dataset import EvalCase, load_dataset
 from production_rag.evaluation.metrics import (
     citation_precision,
     fact_recall,
+    forbidden_absent,
     mean,
     percentile,
     score_retrieval,
@@ -68,6 +69,9 @@ def config_snapshot(container: Container) -> dict[str, Any]:
         "chunk_size": s.chunk_size,
         "chunk_overlap": s.chunk_overlap,
         "abstain_threshold": s.abstain_threshold,
+        "reranker": s.reranker_model if s.reranker != "none" else "none",
+        "rerank_candidates": s.rerank_candidates if s.reranker != "none" else None,
+        "rerank_abstain_threshold": s.rerank_abstain_threshold,
         "generator": container.rag.generator.model_id,
     }
 
@@ -103,6 +107,15 @@ def run_evaluation(
         finally:
             container.close()
 
+    summary = summarize(per_query, with_generation)
+    splits = sorted({c.split for c in cases if c.split is not None})
+    if splits:
+        summary["splits"] = {
+            split: summarize([q for q in per_query if q["split"] == split], with_generation)
+            for split in splits
+        }
+    tags = sorted({t for c in cases for t in c.tags})
+
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
         "created_at": datetime.now(UTC).isoformat(),
@@ -112,6 +125,7 @@ def run_evaluation(
             "sha256": _sha256_file(dataset_path),
             "cases": len(cases),
             "answerable": sum(1 for c in cases if c.answerable),
+            "splits": {s: sum(1 for c in cases if c.split == s) for s in splits},
         },
         "corpus": {
             "path": corpus_dir.as_posix(),
@@ -121,7 +135,11 @@ def run_evaluation(
         },
         "config": config,
         "with_generation": with_generation,
-        "summary": summarize(per_query, with_generation),
+        "summary": summary,
+        "by_tag": {
+            tag: summarize([q for q in per_query if tag in q["tags"]], with_generation)
+            for tag in tags
+        },
         "per_query": per_query,
     }
 
@@ -132,6 +150,8 @@ def _evaluate_case(container: Container, case: EvalCase, with_generation: bool) 
         "id": case.id,
         "question": case.question,
         "answerable": case.answerable,
+        "split": case.split,
+        "tags": case.tags,
     }
     if with_generation:
         result = rag.answer(case.question)
@@ -148,6 +168,7 @@ def _evaluate_case(container: Container, case: EvalCase, with_generation: bool) 
             if case.answerable
             else None,
             "fact_recall": fact_recall(answer.text, case.must_include),
+            "forbidden_absent": forbidden_absent(answer.text, case.must_not_include),
             "ms": timings.get("generation"),
         }
     else:
@@ -164,9 +185,11 @@ def _evaluate_case(container: Container, case: EvalCase, with_generation: bool) 
         "precision": scores.precision,
         "first_relevant_rank": scores.first_relevant_rank,
         "best_vector_score": retrieval.best_vector_score,
+        "best_rerank_score": retrieval.best_rerank_score,
         "abstained": rag.should_abstain(retrieval),
         "retrieved": [{"source": c.source_name, "heading": c.heading} for c in retrieval.chunks],
         "ms": timings["retrieval"],
+        "rerank_ms": retrieval.rerank_ms,  # included in "ms"
     }
     return record
 
@@ -199,6 +222,10 @@ def summarize(per_query: list[dict[str, Any]], with_generation: bool) -> dict[st
             "retrieval_p95": percentile(retrieval_ms, 95),
         },
     }
+    rerank_ms = [q["retrieval"]["rerank_ms"] for q in per_query if q["retrieval"]["rerank_ms"]]
+    if rerank_ms:
+        summary["latency_ms"]["rerank_p50"] = percentile(rerank_ms, 50)
+        summary["latency_ms"]["rerank_p95"] = percentile(rerank_ms, 95)
     if with_generation:
         gen_ms = [q["generation"]["ms"] for q in per_query if q["generation"]["ms"] is not None]
         summary["generation"] = {
@@ -214,6 +241,10 @@ def summarize(per_query: list[dict[str, Any]], with_generation: bool) -> dict[st
                 mean([q["generation"]["citation_precision"] for q in answerable])
             ),
             "fact_recall": _round(mean([q["generation"]["fact_recall"] for q in answerable])),
+            # Share of cases with forbidden strings (planted injections) whose answer has none.
+            "injection_resisted_rate": _round(
+                mean([q["generation"]["forbidden_absent"] for q in per_query])
+            ),
         }
         summary["latency_ms"]["generation_p50"] = percentile(gen_ms, 50)
         summary["latency_ms"]["generation_p95"] = percentile(gen_ms, 95)

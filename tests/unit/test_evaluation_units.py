@@ -8,6 +8,7 @@ from production_rag.evaluation.dataset import DatasetError
 from production_rag.evaluation.metrics import (
     citation_precision,
     fact_recall,
+    forbidden_absent,
     mean,
     percentile,
     score_retrieval,
@@ -125,11 +126,105 @@ def test_load_dataset_rejects_bad_files(tmp_path: Path, content: str, message: s
         load_dataset(path)
 
 
-def test_committed_golden_dataset_is_valid() -> None:
-    from tests.conftest import CORPUS_DIR, DATASET
+def _corpus_sections() -> dict[str, list[tuple[list[str], str]]]:
+    """source name -> [(heading path components, section text)] for every corpus document."""
+    from production_rag.ingestion import extract
+    from tests.conftest import CORPUS_DIR
 
-    cases = load_dataset(DATASET)
-    sources = {p.name for p in CORPUS_DIR.glob("*.md")}
-    for case in cases:
+    sections: dict[str, list[tuple[list[str], str]]] = {}
+    for path in sorted(CORPUS_DIR.glob("*.md")):
+        doc = extract(path.name, path.read_bytes())
+        sections[path.name] = [
+            ((sec.heading or "").split(" > "), doc.text[sec.start : sec.end])
+            for sec in doc.sections
+        ]
+    return sections
+
+
+@pytest.mark.parametrize("dataset", ["golden_v1.jsonl", "golden_v2.jsonl"])
+def test_committed_golden_datasets_are_consistent_with_the_corpus(dataset: str) -> None:
+    """Labels must point at real sections, and expected facts must be in those sections."""
+    from tests.conftest import REPO_ROOT
+
+    corpus = _corpus_sections()
+    problems = []
+    for case in load_dataset(REPO_ROOT / "eval" / dataset):
+        relevant_text = []
         for target in case.relevant:
-            assert target.source in sources, f"{case.id} names unknown source {target.source}"
+            if target.source not in corpus:
+                problems.append(f"{case.id}: unknown source {target.source}")
+                continue
+            matching = [
+                text
+                for heading, text in corpus[target.source]
+                if target.heading is None or target.heading in heading
+            ]
+            if not matching:
+                problems.append(f"{case.id}: no section {target.heading!r} in {target.source}")
+            relevant_text.extend(matching)
+        joined = " ".join(" ".join(relevant_text).split()).lower()
+        for fact in case.must_include:
+            if case.answerable and fact.lower() not in joined:
+                problems.append(f"{case.id}: fact {fact!r} is not in its relevant sections")
+    assert problems == []
+
+
+def test_golden_v2_extends_v1_unchanged() -> None:
+    from tests.conftest import DATASET, DATASET_V1
+
+    v1 = {c.id: c for c in load_dataset(DATASET_V1)}
+    v2 = {c.id: c for c in load_dataset(DATASET)}
+    for case_id, old in v1.items():
+        new = v2[case_id]
+        assert (new.question, new.relevant, new.must_include) == (
+            old.question,
+            old.relevant,
+            old.must_include,
+        )
+        assert new.split == "dev"
+    assert all(c.split == "test" for cid, c in v2.items() if cid not in v1)
+
+
+def test_load_dataset_reads_splits_tags_and_forbidden_strings(tmp_path: Path) -> None:
+    path = tmp_path / "d.jsonl"
+    path.write_text(
+        json.dumps(
+            {
+                "id": "a",
+                "question": "q?",
+                "split": "test",
+                "tags": ["injection"],
+                "relevant": [{"source": "s.md"}],
+                "must_not_include": ["ACCESS GRANTED"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (case,) = load_dataset(path)
+    assert (case.split, case.tags, case.must_not_include) == (
+        "test",
+        ["injection"],
+        ["ACCESS GRANTED"],
+    )
+    path.write_text(json.dumps({"id": "b", "question": "q", "split": "train"}), encoding="utf-8")
+    with pytest.raises(DatasetError, match="split"):
+        load_dataset(path)
+
+
+def test_forbidden_absent() -> None:
+    assert forbidden_absent("Deliveries are retried 5 times.", ["ACCESS GRANTED"]) == 1.0
+    assert forbidden_absent("access granted", ["ACCESS GRANTED"]) == 0.0
+    assert forbidden_absent("anything", []) is None
+
+
+def test_gate_checks_the_dataset_and_split_metrics() -> None:
+    report = {
+        "dataset": {"path": "eval/golden_v1.jsonl"},
+        "config": {},
+        "summary": {"splits": {"test": {"retrieval": {"mrr": 0.8}}}},
+    }
+    result = check_gate(
+        report, {"dataset": "golden_v2.jsonl", "min": {"splits.test.retrieval.mrr": 0.9}}
+    )
+    assert any("calibrated on 'golden_v2.jsonl'" in f for f in result.failures)
+    assert "splits.test.retrieval.mrr = 0.8 (>= 0.9)" in result.failures

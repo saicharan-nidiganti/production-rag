@@ -2,13 +2,15 @@
 
 Thresholds file::
 
-    {"config": {"embedding_model": "hashing-v1-d512", "retrieval_mode": "hybrid"},
-     "min": {"retrieval.hit_rate": 0.9},
+    {"dataset": "golden_v2.jsonl",
+     "config": {"embedding_model": "hashing-v1-d512", "retrieval_mode": "hybrid"},
+     "min": {"retrieval.hit_rate": 0.9, "splits.test.retrieval.mrr": 0.8},
      "max": {"abstention.false_abstention_rate": 0.1}}
 
-``config`` records what the thresholds were calibrated for. A report produced with a
-different configuration fails the gate instead of being compared with numbers that
-don't apply to it.
+``dataset`` and ``config`` record what the thresholds were calibrated for. A report
+produced from a different dataset file or configuration fails the gate instead of being
+compared with numbers that don't apply to it. Metric paths are relative to the report's
+``summary``; per-split results live under ``splits.<split>``.
 """
 
 from __future__ import annotations
@@ -40,6 +42,13 @@ def _lookup(summary: dict[str, Any], dotted: str) -> Any:
 
 def check_gate(report: dict[str, Any], thresholds: dict[str, Any]) -> GateResult:
     result = GateResult()
+    expected_dataset = thresholds.get("dataset")
+    actual_dataset = Path(report.get("dataset", {}).get("path", "")).name
+    if expected_dataset is not None and actual_dataset != expected_dataset:
+        result.failures.append(
+            f"dataset is {actual_dataset!r} but the thresholds were calibrated on "
+            f"{expected_dataset!r}"
+        )
     for key, expected in thresholds.get("config", {}).items():
         actual = report["config"].get(key)
         if actual != expected:

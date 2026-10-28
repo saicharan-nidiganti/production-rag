@@ -73,6 +73,7 @@ class SearchHit(BaseModel):
     score: float
     vector_score: float | None
     lexical_score: float | None
+    rerank_score: float | None
 
     @classmethod
     def from_chunk(cls, chunk: RetrievedChunk) -> SearchHit:
@@ -89,6 +90,7 @@ class SearchHit(BaseModel):
             score=chunk.score,
             vector_score=chunk.vector_score,
             lexical_score=chunk.lexical_score,
+            rerank_score=chunk.rerank_score,
         )
 
 
@@ -96,6 +98,7 @@ class SearchResponse(BaseModel):
     mode: RetrievalMode
     hits: list[SearchHit]
     best_vector_score: float | None
+    best_rerank_score: float | None
     timings_ms: dict[str, float]
 
     @classmethod
@@ -104,6 +107,7 @@ class SearchResponse(BaseModel):
             mode=result.mode,
             hits=[SearchHit.from_chunk(c) for c in result.chunks],
             best_vector_score=result.best_vector_score,
+            best_rerank_score=result.best_rerank_score,
             timings_ms=timings_ms,
         )
 

@@ -27,7 +27,7 @@ def test_cli_end_to_end(cli_env: str, capsys: pytest.CaptureFixture[str]) -> Non
 
     assert main(["ingest", str(CORPUS_DIR)]) == 0
     lines = [json.loads(line) for line in capsys.readouterr().out.strip().splitlines()]
-    assert len(lines) == 6 and all(line["created"] for line in lines)
+    assert len(lines) == 9 and all(line["created"] for line in lines)
 
     assert main(["search", "rollback command", "--top-k", "2"]) == 0
     assert "deployment-runbook.md" in capsys.readouterr().out
@@ -56,8 +56,12 @@ def test_evaluation_report_is_reproducible_and_passes_the_gate() -> None:
     second = run_evaluation(settings, corpus_dir=CORPUS_DIR, dataset_path=DATASET)
     assert first["summary"]["retrieval"] == second["summary"]["retrieval"]
     assert first["corpus"]["fingerprint"] == second["corpus"]["fingerprint"]
-    assert first["dataset"]["cases"] == 36 and first["corpus"]["documents"] == 6
-    assert len(first["per_query"]) == 36
+    assert first["dataset"]["cases"] == 94 and first["corpus"]["documents"] == 9
+    assert first["dataset"]["splits"] == {"dev": 36, "test": 58}
+    assert len(first["per_query"]) == 94
+    assert set(first["summary"]["splits"]) == {"dev", "test"}
+    assert "unanswerable-ontopic" in first["by_tag"]
+    assert first["config"]["reranker"] == "none"
 
     gate = check_gate(first, load_thresholds(THRESHOLDS))
     assert gate.passed, gate.failures
@@ -76,8 +80,11 @@ def test_evaluation_with_generation_scores_answers() -> None:
         "unanswerable_declined_rate",
         "citation_precision",
         "fact_recall",
+        "injection_resisted_rate",
     }
     assert generation["answered_rate"] > 0.8
+    # The extractive baseline never repeats the planted instruction's payload.
+    assert generation["injection_resisted_rate"] == 1.0
     assert "generation_p50" in report["summary"]["latency_ms"]
 
 

@@ -1,14 +1,19 @@
+from collections.abc import Sequence
+
 import pytest
 from sqlalchemy import func, select, text
 
+from production_rag.config import Settings
 from production_rag.container import Container, build_container
 from production_rag.db.models import Chunk, Document, IndexState
+from production_rag.generation import ExtractiveGenerator
 from production_rag.ingestion import (
     DocumentTooLargeError,
     ExtractionError,
     UnsupportedDocumentError,
 )
-from production_rag.retrieval import lexical_search
+from production_rag.rag import RagService
+from production_rag.retrieval import Retriever, lexical_search
 
 GUIDE = b"""# Guide
 
@@ -164,4 +169,65 @@ def test_index_stats(corpus_container: Container) -> None:
     stats = corpus_container.ingestion.index_stats()
     with corpus_container.sessions() as session:
         chunk_total = session.scalar(select(func.count()).select_from(Chunk))
-    assert stats == {"documents": 6, "chunks": chunk_total, "stale_chunks": 0}
+    assert stats == {"documents": 9, "chunks": chunk_total, "stale_chunks": 0}
+
+
+class _KeywordReranker:
+    """Deterministic stand-in for a cross-encoder: scores passages by a keyword."""
+
+    def __init__(self, keyword: str) -> None:
+        self.keyword = keyword
+        self.calls: list[int] = []
+
+    @property
+    def model_id(self) -> str:
+        return "fake-reranker"
+
+    def score(self, query: str, passages: Sequence[str]) -> list[float]:
+        self.calls.append(len(passages))
+        return [5.0 if self.keyword in p else -10.0 + i / 100 for i, p in enumerate(passages)]
+
+
+def test_reranker_reorders_candidates_beyond_top_k(corpus_container: Container) -> None:
+    reranker = _KeywordReranker("tessera rollout undo")
+    retriever = Retriever(
+        corpus_container.sessions, corpus_container.embedder, reranker=reranker, rerank_candidates=8
+    )
+    plain = corpus_container.rag.search("canary traffic share", top_k=3, mode="hybrid")
+    assert not any("tessera rollout undo" in c.text for c in plain.chunks)
+
+    result = retriever.search("canary traffic share", top_k=3, mode="hybrid")
+    assert reranker.calls == [8]  # scored more candidates than it returns
+    assert len(result.chunks) == 3
+    assert "tessera rollout undo" in result.chunks[0].text  # promoted from below the cut
+    assert result.chunks[0].rerank_score == result.best_rerank_score == 5.0
+    assert result.chunks[0].score == 5.0
+    assert result.rerank_ms is not None and result.rerank_ms >= 0
+    assert [c.rerank_score for c in result.chunks] == sorted(
+        (c.rerank_score for c in result.chunks), reverse=True
+    )
+
+
+def test_rerank_score_drives_abstention(corpus_container: Container) -> None:
+    settings = corpus_container.settings.model_copy(
+        update={"reranker": "fastembed", "min_rerank_score": 0.0}
+    )
+    assert settings.rerank_abstain_threshold == 0.0
+    question = "How long does the canary run?"
+    for keyword, abstains in (("no passage contains this", True), ("canary", False)):
+        retriever = Retriever(
+            corpus_container.sessions,
+            corpus_container.embedder,
+            reranker=_KeywordReranker(keyword),
+        )
+        rag = RagService(retriever, ExtractiveGenerator(), settings)
+        result = rag.answer(question)
+        assert result.abstained_before_generation is abstains
+        assert "rerank" in result.timings_ms
+
+
+def test_uncalibrated_reranker_model_never_abstains_by_default() -> None:
+    settings = Settings(_env_file=None, reranker="fastembed", reranker_model="some/other-model")  # type: ignore[call-arg]
+    assert settings.rerank_abstain_threshold is None
+    assert Settings(_env_file=None).rerank_abstain_threshold is None  # type: ignore[call-arg]
+    assert Settings(_env_file=None, reranker="fastembed").rerank_abstain_threshold == -8.4  # type: ignore[call-arg]
