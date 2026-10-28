@@ -1,8 +1,11 @@
+from pathlib import Path
+
 import pytest
 
 from production_rag.ingestion.extract import (
     ExtractionError,
     UnsupportedDocumentError,
+    discover_documents,
     extract,
     safe_filename,
 )
@@ -113,6 +116,17 @@ def test_corrupt_pdf_is_an_extraction_error() -> None:
 def test_pdf_type_is_checked_by_content_not_extension(data: bytes) -> None:
     with pytest.raises(UnsupportedDocumentError, match="not a PDF"):
         extract("renamed.pdf", data)
+
+
+def test_discover_documents(tmp_path: Path) -> None:
+    (tmp_path / "b.md").write_text("# B\n\nbody", encoding="utf-8")
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "a.TXT").write_text("text", encoding="utf-8")
+    (tmp_path / "image.png").write_bytes(b"\x89PNG")
+    (tmp_path / "folder.md").mkdir()  # regression: a directory named like a document
+    assert discover_documents(tmp_path) == [tmp_path / "b.md", tmp_path / "sub" / "a.TXT"]
+    single = tmp_path / "image.png"
+    assert discover_documents(single) == [single]  # explicit files pass through for a clear error
 
 
 def test_pdf_header_may_follow_leading_bytes() -> None:

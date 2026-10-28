@@ -1,18 +1,18 @@
-"""Wires the application's components from settings. Shared by the API and the CLI."""
+"""Wires the application's components from settings. Shared by the API, the CLI and the
+evaluation runner; it holds no behavior of its own beyond construction and shutdown."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from sqlalchemy import Engine, func, select
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from production_rag.config import Settings
 from production_rag.db import create_db_engine, session_factory
-from production_rag.db.models import Chunk, Document
-from production_rag.embeddings import Embedder, build_embedder, to_blob
+from production_rag.embeddings import Embedder, build_embedder
 from production_rag.generation import Generator, build_generator
-from production_rag.ingestion import IngestionService, embedding_input
+from production_rag.ingestion import IngestionService
 from production_rag.rag import RagService
 from production_rag.retrieval import Retriever
 
@@ -25,43 +25,6 @@ class Container:
     embedder: Embedder
     ingestion: IngestionService
     rag: RagService
-
-    def index_stats(self) -> dict[str, int]:
-        with self.sessions() as session:
-            documents = session.scalar(select(func.count()).select_from(Document)) or 0
-            chunks = session.scalar(select(func.count()).select_from(Chunk)) or 0
-            stale = (
-                session.scalar(
-                    select(func.count())
-                    .select_from(Chunk)
-                    .where(Chunk.embedding_model != self.embedder.model_id)
-                )
-                or 0
-            )
-        return {"documents": documents, "chunks": chunks, "stale_chunks": stale}
-
-    def reindex(self, batch_size: int = 256) -> int:
-        """Re-embed chunks whose embedding model differs from the configured one."""
-        updated = 0
-        with self.sessions() as session:
-            while True:
-                batch = session.scalars(
-                    select(Chunk)
-                    .where(Chunk.embedding_model != self.embedder.model_id)
-                    .order_by(Chunk.id)
-                    .limit(batch_size)
-                ).all()
-                if not batch:
-                    break
-                vectors = self.embedder.embed_documents(
-                    [embedding_input(c.text, c.heading) for c in batch]
-                )
-                for chunk, vector in zip(batch, vectors, strict=True):
-                    chunk.embedding = to_blob(vector)
-                    chunk.embedding_model = self.embedder.model_id
-                session.commit()
-                updated += len(batch)
-        return updated
 
     def close(self) -> None:
         self.engine.dispose()

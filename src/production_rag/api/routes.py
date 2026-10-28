@@ -65,7 +65,7 @@ def ready(container: ContainerDep) -> JSONResponse:
             ok = False
             checks["schema"] = "not at head; run `rag db upgrade`"
         else:
-            checks.update(container.index_stats())
+            checks.update(container.ingestion.index_stats())
     except Exception as exc:
         ok = False
         checks["database"] = f"unavailable: {type(exc).__name__}"

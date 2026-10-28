@@ -26,7 +26,7 @@ from production_rag.evaluation.metrics import (
     score_retrieval,
 )
 from production_rag.generation import Generator
-from production_rag.ingestion.extract import SUPPORTED_TYPES
+from production_rag.ingestion import discover_documents
 from production_rag.observability import Timer
 
 REPORT_SCHEMA_VERSION = 1
@@ -34,12 +34,6 @@ REPORT_SCHEMA_VERSION = 1
 
 def _sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def corpus_files(corpus_dir: Path) -> list[Path]:
-    return sorted(
-        p for p in corpus_dir.rglob("*") if p.is_file() and p.suffix.lower() in SUPPORTED_TYPES
-    )
 
 
 def corpus_fingerprint(files: list[Path], root: Path) -> str:
@@ -87,7 +81,9 @@ def run_evaluation(
     generator: Generator | None = None,
 ) -> dict[str, Any]:
     cases = load_dataset(dataset_path)
-    files = corpus_files(corpus_dir)
+    if not corpus_dir.is_dir():
+        raise ValueError(f"corpus directory not found: {corpus_dir}")
+    files = discover_documents(corpus_dir)
     if not files:
         raise ValueError(f"no supported documents found in {corpus_dir}")
 
@@ -101,7 +97,7 @@ def run_evaluation(
         try:
             for path in files:
                 container.ingestion.ingest(path.name, path.read_bytes())
-            stats = container.index_stats()
+            stats = container.ingestion.index_stats()
             per_query = [_evaluate_case(container, case, with_generation) for case in cases]
             config = config_snapshot(container)
         finally:

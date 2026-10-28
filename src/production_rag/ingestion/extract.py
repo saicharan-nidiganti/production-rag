@@ -9,7 +9,7 @@ from __future__ import annotations
 import io
 import re
 from dataclasses import dataclass, field
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 SUPPORTED_TYPES: dict[str, str] = {
@@ -18,7 +18,6 @@ SUPPORTED_TYPES: dict[str, str] = {
     ".markdown": "text/markdown",
     ".pdf": "application/pdf",
 }
-
 
 PDF_SIGNATURE = b"%PDF-"
 
@@ -61,6 +60,17 @@ def content_type_for(filename: str) -> str:
         supported = ", ".join(sorted(SUPPORTED_TYPES))
         raise UnsupportedDocumentError(f"unsupported file type {suffix!r}; supported: {supported}")
     return SUPPORTED_TYPES[suffix]
+
+
+def discover_documents(path: Path) -> list[Path]:
+    """Supported files under a directory (recursively, sorted), or ``[path]`` for a file.
+
+    A single file is returned as given, even with an unsupported extension, so the caller
+    gets a clear error for it instead of having it silently skipped.
+    """
+    if not path.is_dir():
+        return [path]
+    return sorted(p for p in path.rglob("*") if p.is_file() and p.suffix.lower() in SUPPORTED_TYPES)
 
 
 def extract(filename: str, data: bytes, *, max_pdf_pages: int = 500) -> ExtractedDocument:

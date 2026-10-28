@@ -6,7 +6,7 @@ import hashlib
 import logging
 from dataclasses import dataclass
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -109,6 +109,45 @@ class IngestionService:
             },
         )
         return IngestResult(document, created=True)
+
+    def index_stats(self) -> dict[str, int]:
+        """Document and chunk counts, and chunks embedded by a model other than the current one."""
+        with self._sessions() as session:
+            documents = session.scalar(select(func.count()).select_from(Document)) or 0
+            chunks = session.scalar(select(func.count()).select_from(Chunk)) or 0
+            stale = (
+                session.scalar(
+                    select(func.count())
+                    .select_from(Chunk)
+                    .where(Chunk.embedding_model != self._embedder.model_id)
+                )
+                or 0
+            )
+        return {"documents": documents, "chunks": chunks, "stale_chunks": stale}
+
+    def reindex(self, batch_size: int = 256) -> int:
+        """Re-embed chunks whose embedding model differs from the configured one."""
+        updated = 0
+        with self._sessions() as session:
+            while True:
+                batch = session.scalars(
+                    select(Chunk)
+                    .where(Chunk.embedding_model != self._embedder.model_id)
+                    .order_by(Chunk.id)
+                    .limit(batch_size)
+                ).all()
+                if not batch:
+                    break
+                vectors = self._embedder.embed_documents(
+                    [embedding_input(c.text, c.heading) for c in batch]
+                )
+                for chunk, vector in zip(batch, vectors, strict=True):
+                    chunk.embedding = to_blob(vector)
+                    chunk.embedding_model = self._embedder.model_id
+                session.commit()
+                updated += len(batch)
+        logger.info("reindex.completed", extra={"chunks": updated})
+        return updated
 
     def _chunk(self, ordinal: int, span: ChunkSpan, embedding: bytes) -> Chunk:
         return Chunk(

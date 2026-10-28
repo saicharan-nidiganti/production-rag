@@ -128,10 +128,10 @@ def test_reindex_reembeds_chunks_from_another_model(container: Container) -> Non
     container.settings.embedding_dimensions = 128
     resized = build_container(container.settings)
     try:
-        assert resized.index_stats()["stale_chunks"] == 2
+        assert resized.ingestion.index_stats()["stale_chunks"] == 2
         assert resized.rag.search("zebracorn", top_k=3, mode="vector").chunks == []
-        assert resized.reindex() == 2
-        assert resized.index_stats() == {"documents": 1, "chunks": 2, "stale_chunks": 0}
+        assert resized.ingestion.reindex() == 2
+        assert resized.ingestion.index_stats() == {"documents": 1, "chunks": 2, "stale_chunks": 0}
         assert resized.rag.search("zebracorn", top_k=3, mode="vector").chunks
     finally:
         resized.close()
@@ -161,7 +161,7 @@ def test_answer_with_extractive_generator_cites_retrieved_chunks(
 
 
 def test_index_stats(corpus_container: Container) -> None:
-    stats = corpus_container.index_stats()
+    stats = corpus_container.ingestion.index_stats()
     with corpus_container.sessions() as session:
         chunk_total = session.scalar(select(func.count()).select_from(Chunk))
     assert stats == {"documents": 6, "chunks": chunk_total, "stale_chunks": 0}

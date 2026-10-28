@@ -39,17 +39,13 @@ def cmd_db(args: argparse.Namespace, settings: Settings) -> int:
 
 
 def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
-    from production_rag.ingestion import ExtractionError, UnsupportedDocumentError
-    from production_rag.ingestion.extract import SUPPORTED_TYPES
+    from production_rag.ingestion import (
+        ExtractionError,
+        UnsupportedDocumentError,
+        discover_documents,
+    )
 
-    paths: list[Path] = []
-    for raw in args.paths:
-        path = Path(raw)
-        if path.is_dir():
-            paths.extend(sorted(p for p in path.rglob("*") if p.suffix.lower() in SUPPORTED_TYPES))
-        else:
-            paths.append(path)
-
+    paths = [found for raw in args.paths for found in discover_documents(Path(raw))]
     container = _container(settings)
     failures = 0
     try:
@@ -118,8 +114,8 @@ def cmd_ask(args: argparse.Namespace, settings: Settings) -> int:
 def cmd_reindex(_: argparse.Namespace, settings: Settings) -> int:
     container = _container(settings)
     try:
-        updated = container.reindex()
-        print(json.dumps({"reembedded_chunks": updated, **container.index_stats()}))
+        updated = container.ingestion.reindex()
+        print(json.dumps({"reembedded_chunks": updated, **container.ingestion.index_stats()}))
     finally:
         container.close()
     return 0
