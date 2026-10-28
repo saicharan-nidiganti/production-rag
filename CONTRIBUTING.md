@@ -42,11 +42,18 @@ uv run ruff check .
 uv run ruff format --check .
 uv run mypy
 uv run python -m pytest --cov                       # coverage floor: 85%
-uv run rag eval --thresholds eval/thresholds.json   # retrieval regression gate
+RAG_EMBEDDING_PROVIDER=hashing uv run rag eval --thresholds eval/thresholds.json   # retrieval gate
 ```
 
-The test suite runs offline. Tests marked `live` call the Claude API or
-download an embedding model. They run only with `RAG_RUN_LIVE_TESTS=1`.
+The gate's thresholds are calibrated for the default offline configuration, so the
+command pins `RAG_EMBEDDING_PROVIDER=hashing`; otherwise a `.env` that selects
+fastembed makes it fail with "calibrated for a different config".
+
+The test suite runs offline. Tests marked `live` download an embedding model
+and run only with `RAG_RUN_LIVE_TESTS=1`. Tests marked `paid` call the Claude
+API and run only with `RAG_RUN_PAID_TESTS=1`. `rag eval --generation` with the
+Claude generator refuses to start without `--allow-paid`. Get the maintainer's
+approval before running anything paid.
 
 On Windows, use `uv run python -m pytest` rather than `uv run pytest`: some
 Application Control policies block the `pytest.exe` launcher.

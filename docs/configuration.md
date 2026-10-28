@@ -74,4 +74,5 @@ Changing the provider, model or dimensions requires `rag reindex`
 | --- | --- | --- |
 | `HF_HOME` | Hugging Face Hub (fastembed downloads) | Download cache. Set it when `~/.cache/huggingface` isn't writable. |
 | `ANTHROPIC_LOG` | Anthropic SDK | `info` or `debug` for SDK request logging |
-| `RAG_RUN_LIVE_TESTS` | the test suite | `1` runs tests that call the Claude API or download the embedding model |
+| `RAG_RUN_LIVE_TESTS` | the test suite | `1` runs tests that download the embedding model (free) |
+| `RAG_RUN_PAID_TESTS` | the test suite | `1` runs tests that call the Claude API (paid) |

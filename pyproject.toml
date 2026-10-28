@@ -45,7 +45,8 @@ packages = ["src/production_rag"]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 markers = [
-    "live: calls external services (Anthropic API, model downloads); skipped unless RAG_RUN_LIVE_TESTS=1",
+    "live: needs network (model downloads); skipped unless RAG_RUN_LIVE_TESTS=1",
+    "paid: spends money (Claude API); skipped unless RAG_RUN_PAID_TESTS=1",
 ]
 filterwarnings = ["error::DeprecationWarning:production_rag.*"]
 

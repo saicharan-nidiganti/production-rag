@@ -73,7 +73,7 @@ Proposed:
 - Reporting uncited answers as `insufficient_evidence` is deliberately strict:
   a correct but uncited answer is reported as not grounded.
 - Live Claude results have not been measured yet: the development PC has no
-  API credentials. `rag eval --generation` with `RAG_GENERATOR=anthropic`
+  API credentials. `rag eval --generation --allow-paid` with `RAG_GENERATOR=anthropic`
   produces them.
 - The extractive baseline answers some unanswerable questions (3 of 6 declined
   on golden v1), because word overlap is a weak relevance signal. It is a

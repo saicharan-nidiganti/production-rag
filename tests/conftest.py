@@ -20,12 +20,15 @@ DATASET = REPO_ROOT / "eval" / "golden_v1.jsonl"
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    if os.environ.get("RAG_RUN_LIVE_TESTS") == "1":
-        return
-    skip = pytest.mark.skip(reason="live test; set RAG_RUN_LIVE_TESTS=1 to run")
+    run_live = os.environ.get("RAG_RUN_LIVE_TESTS") == "1"
+    run_paid = os.environ.get("RAG_RUN_PAID_TESTS") == "1"
+    skip_live = pytest.mark.skip(reason="live test; set RAG_RUN_LIVE_TESTS=1 to run")
+    skip_paid = pytest.mark.skip(reason="spends money; set RAG_RUN_PAID_TESTS=1 to run")
     for item in items:
-        if "live" in item.keywords:
-            item.add_marker(skip)
+        if "paid" in item.keywords and not run_paid:
+            item.add_marker(skip_paid)
+        elif "live" in item.keywords and not run_live:
+            item.add_marker(skip_live)
 
 
 @pytest.fixture(autouse=True)

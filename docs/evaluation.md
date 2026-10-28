@@ -7,8 +7,9 @@ come from [methodology.md](methodology.md).
 
 ```bash
 uv run rag eval                                               # retrieval metrics
-uv run rag eval --generation                                  # plus answer metrics, with RAG_GENERATOR
-uv run rag eval --thresholds eval/thresholds.json             # exit 1 if the gate fails (CI)
+RAG_GENERATOR=extractive uv run rag eval --generation         # plus answer metrics (free baseline)
+uv run rag eval --generation --allow-paid                     # with Claude: paid, one call per question
+RAG_EMBEDDING_PROVIDER=hashing uv run rag eval --thresholds eval/thresholds.json   # CI gate; exit 1 on failure
 uv run rag eval --output eval/reports                         # write the full JSON report
 uv run rag eval --mode lexical --top-k 3                      # override retrieval settings
 RAG_EMBEDDING_PROVIDER=fastembed uv run rag eval --thresholds eval/thresholds.fastembed.json
@@ -107,7 +108,7 @@ The extractive generator quotes up to three sentences from the top chunks, so so
 citations land on retrieved but irrelevant chunks, which caps its citation precision. It is a
 floor that an LLM generator must beat. **Claude generation has not been measured yet**: the
 environment where this was built had no API credentials. Run
-`RAG_GENERATOR=anthropic uv run rag eval --generation --output eval/reports` to produce the
+`RAG_GENERATOR=anthropic uv run rag eval --generation --allow-paid --output eval/reports` to produce the
 first numbers.
 
 ### Extractive baseline: why it can't meet the abstention target

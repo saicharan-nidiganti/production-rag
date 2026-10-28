@@ -129,8 +129,19 @@ def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
         overrides["retrieval_mode"] = args.mode
     if args.top_k:
         overrides["top_k"] = args.top_k
+    settings = settings.model_copy(update=overrides)
+    if args.generation and settings.generator == "anthropic" and not args.allow_paid:
+        # .env.example selects the Claude generator, so a plain `rag eval --generation`
+        # would otherwise spend money on every question without anyone deciding to.
+        print(
+            "refusing to run: --generation with RAG_GENERATOR=anthropic calls the paid Claude "
+            "API once per question. Pass --allow-paid to proceed, or set "
+            "RAG_GENERATOR=extractive for a free run.",
+            file=sys.stderr,
+        )
+        return 2
     report = run_evaluation(
-        settings.model_copy(update=overrides),
+        settings,
         corpus_dir=Path(args.corpus),
         dataset_path=Path(args.dataset),
         with_generation=args.generation,
@@ -202,6 +213,11 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--thresholds", help="fail (exit 1) if metrics fall outside these bounds")
     ev.add_argument("--output", help="directory for the full JSON report")
     ev.add_argument("--generation", action="store_true", help="also evaluate generated answers")
+    ev.add_argument(
+        "--allow-paid",
+        action="store_true",
+        help="allow --generation to call the paid Claude API (RAG_GENERATOR=anthropic)",
+    )
     ev.add_argument("--mode", choices=modes)
     ev.add_argument("--top-k", type=int)
     ev.set_defaults(func=cmd_eval)

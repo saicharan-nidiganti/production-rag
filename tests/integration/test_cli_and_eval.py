@@ -91,3 +91,20 @@ def test_cli_eval_gate_exit_codes(tmp_path: Path, capsys: pytest.CaptureFixture[
     strict.write_text(json.dumps({"min": {"retrieval.hit_rate": 1.01}}), encoding="utf-8")
     assert main([*args, "--thresholds", str(strict)]) == 1
     assert "gate: FAILED" in capsys.readouterr().out
+
+
+def test_cli_refuses_paid_generation_eval_without_opt_in(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # .env.example selects the Claude generator; a plain `rag eval --generation` must not
+    # silently spend money on every question.
+    import production_rag.evaluation as evaluation
+
+    def _must_not_run(*_: object, **__: object) -> None:
+        raise AssertionError("evaluation ran without --allow-paid")
+
+    monkeypatch.setattr(evaluation, "run_evaluation", _must_not_run)
+    monkeypatch.setenv("RAG_GENERATOR", "anthropic")
+    args = ["eval", "--corpus", str(CORPUS_DIR), "--dataset", str(DATASET), "--generation"]
+    assert main(args) == 2
+    assert "--allow-paid" in capsys.readouterr().err

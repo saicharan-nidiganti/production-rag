@@ -1,9 +1,10 @@
-"""Tests against real external services. Skipped unless RAG_RUN_LIVE_TESTS=1.
+"""Tests against real external services.
 
-- Claude API: needs credentials (ANTHROPIC_API_KEY or an `ant auth login` profile) and
-  spends a small amount of money per run.
-- fastembed: downloads a ~66 MB model from Hugging Face on first use; set HF_HOME and
-  RAG_FASTEMBED_CACHE_DIR to writable directories if the defaults are not writable.
+- fastembed (free; `live`, runs with RAG_RUN_LIVE_TESTS=1): downloads the embedding model
+  from Hugging Face on first use; set HF_HOME and RAG_FASTEMBED_CACHE_DIR to writable
+  directories if the defaults are not writable.
+- Claude API (`paid`, runs only with RAG_RUN_PAID_TESTS=1): needs credentials
+  (ANTHROPIC_API_KEY or an `ant auth login` profile) and spends a small amount of money.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from tests.conftest import CORPUS_DIR, DATASET, REPO_ROOT
 pytestmark = pytest.mark.live
 
 
+@pytest.mark.paid
 def test_claude_answers_with_citations_and_declines_unanswerable(
     corpus_container: Container,
 ) -> None:

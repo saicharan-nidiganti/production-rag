@@ -155,9 +155,10 @@ Full request and response fields, error codes and real examples are in [docs/api
 ## Evaluation
 
 ```bash
-uv run rag eval --thresholds eval/thresholds.json --output eval/reports   # what CI runs
+RAG_EMBEDDING_PROVIDER=hashing uv run rag eval --thresholds eval/thresholds.json   # what CI runs
 RAG_EMBEDDING_PROVIDER=fastembed uv run rag eval --thresholds eval/thresholds.fastembed.json
-uv run rag eval --generation   # also score generated answers (uses the configured generator)
+RAG_GENERATOR=extractive uv run rag eval --generation   # also score answers (free baseline)
+uv run rag eval --generation --allow-paid   # with Claude: paid, one API call per question
 ```
 
 Results on `eval/golden_v1.jsonl` (36 questions over 6 documents, 6 of them unanswerable from the corpus; top-k = 5):
@@ -212,7 +213,7 @@ Every setting is listed in [docs/configuration.md](docs/configuration.md). Deplo
 
 ```text
 src/production_rag/   Python package: API, CLI, ingestion, retrieval, generation, evaluation, db + migrations
-tests/                unit/ and integration/ tests (offline), live tests behind RAG_RUN_LIVE_TESTS=1
+tests/                unit/ and integration/ tests (offline); live and paid tests behind opt-in flags
 eval/                 evaluation corpus, golden dataset and regression thresholds
 docs/                 requirements, architecture, decisions, evaluation, operations, roadmap, status
 scripts/              reproducible experiments (configuration comparison tables)
@@ -228,7 +229,8 @@ A `frontend/` directory arrives with Phase 6.
 uv sync --all-extras
 uv run python -m pytest --cov                    # unit + integration tests (offline)
 uv run ruff check . && uv run ruff format --check . && uv run mypy
-RAG_RUN_LIVE_TESTS=1 uv run python -m pytest tests/integration/test_live.py   # real API + model download
+RAG_RUN_LIVE_TESTS=1 uv run python -m pytest tests/integration/test_live.py   # model download (free)
+RAG_RUN_PAID_TESTS=1 uv run python -m pytest tests/integration/test_live.py   # Claude API (paid)
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for branch and commit conventions, code standards and testing expectations.
