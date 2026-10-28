@@ -3,7 +3,7 @@
 This folder is for **local development data only**. Its contents are git-ignored.
 
 | Folder | Purpose |
-|---|---|
+| --- | --- |
 | `raw/` | Original documents you upload or drop in for local testing |
 | `processed/` | Intermediate extraction or chunking output produced locally |
 

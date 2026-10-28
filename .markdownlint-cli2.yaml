@@ -1,0 +1,12 @@
+# Markdown lint configuration (markdownlint-cli2).
+config:
+  default: true
+  MD013: false        # line length: prose is wrapped by editors, tables cannot be
+  MD033:              # inline HTML: allow line breaks used inside Mermaid labels
+    allowed_elements: [br]
+  MD041: false        # first line heading: GitHub templates start with front matter or comments
+  MD024:
+    siblings_only: true
+ignores:
+  - "node_modules/**"
+  - ".venv/**"
