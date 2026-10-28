@@ -4,7 +4,7 @@ A production-oriented Retrieval-Augmented Generation system designed around reli
 
 Upload your documents, ask questions in plain language, and get answers grounded in those documents. Every answer cites the exact passages it came from, and the system says so when the documents don't contain the answer.
 
-> **Status:** the **v0 backend** is implemented: ingestion, hybrid retrieval, grounded generation with citations, an HTTP API, a CLI and an evaluation suite with a CI regression gate. Accounts, background ingestion, streaming and the web app are next. Two decisions are open: storage for v0 (SQLite as built, or PostgreSQL now) and the generation provider. See [docs/status.md](docs/status.md) and the [roadmap](docs/roadmap.md).
+> **Status:** the **v0 backend** is implemented: ingestion, hybrid retrieval with optional reranking, grounded generation with citations, an HTTP API, a CLI and an evaluation suite (94 questions with a held-out test split) gated in CI. Accounts, background ingestion, streaming and the web app are next. Two decisions are open: storage for v0 (SQLite as built, or PostgreSQL now) and the generation provider. See [docs/status.md](docs/status.md) and the [roadmap](docs/roadmap.md).
 
 ---
 
@@ -32,9 +32,9 @@ The project treats evaluation, observability, security, reproducibility, and reg
 ### What v0 does
 
 - **Ingests** `.txt`, `.md` and `.pdf` documents, idempotently by content hash. Chunks respect Markdown sections and PDF pages and keep exact character offsets.
-- **Retrieves** with BM25 (SQLite FTS5), dense vectors, or both fused with Reciprocal Rank Fusion.
+- **Retrieves** with BM25 (SQLite FTS5), dense vectors, or both fused with Reciprocal Rank Fusion, optionally reranked by a local cross-encoder.
 - **Answers** with Claude using native search-result citations. Every cited span maps back to a retrieved chunk. An answer that cites nothing is reported as `insufficient_evidence`, not `answered`.
-- **Abstains** before calling the model when retrieval finds no usable evidence.
+- **Abstains** before calling the model when retrieval finds no usable evidence, using calibrated cosine and rerank-score thresholds.
 - **Measures** itself: `rag eval` rebuilds an index from a versioned corpus, scores a golden dataset, writes a reproducible JSON report and fails CI on regressions.
 
 ---
@@ -95,6 +95,7 @@ Components, request flows and the path to the v1 target are described in [docs/a
 | --- | --- | --- |
 | API | Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy 2.0, Alembic, uv | Same, plus a worker process |
 | Storage and search | SQLite: FTS5 (BM25) + exact vector search, fused with RRF ([ADR-0002](docs/decisions/0002-v0-storage-and-scope.md), proposed) | PostgreSQL + pgvector + full-text search |
+| Reranking | Optional local cross-encoder, `ms-marco-MiniLM-L-6-v2` ([ADR-0005](docs/decisions/0005-reranking-and-abstention.md)) | Same |
 | Parsing | pypdf, Markdown and plain text | Also python-docx and HTML; Tesseract OCR later |
 | Embeddings | `BAAI/bge-small-en-v1.5` via fastembed (recommended), or a hashing baseline | Same |
 | Generation | Claude `claude-opus-5-5` with search-result citations, or an offline extractive baseline ([ADR-0003](docs/decisions/0003-generation-provider-claude.md), proposed) | Provider pending decision D-2 |
@@ -117,7 +118,7 @@ uv run rag ask "How long does a canary run before the rollout continues?"
 uv run rag serve              # HTTP API on http://127.0.0.1:8000 (interactive docs at /docs)
 ```
 
-Without a `.env`, everything runs offline with lexical-only `hashing` embeddings and the `extractive` generator. That setup is for development, and it's what CI tests. For real use, set `RAG_EMBEDDING_PROVIDER=fastembed` and `RAG_GENERATOR=anthropic`.
+Without a `.env`, everything runs offline with lexical-only `hashing` embeddings and the `extractive` generator. That setup is for development, and it's what CI tests. For real use, set `RAG_EMBEDDING_PROVIDER=fastembed`, `RAG_RERANKER=fastembed` and `RAG_GENERATOR=anthropic`, as `.env.example` does.
 
 ## HTTP API
 
@@ -161,17 +162,17 @@ RAG_GENERATOR=extractive uv run rag eval --generation   # also score answers (fr
 uv run rag eval --generation --allow-paid   # with Claude: paid, one API call per question
 ```
 
-Results on `eval/golden_v1.jsonl` (36 questions over 6 documents, 6 of them unanswerable from the corpus; top-k = 5):
+Results on `eval/golden_v2.jsonl`: 94 questions over 9 documents, 18 of them unanswerable from the corpus. Thresholds are calibrated on the 36-question `dev` split; the 58-question `test` split is held out. Top-k = 5.
 
-| Embeddings | Mode | Hit rate | Recall | MRR | Retrieval p95 |
-| --- | --- | --- | --- | --- | --- |
-| hashing | lexical | 0.967 | 0.967 | 0.900 | 1.4 ms |
-| hashing | vector | 0.900 | 0.883 | 0.792 | 0.9 ms |
-| hashing | hybrid | 0.967 | 0.950 | 0.906 | 2.0 ms |
-| fastembed (bge-small) | vector | 1.000 | 1.000 | 0.934 | 9.9 ms |
-| **fastembed (bge-small)** | **hybrid** | 0.967 | 0.967 | **0.950** | 8.2 ms |
+| Embeddings | Mode | Test hit rate | Test MRR | Unanswerable abstained (test) | False abstention | Retrieval p95 |
+| --- | --- | --- | --- | --- | --- | --- |
+| hashing | lexical | 0.978 | 0.909 | 0.167 | 0.000 | 1 ms |
+| hashing | hybrid | 0.957 | 0.859 | 0.000 | 0.000 | 1 ms |
+| fastembed (bge-small) | vector | 1.000 | 0.906 | 0.333 | 0.000 | 7 ms |
+| fastembed (bge-small) | hybrid | 1.000 | 0.931 | 0.333 | 0.000 | 7 ms |
+| **fastembed (bge-small)** | **hybrid + rerank** | **1.000** | **0.946** | 0.333 | 0.000 | 266 ms |
 
-Hybrid with semantic embeddings ranks the right chunk highest (best MRR); vector-only finds one more paraphrased question in the top 5. `uv run python scripts/compare_configs.py` reproduces this table. The dataset is small and was written alongside the corpus, so treat these numbers as a regression baseline, not a benchmark. Claude answers haven't been measured yet. [docs/evaluation.md](docs/evaluation.md) defines every metric and covers abstention calibration and the limitations.
+Reranking gives the best ranking, and it abstains on every off-topic test question with a wide margin. No retrieval signal recognizes on-topic questions the corpus can't answer (0 of 8 on test); declining those is the generator's job, and Claude hasn't been measured yet. `uv run python scripts/compare_configs.py` reproduces these numbers. The dataset is small and was written alongside the corpus, so treat them as a regression baseline, not a benchmark. [docs/evaluation.md](docs/evaluation.md) defines every metric and covers abstention calibration and the limitations.
 
 ## Configuration
 
@@ -184,6 +185,7 @@ Settings come from environment variables prefixed `RAG_`, or from a `.env` file.
 | `RAG_RETRIEVAL_MODE` | `hybrid` | `vector`, `lexical` or `hybrid` |
 | `RAG_TOP_K` | `5` | Chunks passed to generation |
 | `RAG_MIN_VECTOR_SCORE` | per provider | Abstention threshold; see docs/evaluation.md |
+| `RAG_RERANKER` | `none` | `fastembed` for cross-encoder reranking (recommended) |
 | `RAG_GENERATOR` | `extractive` | `anthropic` for Claude |
 | `RAG_ANTHROPIC_MODEL` | `claude-opus-5-5` | |
 | `RAG_ANTHROPIC_EFFORT` | `medium` | `low` to `max` |

@@ -38,7 +38,7 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould.
 | FR-5 | Users can delete a document. This removes the stored file, its chunks and its vectors. | M | 2 | Done (raw files are never stored) |
 | FR-6 | Users can ask a question across all of their documents or a selected subset. | M | 3–4 | Partial: all documents; subset selection pending |
 | FR-7 | Answers are generated only from retrieved evidence and carry inline citations that identify the document, the page (where the format has pages) and the passage. | M | 4 | Done: document, heading path, page, passage |
-| FR-8 | When the evidence is insufficient, the system states that the documents do not contain the answer. Partially supported answers identify which parts are unsupported. | M | 4 | Partial: abstention done; partial-support marking relies on the model prompt |
+| FR-8 | When the evidence is insufficient, the system states that the documents do not contain the answer. Partially supported answers identify which parts are unsupported. | M | 4 | Partial: retrieval-level abstention catches off-topic questions; on-topic unanswerable ones rely on the generator; partial-support marking relies on the model prompt |
 | FR-9 | Answers stream to the client as they are generated. | S | 4 | Not started |
 | FR-10 | Selecting a citation shows the cited passage and its location in the source document. | M | 6 | Partial: the API returns cited text and offsets; UI in Phase 6 |
 | FR-11 | Follow-up questions can use the earlier turns of the same conversation. | S | 4 | Not started |
@@ -51,7 +51,7 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould.
 | --- | --- | --- | --- |
 | NFR-1 | Isolation | A user can never retrieve, view or be cited content from another user's documents. Ownership filters are applied inside retrieval queries, not after them. | Not met (single tenant) |
 | NFR-2 | Security | Uploaded files are validated by content (not extension), stored under generated names, and never executed. Passwords are hashed with a memory-hard algorithm. Rate limits apply to authentication, upload and question endpoints. | Partial: content-validated, never stored or executed; no passwords or rate limits yet |
-| NFR-3 | Prompt injection | Document text is treated as untrusted data. Instructions inside documents must not change system behavior, leak data or alter citation rules. | Partial: untrusted-data framing; no injection test suite |
+| NFR-3 | Prompt injection | Document text is treated as untrusted data. Instructions inside documents must not change system behavior, leak data or alter citation rules. | Partial: untrusted-data framing; injection cases in golden v2, not yet measured with an LLM |
 | NFR-4 | Privacy | Document contents, questions and answers are not written to application logs. Documents are sent only to the model providers configured by the operator. | Met |
 | NFR-5 | Reliability | A failed ingestion leaves no partial chunks or vectors behind. Reprocessing a document is idempotent. | Met: one transaction per document; idempotent by hash |
 | NFR-6 | Traceability | Every answer records which chunks were retrieved and cited, with the retrieval configuration and model versions used. | Partial: responses carry retrieved and cited chunks and the model; answers aren't stored |

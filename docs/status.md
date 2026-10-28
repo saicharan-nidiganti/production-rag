@@ -5,117 +5,128 @@ Last updated: 2026-10-29
 ## Current state
 
 **v0 backend: implemented and on `main`.** Ingestion (PDF, TXT, Markdown),
-hybrid retrieval (BM25 + vectors with RRF), grounded generation with Claude
-search-result citations, an HTTP API, the `rag` CLI and an evaluation suite with
-a CI regression gate. See [architecture.md](architecture.md) and the
+hybrid retrieval (BM25 + vectors with RRF) with optional cross-encoder
+reranking, grounded generation with Claude search-result citations, an HTTP
+API, the `rag` CLI, and an evaluation suite of 94 questions with a held-out
+test split, gated in CI. See [architecture.md](architecture.md) and the
 [roadmap](roadmap.md).
 
-**Next:** decide D-2 and D-3 (below), measure Claude answers, then background
-ingestion with status reporting (FR-3), DOCX/HTML (FR-2) and accounts (Phase 5).
+**Next milestone: measured grounded answers.** Run the first Claude evaluation
+on golden v2. That measures answered rate, citation precision, prompt-injection
+resistance and, most importantly, whether Claude declines the on-topic
+unanswerable questions that no retrieval signal catches. The result informs
+decision D-2. It is a paid run and waits for the owner's explicit authorization
+(D-4).
 
 ## Requirements snapshot
 
+Measured on golden v2's held-out test split, recommended configuration (fastembed + reranker):
+
 | Area | State |
 | --- | --- |
-| Retrieval targets (Recall@5 ≥ 0.85, MRR ≥ 0.70) | Met on golden v1 with both embedders (recall 0.950 / 0.967, MRR 0.906 / 0.950) |
+| Retrieval targets (Recall@5 ≥ 0.85, MRR ≥ 0.70) | Met: hit rate 1.000, MRR 0.946 (CI configuration: 0.957 / 0.859) |
 | Citation validity 100% | Enforced in code: citations map to retrieved chunks by index |
-| False abstention ≤ 0.10 | Met: 0.00 at retrieval level |
-| Correct abstention on unanswerable ≥ 0.90 | **Not met by the offline baseline**: the extractive generator answers 3 of 6 unanswerable questions, and no setting of it meets both abstention targets ([evaluation.md](evaluation.md#extractive-baseline-why-it-cant-meet-the-abstention-target)); Claude not yet measured |
+| False abstention ≤ 0.10 | Met: 0.00 at retrieval level, on both splits and in every configuration |
+| Correct abstention on unanswerable ≥ 0.90 | **Not met yet.** Retrieval abstains on 4 of 4 off-topic test questions but 0 of 8 on-topic ones; the extractive baseline declines 4 of 12. Claude, which has to handle the on-topic ones, is unmeasured ([evaluation.md](evaluation.md#abstention-signals)) |
+| Prompt-injection suite (0 successful injections) | Cases exist (`t-par-*`); only informative with Claude, so unmeasured |
 | Accounts and isolation (FR-1, NFR-1) | Not started; v0 is single tenant ([ADR-0002](decisions/0002-v0-storage-and-scope.md)) |
 | Ingestion status (FR-3), streaming (FR-9), DOCX/HTML (FR-2) | Not started |
 
 ## Session log
 
-### Session 2 — Integration and repository consolidation (2026-10-29)
+### Session 3 — Abstention and evaluation dataset (2026-10-29)
 
-- Integrated the unpushed Session 0 work (5 commits, unchanged) and the
-  Session 1 backend (11 commits) on `main` with one merge commit. All 7
-  conflicting files were reconciled by hand.
-- ADRs renumbered around Session 0's ADR-0001. The backend's storage and
-  generation choices are recorded as **Proposed** ADR-0002 and ADR-0003 for the
-  owner's decision. ADR-0001 stays Proposed: merging it isn't acceptance.
-- Architecture, README, CONTRIBUTING and the roadmap now describe the code as
-  it is, with the v1 target kept as a labelled section. New references:
-  [api.md](api.md), [configuration.md](configuration.md),
-  [security.md](security.md). Requirements gained v0 status columns.
-- CI: secret scan (gitleaks), dependency audit (pip-audit, also weekly),
-  Markdown lint and `uv lock --check`; third-party actions pinned to commit
-  SHAs. The first run failed because `astral-sh/setup-uv@v10` no longer exists
-  as a tag; fixed by pinning.
-- Fixes, each with a regression test: an empty `RAG_API_KEY=` enabled auth
-  with an empty key; `ANTHROPIC_API_KEY` in `.env` never reached the SDK; PDF
-  uploads were checked by extension only (NFR-2); possessives produced a stray
-  `s` token that matched unrelated text; validation errors didn't use the
-  common error envelope; the CLI treated a directory named `x.md` as a document.
-- `Container` is wiring only; index maintenance moved to `IngestionService`.
-- `scripts/compare_configs.py` reproduces every evaluation table. Documentation
-  tests check that all relative links resolve and every setting is documented.
+- **Paid-run guard.** `rag eval --generation` with the Claude generator refuses to
+  start without `--allow-paid`, and the Claude live test needs
+  `RAG_RUN_PAID_TESTS=1`, separate from free live tests. No paid call was made
+  in this session.
+- **Golden v2** (`eval/golden_v2.jsonl`): v1's 36 questions unchanged as the
+  `dev` split, plus 58 held-out `test` questions. 18 of the 94 are unanswerable
+  (10 on-topic, 8 off-topic). Three new corpus documents, one with a planted
+  prompt injection and a conflicting claim. Cases are tagged, and a test checks
+  every label against the corpus.
+- **Evaluation:** per-split and per-tag summaries, an injection-resistance
+  metric, and gates that record their dataset and can check split metrics.
+  Gates recalibrated on v2, with a new gate for the reranked configuration.
+- **Abstention:** an optional cross-encoder reranker
+  ([ADR-0005](decisions/0005-reranking-and-abstention.md)), chosen from three
+  candidates, with a rerank-score threshold calibrated on dev only. On held-out
+  test questions: MRR 0.931 → 0.946, off-topic abstention margin 0.03 → 2.0, no
+  false abstentions. Finding: **no retrieval signal (cosine, BM25 or
+  cross-encoder) separates on-topic unanswerable questions from answerable
+  ones**, so that part of abstention depends on the generator.
+- Docs updated: evaluation, architecture, API, configuration, operations,
+  security, requirements, roadmap.
+- An empty local commit by the owner (`7953d31`, no file changes) was found on
+  `main` ahead of `origin`. It was kept, not rewritten, and pushed with the
+  session's work.
 
 Checks at the end of the session:
 
 | Check | Result |
 | --- | --- |
 | Ruff lint and format, mypy `--strict` (src and scripts) | Pass |
-| pytest (offline) | 183 passed, 96.4% coverage (floor 85%) |
-| Retrieval eval gate (`eval/thresholds.json`) | Pass: hit rate 0.967, recall 0.950, MRR 0.906 |
-| fastembed gate (live test) | Pass: hit rate 0.967, recall 0.967, MRR 0.950 |
-| CI on GitHub (Python 3.12 and 3.14, gitleaks, pip-audit, markdownlint) | Pass |
-| OSV query for all 67 locked packages | 0 known vulnerabilities |
-| License inventory | Permissive or MPL-2.0 only |
+| pytest (offline) | 197 passed, 96.2% coverage (floor 85%); live and paid tests skipped |
+| CI regression gate on golden v2 (`eval/thresholds.json`, hashing) | Pass: hit rate 0.947, recall 0.941, MRR 0.867; test hit rate 0.957 |
+| Live gates, free (`thresholds.fastembed.json`, `thresholds.reranked.json`) | Pass |
+| CI on GitHub (Python 3.12 and 3.14, gitleaks, pip-audit, markdownlint) | Pass on every push |
+| Branch protection on `main` | Enabled (verified through the GitHub API); direct pushes still work |
+
+### Session 2 — Integration and repository consolidation (2026-10-29)
+
+- Integrated the unpushed Session 0 work (5 commits, unchanged) and the
+  Session 1 backend (11 commits) on `main` with one merge commit, reconciling
+  the 7 conflicting files by hand.
+- ADR-0001 stays Proposed (merging isn't acceptance). The backend's storage and
+  generation choices became Proposed ADR-0002 and ADR-0003.
+- CI gained a secret scan, dependency audit, Markdown lint and lock check, with
+  SHA-pinned third-party actions.
+- Fixes, each with a regression test: an empty `RAG_API_KEY=` enabled auth
+  with an empty key; `ANTHROPIC_API_KEY` in `.env` never reached the SDK; PDF
+  uploads were checked by extension only; possessives produced a stray `s`
+  token that matched unrelated text; validation errors didn't use the common
+  error envelope; the CLI treated a directory named `x.md` as a document.
+- New references: [api.md](api.md), [configuration.md](configuration.md),
+  [security.md](security.md). Documentation tests check links and settings.
 
 ### Session 1 — v0 backend (2026-10-28)
 
-- Built the backend described above, without access to the Session 0 plan:
-  that plan existed only as a local bundle and the session didn't find it.
-- 124 offline tests, 96% coverage, Ruff, mypy `--strict`, verified on Python
-  3.12 and 3.14. Real server smoke-tested over HTTP, including with 2 workers.
+- Built the backend, without access to the Session 0 plan, which existed only
+  as a local bundle at the time.
 - Retrieval measured for 2 embedders × 3 modes; abstention thresholds
-  calibrated per embedder ([evaluation.md](evaluation.md)).
+  calibrated per embedder.
 
 ### Session 0 — Repository hygiene and Phase 0 decisions (2026-10-28)
 
 - `.gitignore`, `.gitattributes` (LF), issue and PR templates, `SECURITY.md`,
   `.markdownlint-cli2.yaml`, fixed escaped Markdown.
 - [requirements.md](requirements.md), [ADR-0001](decisions/0001-technology-stack.md)
-  (technology stack) and an ADR [template](decisions/template.md), the target
-  architecture (now §9 of [architecture.md](architecture.md)) and the Phase 0–9
-  [roadmap](roadmap.md).
+  and an ADR [template](decisions/template.md), the target architecture (now §9
+  of [architecture.md](architecture.md)) and the Phase 0–9 [roadmap](roadmap.md).
 
 ## Open decisions
 
 | ID | Decision | Recommendation | Needed by |
 | --- | --- | --- | --- |
-| D-1 | How changes reach GitHub | **Resolved 2026-10-29:** the owner authorized sessions on the developer PC to commit and push verified changes directly to `main` | — |
-| D-2 | Generation model provider | Accept [ADR-0003](decisions/0003-generation-provider-claude.md) (Claude, implemented), after measuring it with `rag eval --generation` | Before production use |
+| D-1 | How changes reach GitHub | **Resolved 2026-10-29:** sessions on the developer PC commit and push verified changes directly to `main` | — |
+| D-2 | Generation model provider | Accept [ADR-0003](decisions/0003-generation-provider-claude.md) (Claude, implemented) after the D-4 measurement | Before production use |
 | D-3 | Storage for v0: SQLite as built, or PostgreSQL now (needs Docker Desktop or a native install on Windows) | Accept [ADR-0002](decisions/0002-v0-storage-and-scope.md) for v0; move to PostgreSQL + pgvector together with accounts in Phase 5 | Before Phase 5 |
-
-## Owner actions
-
-These need GitHub admin access, which sessions on the PC don't have (no `gh`
-CLI or token):
-
-1. **Protect `main` without blocking direct pushes:** Settings → Rules →
-   Rulesets → New branch ruleset → target `main` → enable "Block force pushes"
-   and "Restrict deletions". Don't enable "Require a pull request", which would
-   block the direct-to-`main` workflow.
-2. **Enable private vulnerability reporting:** Settings → Code security →
-   Private vulnerability reporting. [SECURITY.md](../SECURITY.md) points
-   reporters there.
-3. **Add an `ANTHROPIC_API_KEY`** to `.env` on the PC so a session can run
-   the first live Claude evaluation (it costs cents).
+| D-4 | Authorize the first paid Claude evaluation: golden v2 with `--generation --allow-paid`, about 86 Claude calls after abstention, an estimated $2–4 at `claude-opus-5-5` medium effort | Authorize one run with the recommended configuration | Next milestone |
 
 ## Blockers and risks
 
 | Item | Impact | Resolution |
 | --- | --- | --- |
-| No Claude API credentials on the PC | Answer quality, citation precision and abstention with Claude are unmeasured | Owner action 3 |
+| Paid evaluation not yet authorized | On-topic abstention, citation precision and injection resistance with Claude are unmeasured, and the abstention target can't be confirmed | D-4 |
+| On-topic unanswerable questions get past every retrieval signal | If Claude doesn't decline them reliably, the abstention target needs an answerability model | Measure first (D-4); [ADR-0005](decisions/0005-reranking-and-abstention.md) lists the next option |
 | No Docker on the PC | PostgreSQL can't run locally | D-3 |
-| The offline extractive baseline answers most unanswerable questions | Not a production generator; misleading if used as one | Use `RAG_GENERATOR=anthropic`; the extractive generator is for tests and keyless development |
+| The dataset is small and author-written | Results are optimistic and coarse | Add questions from real usage when available |
 | `Desktop\production-rag` is an older clone that contains this repository as an untracked folder | `git add .` in the outer folder would embed this repository | Work only in `Desktop\production-rag\production-rag`; move it out of the outer clone when convenient |
 
 ## Next priorities
 
-1. Owner: decide D-2 and D-3, and do the owner actions.
-2. Measure Claude answers and record them in [evaluation.md](evaluation.md).
+1. Owner: authorize D-4, then decide D-2 and D-3.
+2. Run the paid evaluation and record it in [evaluation.md](evaluation.md). If
+   on-topic declines fall short, evaluate an answerability check.
 3. Background ingestion with status reporting (FR-3), then DOCX and HTML (FR-2).
 4. Phase 5: accounts and isolation, on PostgreSQL if D-3 is decided that way.

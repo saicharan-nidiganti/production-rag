@@ -32,6 +32,7 @@ flowchart LR
     rag --> generator[Generator<br/>Claude or extractive]
     ingestion --> embedder[Embedder<br/>hashing or fastembed]
     retriever --> embedder
+    retriever --> reranker[Reranker<br/>cross-encoder, optional]
     ingestion --> db[(SQLite<br/>documents, chunks,<br/>chunks_fts, index_state)]
     retriever --> db
     generator -->|HTTPS| claude[Claude API]
@@ -52,7 +53,7 @@ src/production_rag/
   db/                SQLAlchemy models, engine, Alembic migrations (single source of schema truth)
   embeddings.py      Embedder protocol: hashing and fastembed providers
   ingestion/         extraction (txt, md, pdf), chunking, ingestion pipeline
-  retrieval/         vector index, FTS5 search, RRF fusion, retriever
+  retrieval/         vector index, FTS5 search, RRF fusion, cross-encoder reranking, retriever
   generation/        Generator protocol: Claude and extractive generators, answer types
   rag.py             query orchestration and abstention
   container.py       component wiring
@@ -152,6 +153,7 @@ sequenceDiagram
     participant R as RagService
     participant V as Vector index
     participant L as FTS5
+    participant X as Reranker (optional)
     participant G as Generator
     C->>R: POST /v1/query {question}
     par vector search
@@ -159,8 +161,13 @@ sequenceDiagram
     and keyword search
         R->>L: BM25, top candidate_pool
     end
-    R->>R: RRF fusion, top_k, hydrate chunks
-    alt nothing retrieved, or best cosine below threshold
+    R->>R: RRF fusion, hydrate chunks
+    opt reranker configured
+        R->>X: score rerank_candidates (question, passage) pairs
+        X-->>R: relevance scores; re-sort
+    end
+    R->>R: keep top_k
+    alt nothing retrieved, or best cosine or rerank score below its threshold
         R-->>C: insufficient_evidence (no model call)
     else evidence found
         R->>G: question + one search_result block per chunk
@@ -185,6 +192,15 @@ modes:
   only ranks, so BM25 and cosine scores never need calibrating against each
   other.
 
+**Reranking** (optional, `RAG_RERANKER=fastembed`,
+[reranking.py](../src/production_rag/retrieval/reranking.py)): the top
+`RAG_RERANK_CANDIDATES` fused candidates (default 20) are scored by a local
+cross-encoder (`Xenova/ms-marco-MiniLM-L-6-v2`), which reads the question and
+the passage together. They are re-sorted by that score and cut to `top_k`, so
+the reranker can promote a chunk from below the cut. It costs about 250 ms per
+query on a laptop CPU.
+[ADR-0005](decisions/0005-reranking-and-abstention.md) has the measurements.
+
 Embeddings: `hashing` is a deterministic, dependency-free feature-hashing
 model (lexical only). `fastembed` runs `BAAI/bge-small-en-v1.5` locally through
 ONNX Runtime. Each chunk records its embedding model id. Vectors from other
@@ -198,9 +214,13 @@ the measurements.
 [rag.py](../src/production_rag/rag.py) orchestrates a query:
 
 1. Retrieve `top_k` chunks.
-2. **Abstain before generation** when nothing was retrieved, or when the best
-   cosine is below the provider's calibrated threshold. The result is
-   `insufficient_evidence` with no model call.
+2. **Abstain before generation** when nothing was retrieved, when the best
+   cosine is below the embedding provider's calibrated threshold, or, with a
+   reranker, when the best rerank score is below the reranker's threshold. The
+   result is `insufficient_evidence` with no model call. These thresholds catch
+   off-topic questions. On-topic questions the corpus can't answer retrieve
+   relevant-looking passages, so declining them is left to the generator
+   ([evaluation.md](evaluation.md#abstention-signals)).
 3. Generate.
 
 [anthropic_generator.py](../src/production_rag/generation/anthropic_generator.py)
@@ -267,7 +287,6 @@ deployment and the remaining gaps.
 | File types | PDF, TXT, Markdown | Also DOCX and HTML (FR-2); OCR later (FR-12) | 2, 8 |
 | Answers | Single request/response | Streaming (FR-9), conversations (FR-11) | 4 |
 | Interface | HTTP API and CLI | React + Vite web app (ADR-0001 §11) | 6 |
-| Reranking | None | Evaluate a cross-encoder (ADR-0001 §7) | 7 |
 
 The v1 data model planned in Session 0:
 
@@ -339,8 +358,8 @@ security as defense in depth) are listed in ADR-0001 §10 and
 
 - SQLite means a single writer and a single node. Vector search is exact and in
   memory, which is comfortable to about 100k chunks per process.
-- No reranker yet. Hybrid retrieval already reaches recall@5 = 1.0 on the
-  current dataset, so a reranker needs a harder dataset to justify it.
+- Retrieval-level abstention can't recognize on-topic questions the corpus
+  doesn't answer; only the generator can decline those.
 - Ingestion is synchronous. Large PDFs block a worker for the duration.
 - No OCR: scanned PDFs without a text layer are rejected as having no
   extractable text.

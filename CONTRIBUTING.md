@@ -135,8 +135,11 @@ Scopes follow the system's components, for example `ingestion`, `retrieval`,
   comparison tables). If metrics improve, raise the thresholds in
   `eval/thresholds.json` in the same change. Never lower a threshold without
   explaining why.
-- **Dataset changes:** add a new version (`golden_v2.jsonl`) instead of editing
-  an existing one, so earlier reports stay comparable.
+- **Dataset changes:** add a new version (`golden_v3.jsonl`) instead of editing
+  an existing one, so earlier reports stay comparable. Calibrate thresholds and
+  settings on the `dev` split only; the `test` split is for reporting, never for
+  tuning. `tests/unit/test_evaluation_units.py` checks every label against the
+  corpus.
 - **Schema changes:** add an Alembic migration
   (`uv run python -m alembic revision -m "..."`). `tests/integration/test_database.py`
   fails if the models and migrations disagree.

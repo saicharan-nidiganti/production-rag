@@ -61,7 +61,7 @@ the item notes the proposed decision.
 - [x] Implement citation generation
 - [x] Verify citations against retrieved evidence — enforced structurally
 - [x] Implement unsupported-answer handling — pre-generation abstention and the uncited-answer rule
-- [ ] Defend against prompt injection in document content — system-prompt mitigation in place; injection test suite pending
+- [ ] Defend against prompt injection in document content — system-prompt mitigation in place; injection cases in golden v2 (`t-par-*`), to be measured with Claude
 - [x] Add generation tests
 - [ ] Stream answers to the client (FR-9)
 - [ ] Measure Claude answers with `rag eval --generation` (needs an API key)
@@ -86,10 +86,10 @@ the item notes the proposed decision.
 
 - [x] Investigate hybrid retrieval
 - [x] Implement hybrid retrieval if justified — it beats either retriever alone ([ADR-0004](decisions/0004-embeddings-hybrid-retrieval-and-abstention.md))
-- [ ] Evaluate reranking approaches — needs a harder dataset: recall@5 is already 1.0
-- [ ] Implement reranking if justified
+- [x] Evaluate reranking approaches — three cross-encoders compared ([ADR-0005](decisions/0005-reranking-and-abstention.md))
+- [x] Implement reranking if justified — optional; test MRR 0.931 → 0.946 and robust off-topic abstention
 - [x] Compare retrieval strategies
-- [x] Create golden evaluation dataset — v1, 36 questions; grow it from real questions
+- [x] Create golden evaluation dataset — v2: 94 questions with a held-out test split; grow it from real questions
 - [x] Define evaluation metrics
 - [x] Implement retrieval evaluation
 - [x] Implement answer evaluation — fact-recall proxy
@@ -97,6 +97,7 @@ the item notes the proposed decision.
 - [x] Add regression evaluation — threshold gate in CI
 - [x] Generate evaluation reports
 - [ ] LLM-as-judge groundedness and answer correctness
+- [ ] Abstention on on-topic unanswerable questions — no retrieval signal separates them; measure Claude's declines, then consider an answerability model
 
 ## Phase 8 — Production Readiness
 

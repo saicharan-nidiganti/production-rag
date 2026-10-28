@@ -55,7 +55,7 @@ policy before enabling the Claude generator.
 | No accounts or per-user isolation | FR-1, NFR-1 | Phase 5, with PostgreSQL ([ADR-0001](decisions/0001-technology-stack.md) §10) |
 | No rate limiting | NFR-2 | Phase 5; until then, rate-limit at the reverse proxy |
 | Upload size is enforced after the body is received | NFR-2 | Cap request bodies at the reverse proxy ([operations.md](operations.md#deploy-sequence)) |
-| No prompt-injection test suite | NFR-3, requirements §7 | Phase 4 follow-up: malicious documents in the golden dataset |
+| Prompt-injection cases exist (`partner-integrations.md` in the corpus, `t-par-*` in golden v2) but are only informative with an LLM generator | NFR-3, requirements §7 | Run them with Claude once the owner authorizes a paid evaluation |
 | PDF parsing runs in the API process | NFR-2 | Moves to the ingestion worker with background ingestion (FR-3) |
 | Single static API key, no rotation overlap | — | Replaced by sessions in Phase 5 |
 

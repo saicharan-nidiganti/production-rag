@@ -129,16 +129,21 @@ Fetch one document, or delete it with all its chunks and index entries (204).
       "end_char": 742,
       "score": 0.03278688524590164,
       "vector_score": 0.27024319767951965,
-      "lexical_score": 3.398386965838204
+      "lexical_score": 3.398386965838204,
+      "rerank_score": null
     }
   ],
   "best_vector_score": 0.27024319767951965,
+  "best_rerank_score": null,
   "timings_ms": {"retrieval": 5.13}
 }
 ```
 
-`score` is the ranking score for the mode: cosine for `vector`, BM25 for
-`lexical`, RRF for `hybrid`. `start_char` and `end_char` locate the chunk in the
+`score` is the final ranking score: the cross-encoder score when a reranker
+runs (`RAG_RERANKER`), otherwise cosine for `vector`, BM25 for `lexical` and RRF
+for `hybrid`. `rerank_score` and `best_rerank_score` are `null` without a
+reranker; with one, `timings_ms.rerank` reports the reranking time, which is
+included in `timings_ms.retrieval`. `start_char` and `end_char` locate the chunk in the
 document's extracted text.
 
 ## Question answering

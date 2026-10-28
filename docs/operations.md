@@ -13,12 +13,15 @@ Recommended production settings: `RAG_EMBEDDING_PROVIDER=fastembed`,
 `RAG_GENERATOR=anthropic`, `ANTHROPIC_API_KEY` from your secret store, `RAG_API_KEY` set, and
 `RAG_DATABASE_URL` pointing at a persistent volume.
 
-Pre-download the embedding model into the image or volume so the service doesn't fetch it at
-startup. `RAG_FASTEMBED_CACHE_DIR` sets where it lives:
+Pre-download the models into the image or volume so the service doesn't fetch them at
+startup. `RAG_FASTEMBED_CACHE_DIR` sets where they live:
 
 ```bash
-RAG_FASTEMBED_CACHE_DIR=/opt/models uv run python -c \
+uv run python -c \
   "from production_rag.embeddings import FastEmbedEmbedder; FastEmbedEmbedder('BAAI/bge-small-en-v1.5', '/opt/models')"
+# With RAG_RERANKER=fastembed, also:
+uv run python -c \
+  "from production_rag.retrieval.reranking import FastEmbedReranker; FastEmbedReranker('Xenova/ms-marco-MiniLM-L-6-v2', '/opt/models')"
 ```
 
 ## Deploy sequence
@@ -36,6 +39,16 @@ don't share the database file across machines or over network filesystems
 
 Put a reverse proxy in front for TLS and to cap request bodies at `RAG_MAX_UPLOAD_BYTES`. The
 app enforces the limit too, but only after the body has been received.
+
+## Reranking
+
+With `RAG_RERANKER=fastembed`, each query also runs a local cross-encoder over
+`RAG_RERANK_CANDIDATES` passages (default 20; about 250 ms on a laptop CPU, or about 30 ms
+with 5 candidates). Pre-download its model the same way as the embedding model
+(`production_rag.retrieval.reranking.FastEmbedReranker`). After changing `RAG_RERANKER_MODEL`,
+set `RAG_MIN_RERANK_SCORE` from a new calibration: only `Xenova/ms-marco-MiniLM-L-6-v2` has a
+calibrated default, and other models never abstain on rerank score
+([evaluation.md](evaluation.md#calibrating-abstention)).
 
 ## Changing the embedding model
 
