@@ -1,166 +1,90 @@
-\# Methodology
+# Methodology
 
+## Goal
 
+The goal of this project is to evaluate and build a RAG system using measurable engineering
+criteria rather than relying only on subjective demonstrations.
 
-\## Goal
+## Core Principles
 
-
-
-The goal of this project is to evaluate and build a RAG system using measurable engineering criteria rather than relying only on subjective demonstrations.
-
-
-
-\## Core Principles
-
-
-
-\### 1. Reproducibility
-
-
+### 1. Reproducibility
 
 Experiments should be repeatable using documented configurations and datasets.
 
-
-
-\### 2. Evaluation First
-
-
+### 2. Evaluation First
 
 Important implementation decisions should be supported by measurable evaluation.
 
-
-
-\### 3. Grounded Generation
-
-
+### 3. Grounded Generation
 
 Generated answers should be supported by retrieved evidence.
 
-
-
-\### 4. Citation Correctness
-
-
+### 4. Citation Correctness
 
 Citations should correspond to evidence that actually supports the generated claims.
 
-
-
-\### 5. Regression Prevention
-
-
+### 5. Regression Prevention
 
 Changes should be evaluated against a stable dataset whenever practical.
 
-
-
-\### 6. Controlled Complexity
-
-
+### 6. Controlled Complexity
 
 Additional components should only be introduced when they provide measurable value.
 
+## Evaluation Areas
 
-
-\## Evaluation Areas
-
-
-
-\### Retrieval
-
-
+### Retrieval
 
 Potential measurements include:
 
+- Recall
+- Precision
+- Hit rate
+- Ranking quality
+- Context relevance
 
-
-\- Recall
-
-\- Precision
-
-\- Hit rate
-
-\- Ranking quality
-
-\- Context relevance
-
-
-
-\### Generation
-
-
+### Generation
 
 Potential measurements include:
 
+- Answer correctness
+- Groundedness
+- Faithfulness
+- Unsupported claims
+- Citation coverage
 
-
-\- Answer correctness
-
-\- Groundedness
-
-\- Faithfulness
-
-\- Unsupported claims
-
-\- Citation coverage
-
-
-
-\### System Performance
-
-
+### System Performance
 
 Potential measurements include:
 
+- End-to-end latency
+- Retrieval latency
+- Generation latency
+- Throughput
+- Resource utilization
 
+## Golden Dataset
 
-\- End-to-end latency
-
-\- Retrieval latency
-
-\- Generation latency
-
-\- Throughput
-
-\- Resource utilization
-
-
-
-\## Golden Dataset
-
-
-
-A curated evaluation dataset will be created containing representative questions and expected evidence.
-
-
+A curated evaluation dataset will be created containing representative questions and expected
+evidence.
 
 The dataset should be version controlled where appropriate.
 
-
-
-\## Experimental Discipline
-
-
+## Experimental Discipline
 
 Experiments should document:
 
-
-
-\- Configuration
-
-\- Dataset version
-
-\- Model
-
-\- Retrieval configuration
-
-\- Evaluation methodology
-
-\- Results
-
-\- Interpretation
-
-
+- Configuration
+- Dataset version
+- Model
+- Retrieval configuration
+- Evaluation methodology
+- Results
+- Interpretation
 
 Raw experimental evidence should be preserved separately from derived reports.
 
+## Implementation
+
+How these principles are applied (the dataset, metrics, reports and regression gate) is
+described in [evaluation.md](evaluation.md).
