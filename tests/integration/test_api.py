@@ -124,7 +124,20 @@ def test_query_on_empty_index_abstains(client: TestClient) -> None:
     ],
 )
 def test_query_validation(client: TestClient, payload: dict[str, object]) -> None:
-    assert client.post("/v1/query", json=payload).status_code == 422
+    response = client.post("/v1/query", json=payload)
+    assert response.status_code == 422
+    # Same envelope as every other error, with the field-level problems attached.
+    error = response.json()["error"]
+    assert error["code"] == "validation_error"
+    assert error["request_id"] == response.headers["X-Request-ID"]
+    assert error["details"] and all("loc" in d and "msg" in d for d in error["details"])
+
+
+def test_unknown_routes_use_the_error_envelope(client: TestClient) -> None:
+    response = client.get("/v1/nope")
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "not_found"
+    assert "details" not in response.json()["error"]
 
 
 def test_request_id_is_echoed_or_generated(client: TestClient) -> None:

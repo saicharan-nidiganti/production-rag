@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -24,11 +27,16 @@ class NotFoundError(LookupError):
     pass
 
 
-def error_response(status: int, code: str, message: str) -> JSONResponse:
+def error_response(
+    status: int, code: str, message: str, *, details: list[dict[str, Any]] | None = None
+) -> JSONResponse:
     body = ErrorResponse(
-        error=ErrorBody(code=code, message=message, request_id=request_id_var.get())
+        error=ErrorBody(
+            code=code, message=message, request_id=request_id_var.get(), details=details
+        )
     )
-    return JSONResponse(status_code=status, content=body.model_dump())
+    exclude = {"error": {"details"}} if details is None else None
+    return JSONResponse(status_code=status, content=body.model_dump(exclude=exclude))
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -54,6 +62,15 @@ def register_error_handlers(app: FastAPI) -> None:
         if exc.retryable:
             return error_response(503, "generation_unavailable", str(exc))
         return error_response(502, "generation_failed", str(exc))
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation(_: Request, exc: RequestValidationError) -> JSONResponse:
+        return error_response(
+            422,
+            "validation_error",
+            "request validation failed",
+            details=jsonable_encoder(exc.errors()),
+        )
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(_: Request, exc: StarletteHTTPException) -> JSONResponse:
