@@ -2,7 +2,8 @@
 
 ## Supported versions
 
-This project is pre-release. Only the latest commit on `main` receives security fixes.
+Security fixes are made on `main` and shipped in the next release. Only the latest
+release (currently 0.1.x) and `main` are supported; older releases don't receive fixes.
 
 ## Reporting a vulnerability
 

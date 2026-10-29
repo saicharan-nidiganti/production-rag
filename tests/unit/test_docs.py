@@ -144,3 +144,17 @@ def test_the_regression_targets_in_the_requirements_match_the_gate() -> None:
     for key, value in {**gate["min"], **gate["max"]}.items():
         assert f"{quoted[key]} {value}" in row, key
     assert set(quoted) == set(gate["min"]) | set(gate["max"])
+
+
+def test_the_changelog_matches_the_package_version() -> None:
+    from production_rag import __version__
+
+    changelog = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    headings = re.findall(r"^## \[([^\]]+)\]", changelog, re.M)
+    assert headings[0] == "Unreleased"
+    assert headings[1] == __version__  # the newest release is the package's version
+    assert re.search(
+        rf"^## \[{re.escape(__version__)}\] - \d{{4}}-\d{{2}}-\d{{2}}$", changelog, re.M
+    )
+    for name in headings:  # each heading links somewhere
+        assert re.search(rf"^\[{re.escape(name)}\]: https://", changelog, re.M), name

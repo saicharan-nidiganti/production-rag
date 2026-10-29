@@ -39,6 +39,19 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 
 ## Session log
 
+### Session 10 — The v0.1.0 release commit (2026-10-29)
+
+- The changelog's `[Unreleased]` entries moved to `[0.1.0] - 2026-10-29`. All 35 entries
+  were checked to be present exactly once; the documentation entry's ADR range was
+  corrected to 0001–0008. A test keeps the newest changelog section equal to the package
+  version.
+- The release notes in [release.md](release.md) now cover stable chunk keys and their
+  exact semantics, the evaluation summary and failure recording, and safe configuration
+  errors, and they state what isn't verified live. `SECURITY.md` names the supported
+  versions.
+- Nothing is tagged or published: that waits for the owner's approval of the
+  verification report.
+
 ### Session 9 — Owner decisions and the final pre-release review (2026-10-29)
 
 - **Issue #2:** the owner accepted ADR-0008 (architecture style). The rationale and the

@@ -1,13 +1,18 @@
 # Changelog
 
 Notable changes, grouped by kind. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions will follow
-[Semantic Versioning](https://semver.org/) once releases start. Nothing has been
-released yet: `pyproject.toml` says `0.1.0`, and everything below is unreleased.
-Detailed per-session notes and verification results are in
-[docs/status.md](docs/status.md).
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/). 0.1.0 is the first release; its "Changed"
+and "Fixed" entries describe changes made during development before it, kept for the
+record. Detailed per-session notes and verification results are in
+[docs/status.md](docs/status.md); how a release is cut is in
+[docs/release.md](docs/release.md).
 
 ## [Unreleased]
+
+Nothing yet.
+
+## [0.1.0] - 2026-10-29
 
 ### Added
 
@@ -44,8 +49,7 @@ Detailed per-session notes and verification results are in
   scanning, dependency auditing and Markdown lint in CI; a `Makefile` shared by
   developers and CI.
 - Documentation: requirements, architecture, API, configuration, operations,
-  security, evaluation, ADRs 0001–0006, roadmap and status.
-
+  security, evaluation, ADRs 0001–0008, roadmap and status.
 - **Stable chunk keys** (`chunk_key`): the same for identical content and chunk
   settings across re-ingestion, unlike row ids (migration 0003).
 - `rag eval` prints a readable summary (`--json` for the previous output), and records a
@@ -75,7 +79,6 @@ Detailed per-session notes and verification results are in
 - The deployment smoke test crashed with a traceback on malformed responses instead of
   failing cleanly.
 - A made-up API key in a test tripped the secret scan in CI.
-
 - Two architecture diagrams didn't render on GitHub (a `;` inside a Mermaid
   message); a docs test now catches it.
 - `rag ask` printed citation markers that swallowed the following space.
@@ -97,3 +100,6 @@ Detailed per-session notes and verification results are in
   [docs/security.md](docs/security.md).
 - Third-party GitHub Actions are pinned to commit SHAs and kept current by
   Dependabot.
+
+[Unreleased]: https://github.com/saicharan-nidiganti/production-rag/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/saicharan-nidiganti/production-rag/releases/tag/v0.1.0
