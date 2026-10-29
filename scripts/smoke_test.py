@@ -94,7 +94,7 @@ def run(workdir: Path) -> None:
         )
     try:
         with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=30) as client:
-            _exercise(client, server)
+            check(client, server)
     except BaseException:
         _stop(server)
         print(f"--- server log ({log_path.name}) ---", file=sys.stderr)
@@ -104,8 +104,8 @@ def run(workdir: Path) -> None:
     print("ok: server stopped")
 
 
-def _ready(client: httpx.Client, server: subprocess.Popen[bytes]) -> bool:
-    if server.poll() is not None:
+def _ready(client: httpx.Client, server: subprocess.Popen[bytes] | None) -> bool:
+    if server is not None and server.poll() is not None:
         raise SmokeTestError(f"server exited with code {server.returncode}")
     try:
         return client.get("/ready").status_code == 200
@@ -113,8 +113,35 @@ def _ready(client: httpx.Client, server: subprocess.Popen[bytes]) -> bool:
         return False
 
 
-def _exercise(client: httpx.Client, server: subprocess.Popen[bytes]) -> None:
-    _wait_for(lambda: _ready(client, server), "GET /ready to return 200", timeout_s=60)
+def check(
+    client: httpx.Client,
+    server: subprocess.Popen[bytes] | None = None,
+    *,
+    ready_timeout_s: float = 60,
+    ingest_timeout_s: float = 60,
+) -> None:
+    """Run every check against a server; raise SmokeTestError on the first failure.
+
+    A response that isn't the expected shape (not JSON, a missing field) or a request that
+    times out is a failure too, reported as one instead of as a traceback.
+    """
+    try:
+        _exercise(client, server, ready_timeout_s, ingest_timeout_s)
+    except (ValueError, KeyError, TypeError, IndexError) as exc:
+        raise SmokeTestError(f"unexpected response: {type(exc).__name__}: {exc}") from exc
+    except httpx.TimeoutException as exc:
+        raise SmokeTestError(f"request timed out: {exc.request.method} {exc.request.url}") from exc
+    except httpx.HTTPError as exc:
+        raise SmokeTestError(f"request failed: {exc}") from exc
+
+
+def _exercise(
+    client: httpx.Client,
+    server: subprocess.Popen[bytes] | None,
+    ready_timeout_s: float,
+    ingest_timeout_s: float,
+) -> None:
+    _wait_for(lambda: _ready(client, server), "GET /ready to return 200", ready_timeout_s)
     _check(client.get("/health").json() == {"status": "ok"}, "GET /health")
 
     upload = client.post(
@@ -129,7 +156,7 @@ def _exercise(client: httpx.Client, server: subprocess.Popen[bytes]) -> None:
         status: str = client.get(f"/v1/documents/{document_id}").json()["status"]
         return status in {"ready", "failed"}
 
-    _wait_for(processed, "the document to finish processing", timeout_s=60)
+    _wait_for(processed, "the document to finish processing", ingest_timeout_s)
     doc = client.get(f"/v1/documents/{document_id}").json()
     _check(doc["status"] == "ready" and doc["num_chunks"] > 0, "background ingestion: ready")
 
