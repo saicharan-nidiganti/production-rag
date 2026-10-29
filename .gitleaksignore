@@ -1,0 +1,5 @@
+# Verified false positives only: each entry is one finding (commit:file:rule:line), never a
+# whole file or rule. Real secrets are revoked, not ignored.
+# f7e27a2: a made-up RAG_API_KEY value in a test, replaced in the next
+# commit by "x" * 24. The commit is on main and isn't rewritten.
+f7e27a20e756d108b475dcfb74899663dd3758ef:tests/unit/test_config_and_logging.py:generic-api-key:202

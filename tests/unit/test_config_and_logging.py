@@ -199,7 +199,7 @@ def test_serving_publicly_without_an_api_key_warns(
     assert main(["serve"]) == 0  # loopback, the default: no warning
     assert "without RAG_API_KEY" not in capsys.readouterr().err
     get_settings.cache_clear()
-    monkeypatch.setenv("RAG_API_KEY", "a-long-enough-api-key-0123")
+    monkeypatch.setenv("RAG_API_KEY", "x" * 24)  # long enough; obviously fake
     assert main(["serve", "--host", "0.0.0.0"]) == 0
     assert "without RAG_API_KEY" not in capsys.readouterr().err
 
