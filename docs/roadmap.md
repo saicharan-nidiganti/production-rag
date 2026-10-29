@@ -71,7 +71,7 @@ the item notes the proposed decision.
 - [ ] User accounts and session authentication — v0 has an optional static API key
 - [ ] Server-side document ownership checks on every endpoint
 - [ ] Cross-tenant isolation test suite
-- [ ] Rate limiting and upload hardening — size and page limits done; rate limiting pending
+- [ ] Rate limiting and upload hardening — size and page limits, and parsing in an isolated, resource-limited process ([ADR-0007](decisions/0007-isolated-document-parsing.md)), done; rate limiting pending
 - [ ] Security review
 
 ## Phase 6 — Frontend

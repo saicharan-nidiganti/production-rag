@@ -28,7 +28,8 @@ policy before enabling the Claude generator.
 | Threat | Control | Where |
 | --- | --- | --- |
 | Unauthenticated access | Optional static API key (at least 16 characters), compared in constant time; `/health` and `/ready` stay open | [security.py](../src/production_rag/api/security.py), [config.py](../src/production_rag/config.py) |
-| Malicious or disguised files | Extension allow-list, PDF signature check (content, not extension), strict UTF-8 for text, size and PDF page limits, encrypted PDFs rejected | [extract.py](../src/production_rag/ingestion/extract.py) |
+| Malicious or disguised files | Extension allow-list, PDF signature check (content, not extension), strict UTF-8 for text, size and PDF page limits, encrypted PDFs rejected | [extract.py](../src/production_rag/parsing/extract.py) |
+| Parser exploits and resource exhaustion | Parsing runs in a separate process: killed after `RAG_PARSE_TIMEOUT_S`, address-space and CPU limits on Linux and macOS, no secrets in its environment, results returned as JSON (never unpickled). A bad file fails only its own document | [isolation.py](../src/production_rag/parsing/isolation.py), [ADR-0007](decisions/0007-isolated-document-parsing.md) |
 | Path traversal | Client file names are reduced to a bare name and used only as metadata, never as a path | `safe_filename` in extract.py |
 | SQL and FTS injection | Bound parameters everywhere; user text is reduced to quoted terms before reaching FTS5 | [lexical.py](../src/production_rag/retrieval/lexical.py) |
 | Prompt injection in documents | Retrieved text is sent as search-result blocks; the system prompt treats it as data, not instructions; citations can only reference retrieved chunks | [anthropic_generator.py](../src/production_rag/generation/anthropic_generator.py) |
@@ -66,7 +67,7 @@ policy before enabling the Claude generator.
 | No rate limiting | NFR-2 | Phase 5; until then, rate-limit at the reverse proxy |
 | Upload size is enforced after the body is received | NFR-2 | Cap request bodies at the reverse proxy ([operations.md](operations.md#deploy-sequence)) |
 | Prompt-injection cases exist (`partner-integrations.md` in the corpus, `t-par-*` in golden v2) but are only informative with an LLM generator | NFR-3, requirements §7 | Run them with Claude once the owner authorizes a paid evaluation |
-| PDF parsing runs in a worker thread of the API process, outside the request but not isolated from it | NFR-2 | A file that crashes the process is failed (`interrupted`) after `RAG_INGEST_MAX_ATTEMPTS` tries instead of crashing it forever. Run parsing in a separate, resource-limited process before accepting untrusted uploads |
+| The parser process is isolated from the service but not sandboxed: it can reach the network and the filesystem, and on Windows has no memory limit | NFR-2 | Add a sandbox (no network, read-only filesystem) before accepting anonymous uploads ([ADR-0007](decisions/0007-isolated-document-parsing.md)) |
 | Single static API key, no rotation overlap | — | Replaced by sessions in Phase 5 |
 
 ## Operator checklist

@@ -28,15 +28,15 @@ from production_rag.db.documents import DocumentRepository
 from production_rag.db.models import Chunk, Document, DocumentFile, utcnow
 from production_rag.embeddings import Embedder, to_blob
 from production_rag.ingestion.chunking import ChunkSpan, chunk_document
-from production_rag.ingestion.extract import (
+from production_rag.ingestion.queue import Claim, ClaimLost, IngestionQueue
+from production_rag.parsing.extract import (
     ExtractionError,
     UnsupportedDocumentError,
     content_type_for,
-    extract,
     safe_filename,
     validate_upload,
 )
-from production_rag.ingestion.queue import Claim, ClaimLost, IngestionQueue
+from production_rag.parsing.isolation import ParseFailedError, ParseTimeoutError, parse
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +76,8 @@ _FAILURE_CODES: tuple[tuple[type[Exception], str], ...] = (
     (ExtractionError, "extraction_failed"),
     (UnsupportedDocumentError, "unsupported_document_type"),
     (UploadMissingError, "upload_missing"),
+    (ParseTimeoutError, "parse_timeout"),
+    (ParseFailedError, "parse_failed"),
 )
 
 
@@ -237,7 +239,7 @@ class IngestionService:
                 raise UploadMissingError(
                     "the uploaded file is no longer stored; upload the document again"
                 )
-            extracted = extract(filename, data, max_pdf_pages=self._settings.max_pdf_pages)
+            extracted = parse(filename, data, self._settings)
             spans = chunk_document(
                 extracted.text,
                 extracted.sections,

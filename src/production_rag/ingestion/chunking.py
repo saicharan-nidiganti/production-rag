@@ -12,7 +12,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from production_rag.ingestion.extract import Section
+from production_rag.parsing.extract import Section
 
 _SENTENCE_END = re.compile(r"[.!?][\"')\]]?\s")
 

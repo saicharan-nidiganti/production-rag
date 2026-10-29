@@ -18,7 +18,7 @@ PACKAGE = REPO_ROOT / "src" / "production_rag"
 
 LAYERS: list[set[str]] = [
     {"__init__", "config", "text", "observability"},  # foundation
-    {"db", "embeddings"},  # storage and models
+    {"db", "embeddings", "parsing"},  # storage, models and text extraction
     {"ingestion", "retrieval"},  # core services
     {"generation"},  # answers from retrieved chunks
     {"rag"},  # query orchestration and abstention

@@ -56,6 +56,7 @@ file before moving on.
 | Processing error (bad file, embedding failure) | `failed` with `error.code` and `error.message`; no chunks are written; the upload is kept | Fix the cause, then `POST /v1/documents/{id}/retry` (or re-upload). Errors are never retried automatically |
 | Graceful shutdown (SIGTERM, deploy) | Workers stop at the next embedding batch and hand the document back as `queued`, without counting the attempt; shutdown waits up to 10 s | None: the next start picks it up |
 | Crash, kill or power loss mid-way | The document stays `processing` until its lease lapses (`RAG_INGEST_LEASE_S`, default 5 min), then any worker takes it over | None. To recover sooner after a known crash, restart with a shorter lease |
+| A file that hangs or exhausts the parser | The parser process is killed after `RAG_PARSE_TIMEOUT_S` (or hits `RAG_PARSE_MEMORY_MB` on Linux and macOS); the document fails with `parse_timeout` or `parse_failed`; the service is unaffected | Raise the limit if the file is legitimate, then retry |
 | Interrupted `RAG_INGEST_MAX_ATTEMPTS` times (default 3) | `failed` with code `interrupted`, so a file that crashes the process can't loop forever | Check memory and the log for that document, then retry |
 | No workers anywhere (`RAG_INGEST_WORKERS=0` in every process) | Uploads stay `queued` | Run at least one process with workers |
 | Restart with work queued | Queued documents and their uploads are in the database; workers continue after startup | None |

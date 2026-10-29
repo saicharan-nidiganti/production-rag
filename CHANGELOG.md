@@ -28,6 +28,10 @@ Detailed per-session notes and verification results are in
   ([ADR-0003](docs/decisions/0003-generation-provider-claude.md)).
 - **Abstention** before generation, on calibrated cosine and rerank-score
   thresholds.
+- **Isolated parsing**: each upload is parsed in a separate process with a
+  timeout, no secrets in its environment and, on Linux and macOS, a memory
+  limit; a bad file fails only its own document
+  ([ADR-0007](docs/decisions/0007-isolated-document-parsing.md)).
 - **HTTP API** (FastAPI) with optional API-key authentication, request ids and
   a common error envelope; the `rag` CLI.
 - **Evaluation**: golden v2 (94 questions with a held-out test split, including
@@ -50,9 +54,16 @@ Detailed per-session notes and verification results are in
   `201` after synchronous processing.
 - The ingestion queue's claim protocol (`ingestion/queue.py`) and the document
   queries (`db/documents.py`) are separate modules; route handlers hold no SQL.
+- Text extraction moved from `production_rag.ingestion.extract` to
+  `production_rag.parsing.extract`; `production_rag.ingestion` still re-exports
+  its public names.
+- One-shot CLI commands log warnings only unless `RAG_LOG_LEVEL` is set.
 
 ### Fixed
 
+- Two architecture diagrams didn't render on GitHub (a `;` inside a Mermaid
+  message); a docs test now catches it.
+- `rag ask` printed citation markers that swallowed the following space.
 - Every CI job failed after the `Makefile` was introduced, because a recipe
   contained a literal newline; regenerated and checked with GNU make.
 - Document timestamps read back from SQLite lacked a time zone; they are now

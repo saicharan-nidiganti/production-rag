@@ -230,8 +230,10 @@ the maintainer's approval; CI never makes paid calls.
 - **Unverified generation.** Claude's citation quality, declining of unanswerable
   questions and prompt-injection resistance are designed for and tested offline, but not
   yet measured.
-- **Parsing runs in the API process.** A hostile file can exhaust its memory; restrict
-  uploads to trusted users until parsing moves to an isolated worker.
+- **Parsing is isolated, not sandboxed.** Each upload is parsed in a separate process with
+  a timeout, no secrets and (on Linux and macOS) a memory limit, so a bad file fails only
+  its own document. That process can still reach the network and filesystem, so keep
+  uploads to trusted users ([ADR-0007](docs/decisions/0007-isolated-document-parsing.md)).
 - **Data sent to Anthropic.** With the Claude generator, questions and retrieved passages
   go to the Claude API. Logs never contain document text or questions.
 - **Small evaluation set.** 94 author-written questions; results are optimistic and coarse.

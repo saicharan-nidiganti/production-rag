@@ -53,7 +53,8 @@ src/production_rag/
   db/                SQLAlchemy models, engine, Alembic migrations (single source of schema truth),
                      document queries (documents.py)
   embeddings.py      Embedder protocol: hashing and fastembed providers
-  ingestion/         extraction (txt, md, pdf), chunking, the queue's claim protocol (queue.py),
+  parsing/           text extraction (txt, md, pdf), and the isolated parser process that runs it
+  ingestion/         chunking, the queue's claim protocol (queue.py),
                      processing (pipeline.py), worker threads
   retrieval/         vector index, FTS5 search, RRF fusion, cross-encoder reranking, retriever
   generation/        Generator protocol: Claude and extractive generators, answer types
@@ -80,8 +81,9 @@ flowchart TB
     rag --> generation
     generation --> retrieval
     container --> ingestion
+    ingestion --> parsing
     ingestion & retrieval --> db & embeddings
-    db & embeddings --> foundation["config, text, observability"]
+    db & embeddings & parsing --> foundation["config, text, observability"]
 ```
 
 `ingestion` and `retrieval` never import each other: they share only the
@@ -159,8 +161,14 @@ stateDiagram-v2
    document over; a worker that comes back after losing its claim discards its
    work. A document interrupted `RAG_INGEST_MAX_ATTEMPTS` times is failed
    (`interrupted`) instead of retried forever.
-5. **Extract** ([extract.py](../src/production_rag/ingestion/extract.py)) full
-   text plus *sections*:
+5. **Extract** ([extract.py](../src/production_rag/parsing/extract.py)) full
+   text plus *sections*, in a separate parser process
+   ([ADR-0007](decisions/0007-isolated-document-parsing.md)). The file goes in
+   on stdin and the result comes back as JSON. The process has no secrets in
+   its environment, is killed after `RAG_PARSE_TIMEOUT_S`, and on Linux and
+   macOS runs under a memory limit. A file that hangs or crashes the parser
+   fails its own document (`parse_timeout`, `parse_failed`) and leaves the
+   service running. The sections are:
    - Markdown: one section per heading, carrying the heading path
      (`Guide > Install > Windows`). Headings inside code fences are ignored, and
      headings without a body of their own are skipped.

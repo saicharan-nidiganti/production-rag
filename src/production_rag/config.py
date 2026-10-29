@@ -61,6 +61,16 @@ class Settings(BaseSettings):
         ge=1,
         description="Interrupted processing attempts before a document is marked failed.",
     )
+    parse_isolation: Literal["process", "inline"] = Field(
+        default="process",
+        description="Parse uploads in a separate, limited process, or inline (tests only).",
+    )
+    parse_timeout_s: float = Field(
+        default=120.0, gt=0, description="The parser process is killed after this long."
+    )
+    parse_memory_mb: int = Field(
+        default=1024, ge=128, description="Address-space limit of the parser (Linux, macOS)."
+    )
 
     # --- Embeddings ---
     embedding_provider: EmbeddingProvider = "hashing"
@@ -154,6 +164,14 @@ class Settings(BaseSettings):
     def _check_chunking(self) -> Settings:
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("chunk_overlap must be smaller than chunk_size")
+        return self
+
+    @model_validator(mode="after")
+    def _check_parse_timeout(self) -> Settings:
+        # Parsing happens before the first lease renewal; a parse that outlived the lease
+        # would let another worker take the document over mid-parse.
+        if self.parse_timeout_s >= self.ingest_lease_s:
+            raise ValueError("RAG_PARSE_TIMEOUT_S must be shorter than RAG_INGEST_LEASE_S")
         return self
 
 

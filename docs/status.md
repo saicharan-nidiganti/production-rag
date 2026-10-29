@@ -39,6 +39,69 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 
 ## Session log
 
+### Session 7 — Portfolio readiness and isolated parsing (2026-10-29)
+
+- **CI:** `6c11f0d` passed all six jobs. The CI watcher had used up GitHub's
+  unauthenticated API limit (60 requests an hour) by polling forever. It now
+  polls only the run status every 45 s and stops on a rate limit. Every push
+  this session was confirmed job by job.
+- **Diagrams, checked as GitHub renders them** (headless browser, real-time
+  rendering, plus a local harness running Mermaid 10.9 and 11.4 that
+  reproduces GitHub's error text):
+  - Two architecture sequence diagrams had been broken on GitHub since they
+    were written: a `;` inside a message ends a Mermaid statement. Fixed, and
+    a docs test now flags such lines; it catches both in the old file.
+  - The README architecture diagram rendered, but too small to read; it was
+    redrawn top to bottom.
+  - An earlier failure report for both README diagrams turned out to be a
+    capture artifact: fast-forwarded page timers fired GitHub's render
+    timeout.
+- **README from a fresh clone** (no `.env`, no `RAG_*` or `ANTHROPIC_*`
+  variables): the Quickstart, every `curl` example against `rag serve`, 324
+  tests, the gate and the smoke test pass, and `git status` stays clean. Two
+  rough edges were fixed: `rag ask` printed JSON log lines before the answer,
+  and its citation markers swallowed the next space.
+- **Issue review:** each of the 44 issues was checked against its own
+  acceptance criteria. 23 are fully met (the script closes them with
+  evidence). 11 get a comment naming what's missing, including #6: FR-2
+  requires DOCX and HTML. The script is for the owner to run; nothing was
+  changed on GitHub.
+- **Guarantees now tested:**
+  - no question or document text in logs, at DEBUG (NFR-4);
+  - environment variables override `.env`;
+  - chunking is deterministic;
+  - a missing file is reported by `rag ingest`;
+  - the package version matches `pyproject.toml`.
+
+  Each test was confirmed to fail on a deliberate break. `api.md` gained a
+  versioning policy.
+- **Evaluation evidence:** the three reports behind the README's results
+  table are committed in `eval/results/2026-10-29/`. Quality numbers
+  reproduce exactly. Latency varies by run (reranked p95 70 to 107 ms), so
+  the README now quotes the committed report and says so.
+- **Release preparation:** [release.md](release.md) holds the release
+  checklist, v0.1.0's status against it, and draft release notes. Nothing is
+  tagged. One item needs the owner: release with Claude's behavior stated as
+  unverified, or run the paid evaluation first.
+- **Next improvements, assessed and ordered:**
+  1. Isolated parsing (security; a prerequisite for more parsers).
+  2. DOCX and HTML (FR-2, user value).
+  3. Rate limiting (needed once exposed beyond trusted users; a proxy covers
+     it today).
+  4. Streaming (needs a UI, and paid calls to verify).
+- **Implemented: isolated parsing**
+  ([ADR-0007](decisions/0007-isolated-document-parsing.md)). Extraction moved
+  to a light `parsing` package, and each upload is parsed in a separate
+  process:
+  - JSON over stdin and stdout, never pickle;
+  - no secrets in its environment;
+  - killed after `RAG_PARSE_TIMEOUT_S`;
+  - memory and CPU limits on Linux and macOS.
+
+  A hanging or crashing parse fails its document with `parse_timeout` or
+  `parse_failed`. Results are identical to in-process extraction (tested).
+  The cost is 94 ms median per document on a Windows laptop.
+
 ### Session 6 — Repository audit and engineering quality (2026-10-29)
 
 Audited the repository, code, CI, documentation and GitHub metadata against the
@@ -277,7 +340,7 @@ Checks at the end of the session:
 2. Before the run: `rag eval --plan --count-tokens` for exact input counts.
 3. Run the paid evaluation and record it in [evaluation.md](evaluation.md). If
    on-topic declines fall short, evaluate an answerability check.
-4. Meanwhile (free): DOCX and HTML (FR-2), then answer streaming (FR-9).
-   Before untrusted users can upload, move parsing to a separate,
-   resource-limited worker process ([ADR-0006](decisions/0006-background-ingestion.md)).
+4. Meanwhile (free): DOCX and HTML (FR-2) on the isolated parser, then rate
+   limiting, then answer streaming (FR-9). Before anonymous uploads, sandbox
+   the parser process ([ADR-0007](decisions/0007-isolated-document-parsing.md)).
 5. Phase 5: accounts and isolation, with PostgreSQL + pgvector.

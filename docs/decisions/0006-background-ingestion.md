@@ -8,6 +8,9 @@
   (synchronous ingestion inside the upload request). It implements, on SQLite,
   the database-backed queue that [ADR-0001](0001-technology-stack.md) §9 chose
   for v1.
+- **Amended 2026-10-29:** parsing now runs in a separate, resource-limited
+  process ([ADR-0007](0007-isolated-document-parsing.md)), as "Revisit when"
+  below anticipated.
 
 ## Context
 

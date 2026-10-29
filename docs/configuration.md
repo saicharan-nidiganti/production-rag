@@ -26,6 +26,9 @@ An **empty** value (`RAG_API_KEY=`) means the variable is unset.
 | `RAG_INGEST_WORKERS` | `1` | Background ingestion threads in each API process (0–16). `0` processes nothing in that process: uploads stay `queued` until a process with workers picks them up. More threads rarely help, because embedding already uses every CPU core. |
 | `RAG_INGEST_POLL_INTERVAL_S` | `2` | How often idle workers check for queued documents, in seconds. A process wakes its own workers on upload, so this mainly sets how quickly *other* processes pick up work and how long a crashed worker's documents wait after their lease lapses. |
 | `RAG_INGEST_LEASE_S` | `300` | A worker's claim on a document lapses this many seconds after its last renewal; another worker then takes the document over. Workers renew before each batch of 64 chunks, so this only needs to exceed the slowest single step (extracting a large PDF). |
+| `RAG_PARSE_ISOLATION` | `process` | `process` parses each upload in a separate Python process without secrets in its environment, killed after `RAG_PARSE_TIMEOUT_S` ([ADR-0007](decisions/0007-isolated-document-parsing.md)). `inline` parses in the worker thread; the test suite uses it for speed. |
+| `RAG_PARSE_TIMEOUT_S` | `120` | Seconds before the parser process is killed and the document fails with `parse_timeout`. Must be shorter than `RAG_INGEST_LEASE_S`, which is checked at startup. |
+| `RAG_PARSE_MEMORY_MB` | `1024` | Address-space limit of the parser process on Linux and macOS (minimum 128); a file that needs more fails with `parse_failed`. Windows has no such limit: only the timeout applies. |
 | `RAG_INGEST_MAX_ATTEMPTS` | `3` | Times a document may be interrupted (its worker stopped mid-way) before it is marked `failed` with code `interrupted`. Ordinary errors fail at once and are never retried automatically. |
 
 Changing chunking settings affects only documents ingested afterwards. Processing states,

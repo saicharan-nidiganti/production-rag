@@ -38,6 +38,9 @@ def _isolate_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Ite
     for key in list(os.environ):
         if key.startswith("RAG_") and key != "RAG_RUN_LIVE_TESTS":
             monkeypatch.delenv(key)
+    # Parse in the test process: a parser process per document would make the suite several
+    # times slower. tests/integration/test_parsing_isolation.py and the smoke test cover it.
+    monkeypatch.setenv("RAG_PARSE_ISOLATION", "inline")
     monkeypatch.chdir(tmp_path)  # so no stray .env is picked up
     get_settings.cache_clear()
     # The CLI installs a JSON handler on the root logger; restore it so later tests don't

@@ -4,7 +4,7 @@ from itertools import pairwise
 import pytest
 
 from production_rag.ingestion.chunking import chunk_document
-from production_rag.ingestion.extract import Section
+from production_rag.parsing.extract import Section
 
 
 def _chunks(text: str, size: int = 200, overlap: int = 40, sections: list[Section] | None = None):

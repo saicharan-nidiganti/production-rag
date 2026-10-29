@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from production_rag.ingestion.extract import (
+from production_rag.parsing.extract import (
     ExtractionError,
     UnsupportedDocumentError,
     discover_documents,

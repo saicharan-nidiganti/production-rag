@@ -172,6 +172,8 @@ A failure carries a code and a message written for the person who uploaded it:
 | `interrupted` | The worker stopped mid-way `RAG_INGEST_MAX_ATTEMPTS` times (crash, restart, out of memory) | Retry; if it recurs, check the server log for this document |
 | `internal_error` | Unexpected failure, for example the embedding model couldn't load. The message names only the error type | Fix the cause (server log), then retry |
 | `upload_missing` | The stored upload is gone | Upload the document again |
+| `parse_timeout` | Parsing took longer than `RAG_PARSE_TIMEOUT_S` | Check the file; if it's legitimate, raise the limit and retry |
+| `parse_failed` | The parser process crashed or ran out of memory (`RAG_PARSE_MEMORY_MB`) | As above |
 
 `attempts` counts processing attempts since the document was last queued. An
 attempt cut short by a crash counts; one handed back at shutdown doesn't.

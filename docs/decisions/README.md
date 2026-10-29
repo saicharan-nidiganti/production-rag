@@ -21,6 +21,7 @@ ADRs document important technical decisions, including:
 | [0004](0004-embeddings-hybrid-retrieval-and-abstention.md) | Embedding providers, hybrid retrieval and calibrated abstention | Accepted |
 | [0005](0005-reranking-and-abstention.md) | Cross-encoder reranking and rerank-score abstention | Accepted; default candidates amended to 5 |
 | [0006](0006-background-ingestion.md) | Background ingestion on a SQLite-backed queue | Accepted |
+| [0007](0007-isolated-document-parsing.md) | Parse documents in a separate, resource-limited process | Accepted |
 
 Open decisions that these ADRs depend on are tracked in
 [status.md](../status.md#open-decisions).
