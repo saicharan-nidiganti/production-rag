@@ -76,11 +76,28 @@ actual implementation, then fixed what the audit found. No paid API calls.
   calls were added. The bug and feature templates referenced labels that don't
   exist (`bug`, `enhancement`), so labels were never applied; they now use the
   repository's own labels.
+- **Security regression test:** every `/v1` operation in the OpenAPI schema
+  must refuse a request without the API key, and only `/health` and `/ready`
+  may be open. Verified by removing the router's auth dependency, which it
+  reports.
+- **Python 3.13** added to the CI matrix: `requires-python` is `>=3.12`, but
+  only 3.12 and 3.14 were tested.
 - **Removed:** the unused `data/processed/` placeholder.
 - **Blocked:** GitHub metadata (description, topics) and closing the issues
   that are already done need API write access, which this environment doesn't
-  have. 44 issues are open and none closed. The owner's action list is in the
-  session report.
+  have. 44 issues are open and none closed; 27 are implemented. The owner's
+  action list, a reviewable `gh` script, is in the session report.
+
+Checks at the end of the session:
+
+| Check | Result |
+| --- | --- |
+| Ruff lint and format, mypy `--strict` (src and scripts), `uv lock --check` | Pass |
+| pytest (offline) | 295 passed, 96.7% coverage (floor 90%); live and paid tests skipped |
+| Retrieval gate (`eval/thresholds.json`, hashing) | Pass: hit rate 0.947, recall 0.941, MRR 0.867; test hit rate 0.957 |
+| Free live gates (fastembed; reranked with 5 candidates) | Pass |
+| Smoke test (`make smoke`) and package check | Pass, locally and in CI |
+| CI on GitHub: quality on Python 3.12, 3.13 and 3.14, package, gitleaks, pip-audit, markdownlint | Pass from `e535329` on; `3ad09f2` failed (the broken Makefile) and was fixed by the next push |
 
 ### Session 5 — Background ingestion (2026-10-29)
 
