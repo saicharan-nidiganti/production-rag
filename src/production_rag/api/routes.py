@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, select, text
+from sqlalchemy import text
 
 from production_rag.api.errors import NotFoundError
 from production_rag.api.schemas import (
@@ -24,7 +24,7 @@ from production_rag.api.schemas import (
 from production_rag.api.security import require_api_key
 from production_rag.container import Container
 from production_rag.db.migrate import current_revision, head_revision
-from production_rag.db.models import Document, DocumentStatus
+from production_rag.db.models import DocumentStatus
 from production_rag.ingestion import DocumentTooLargeError, IngestionWorker
 from production_rag.observability import Timer
 
@@ -69,10 +69,10 @@ def ready(request: Request, container: ContainerDep) -> JSONResponse:
             ok = False
             checks["schema"] = "not at head; run `rag db upgrade`"
         else:
-            checks.update(container.ingestion.index_stats())
+            checks.update(container.index_stats())
             worker: IngestionWorker | None = getattr(request.app.state, "ingest_worker", None)
             checks["ingestion"] = {
-                **container.ingestion.status_counts(),
+                **container.documents.status_counts(),
                 "workers": worker.alive if worker else 0,
             }
     except Exception as exc:
@@ -113,27 +113,17 @@ def list_documents(
     offset: Annotated[int, Query(ge=0)] = 0,
     status_filter: Annotated[DocumentStatus | None, Query(alias="status")] = None,
 ) -> DocumentList:
-    where = [Document.status == status_filter] if status_filter else []
-    with container.sessions() as session:
-        total = session.scalar(select(func.count()).select_from(Document).where(*where)) or 0
-        docs = session.scalars(
-            select(Document)
-            .where(*where)
-            .order_by(Document.created_at.desc(), Document.id)
-            .limit(limit)
-            .offset(offset)
-        ).all()
-        items = [DocumentOut.from_model(d) for d in docs]
-    return DocumentList(items=items, total=total, limit=limit, offset=offset)
+    page = container.documents.list_documents(limit=limit, offset=offset, status=status_filter)
+    items = [DocumentOut.from_model(d) for d in page.items]
+    return DocumentList(items=items, total=page.total, limit=limit, offset=offset)
 
 
 @api_router.get("/documents/{document_id}", response_model=DocumentOut, responses=_ERRORS)
 def get_document(container: ContainerDep, document_id: str) -> DocumentOut:
-    with container.sessions() as session:
-        doc = session.get(Document, document_id)
-        if doc is None:
-            raise NotFoundError(f"document {document_id} not found")
-        return DocumentOut.from_model(doc)
+    doc = container.documents.get(document_id)
+    if doc is None:
+        raise NotFoundError(f"document {document_id} not found")
+    return DocumentOut.from_model(doc)
 
 
 @api_router.post(
@@ -154,12 +144,8 @@ def retry_document(container: ContainerDep, document_id: str) -> DocumentOut:
     "/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT, responses=_ERRORS
 )
 def delete_document(container: ContainerDep, document_id: str) -> Response:
-    with container.sessions() as session:
-        doc = session.get(Document, document_id)
-        if doc is None:
-            raise NotFoundError(f"document {document_id} not found")
-        session.delete(doc)
-        session.commit()
+    if not container.documents.delete(document_id):
+        raise NotFoundError(f"document {document_id} not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

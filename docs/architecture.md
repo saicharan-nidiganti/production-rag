@@ -50,9 +50,11 @@ src/production_rag/
   config.py          Settings (RAG_* environment variables, .env)
   observability.py   JSON logging, request-id context, stage timer
   text.py            tokenization shared by embeddings, lexical search, evaluation
-  db/                SQLAlchemy models, engine, Alembic migrations (single source of schema truth)
+  db/                SQLAlchemy models, engine, Alembic migrations (single source of schema truth),
+                     document queries (documents.py)
   embeddings.py      Embedder protocol: hashing and fastembed providers
-  ingestion/         extraction (txt, md, pdf), chunking, ingestion pipeline, worker threads
+  ingestion/         extraction (txt, md, pdf), chunking, the queue's claim protocol (queue.py),
+                     processing (pipeline.py), worker threads
   retrieval/         vector index, FTS5 search, RRF fusion, cross-encoder reranking, retriever
   generation/        Generator protocol: Claude and extractive generators, answer types
   rag.py             query orchestration and abstention
@@ -65,10 +67,27 @@ scripts/             reproducible experiments (compare_configs.py prints the eva
 tests/               unit/ and integration/ (offline), plus live tests behind a flag
 ```
 
-Dependencies point one way: `api`, `cli` and `evaluation` depend on
-`container`; `container` wires `ingestion`, `retrieval`, `generation` and
-`rag`; those depend on `db`, `embeddings`, `text` and `config`. Nothing below
-the transport layer imports `api` or `cli`.
+Dependencies point one way, layer by layer. A module may import from its own
+package or a lower layer, never sideways or up, and
+[test_architecture.py](../tests/unit/test_architecture.py) fails CI on any import
+that breaks this:
+
+```mermaid
+flowchart TB
+    cli --> api & evaluation
+    api & evaluation --> container
+    container --> rag
+    rag --> generation
+    generation --> retrieval
+    container --> ingestion
+    ingestion & retrieval --> db & embeddings
+    db & embeddings --> foundation["config, text, observability"]
+```
+
+`ingestion` and `retrieval` never import each other: they share only the
+database schema and the embedder. HTTP handlers hold no SQL; document queries
+live in `db/documents.py`, and every processing-state change goes through
+`ingestion/queue.py`.
 
 ## 4. Ingestion
 

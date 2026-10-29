@@ -1,12 +1,10 @@
 """Ingestion (FR-3): accept -> queue -> claim -> extract, chunk, embed -> ready or failed.
 
 ``submit`` runs the checks that need no parsing, stores the upload and queues the document,
-then returns. Workers (``worker.py``) claim queued documents and ``process`` them.
-A claim is a compare-and-set on the document row, so threads and processes can share the
-database, and it carries a lease that the worker renews as it goes. If a worker stops
-(crash, restart), its lease lapses and another worker takes the document over; a worker
-that has lost its claim discards its work. Chunks are written in the same transaction that
-marks the document ready, so a failed or interrupted document never has chunks (NFR-5).
+then returns. Workers (``worker.py``) claim queued documents from the queue (``queue.py``,
+which owns the claim protocol) and ``process`` them. Chunks are written in the same
+transaction that marks a document ready, so a failed or interrupted document never has
+chunks (NFR-5).
 
 ``ingest`` does all of it in the calling thread, for the CLI and the evaluation runner.
 """
@@ -15,25 +13,22 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import threading
 import time
-import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from pathlib import PurePosixPath
-from typing import Any, Literal, cast, get_args
+from typing import Literal
 
-from sqlalchemy import ColumnElement, CursorResult, and_, delete, func, or_, select, update
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from production_rag.config import Settings
-from production_rag.db.models import Chunk, Document, DocumentFile, DocumentStatus, utcnow
+from production_rag.db.documents import DocumentRepository
+from production_rag.db.models import Chunk, Document, DocumentFile, utcnow
 from production_rag.embeddings import Embedder, to_blob
 from production_rag.ingestion.chunking import ChunkSpan, chunk_document
 from production_rag.ingestion.extract import (
-    ExtractedDocument,
     ExtractionError,
     UnsupportedDocumentError,
     content_type_for,
@@ -41,6 +36,7 @@ from production_rag.ingestion.extract import (
     safe_filename,
     validate_upload,
 )
+from production_rag.ingestion.queue import Claim, ClaimLost, IngestionQueue
 
 logger = logging.getLogger(__name__)
 
@@ -59,10 +55,6 @@ class UploadMissingError(RuntimeError):
     pass
 
 
-class _ClaimLost(Exception):
-    """The document was deleted, or another worker took it over, while being processed."""
-
-
 class _Stopping(Exception):
     """The worker is shutting down; the document goes back to the queue."""
 
@@ -71,13 +63,6 @@ class _Stopping(Exception):
 class IngestResult:
     document: Document
     created: bool  # False when identical content was already submitted
-
-
-@dataclass(frozen=True)
-class Claim:
-    document_id: str
-    token: str
-    attempt: int
 
 
 @dataclass(frozen=True)
@@ -111,10 +96,6 @@ def embedding_input(chunk_text: str, heading: str | None) -> str:
     return f"{heading}\n\n{chunk_text}" if heading else chunk_text
 
 
-def _token_is(token: str | None) -> ColumnElement[bool]:
-    return Document.claim_token.is_(None) if token is None else Document.claim_token == token
-
-
 class IngestionService:
     def __init__(
         self, sessions: sessionmaker[Session], embedder: Embedder, settings: Settings
@@ -122,13 +103,8 @@ class IngestionService:
         self._sessions = sessions
         self._embedder = embedder
         self._settings = settings
-        # Set when work is queued by this process, so its idle workers start at once
-        # instead of at their next poll. Workers in other processes poll.
-        self.work_available = threading.Event()
-
-    @property
-    def _lease(self) -> timedelta:
-        return timedelta(seconds=self._settings.ingest_lease_s)
+        self._documents = DocumentRepository(sessions)
+        self.queue = IngestionQueue(sessions, settings)
 
     # --- Accepting documents ---
 
@@ -146,11 +122,11 @@ class IngestionService:
             )
         content_type = validate_upload(filename, data)
         content_hash = hashlib.sha256(data).hexdigest()
-        now = utcnow()
 
         with self._sessions() as session:
             existing = self._find_by_hash(session, content_hash)
             if existing is None:
+                now = utcnow()
                 document = Document(
                     source_name=filename,
                     title=PurePosixPath(filename).stem,
@@ -186,12 +162,10 @@ class IngestionService:
                         },
                     )
                     if notify:
-                        self.work_available.set()
+                        self.queue.work_available.set()
                     return IngestResult(document, created=True)
 
-            if existing.status == "failed" and self._set(
-                session, existing.id, [Document.status == "failed"], **self._requeued(now)
-            ):
+            if existing.status == "failed" and self.queue.requeue_failed(session, existing.id):
                 if session.get(DocumentFile, existing.id) is None:
                     session.add(DocumentFile(document_id=existing.id, data=data))
                 session.commit()
@@ -201,7 +175,7 @@ class IngestionService:
                     extra={"document_id": existing.id, "reason": "duplicate_upload"},
                 )
                 if notify:
-                    self.work_available.set()
+                    self.queue.work_available.set()
             else:
                 logger.info(
                     "ingest.duplicate",
@@ -215,16 +189,14 @@ class IngestionService:
             document = session.get(Document, document_id)
             if document is None:
                 return None
-            if document.status != "failed" or not self._set(
-                session, document_id, [Document.status == "failed"], **self._requeued(utcnow())
-            ):
+            if document.status != "failed" or not self.queue.requeue_failed(session, document_id):
                 raise DocumentStateError(
                     f"only failed documents can be retried; this one is {document.status}"
                 )
             session.commit()
             session.refresh(document)
         logger.info("ingest.requeued", extra={"document_id": document_id, "reason": "retry"})
-        self.work_available.set()
+        self.queue.work_available.set()
         return document
 
     def ingest(self, filename: str, data: bytes) -> IngestResult:
@@ -235,69 +207,16 @@ class IngestionService:
         submitted = self.submit(filename, data, notify=False)
         if submitted.document.status != "queued":
             return submitted
-        claim = self._claim_queued(submitted.document.id)
+        claim = self.queue.claim(submitted.document.id)
         if claim is not None:  # None: a worker elsewhere took it first
             outcome = self.process(claim)
             if outcome.error is not None:
                 raise outcome.error
         return IngestResult(
-            self.get(submitted.document.id) or submitted.document, submitted.created
+            self._documents.get(submitted.document.id) or submitted.document, submitted.created
         )
 
-    # --- Claiming and processing ---
-
-    def claim_next(self) -> Claim | None:
-        """Claim the oldest queued document, or take over one whose worker has stopped."""
-        while True:
-            now = utcnow()
-            with self._sessions() as session:
-                row = session.execute(
-                    select(Document.id, Document.status, Document.claim_token, Document.attempts)
-                    .where(
-                        or_(
-                            Document.status == "queued",
-                            and_(Document.status == "processing", Document.lease_expires_at < now),
-                        )
-                    )
-                    .order_by(Document.updated_at, Document.id)
-                    .limit(1)
-                ).first()
-                if row is None:
-                    return None
-                max_attempts = self._settings.ingest_max_attempts
-                if row.status == "processing" and row.attempts >= max_attempts:
-                    message = (
-                        f"processing was interrupted {row.attempts} time"
-                        f"{'s' if row.attempts != 1 else ''} (the worker stopped "
-                        "before finishing). Retry; if it keeps happening, check the server "
-                        "log and resources for this document"
-                    )
-                    if self._set(
-                        session,
-                        row.id,
-                        [_token_is(row.claim_token)],
-                        **self._failed("interrupted", message, now),
-                    ):
-                        logger.warning(
-                            "ingest.failed",
-                            extra={
-                                "document_id": row.id,
-                                "attempt": row.attempts,
-                                "error_code": "interrupted",
-                            },
-                        )
-                    session.commit()
-                    continue
-                claim = self._claim(session, row.id, row.status, row.claim_token, row.attempts)
-                session.commit()
-            if claim is not None:
-                if row.status == "processing":
-                    logger.warning(
-                        "ingest.recovered",
-                        extra={"document_id": claim.document_id, "attempt": claim.attempt},
-                    )
-                return claim
-            # Another worker claimed it between the read and the update: look again.
+    # --- Processing ---
 
     def process(
         self, claim: Claim, *, should_stop: Callable[[], bool] = lambda: False
@@ -311,7 +230,7 @@ class IngestionService:
                 document = session.get(Document, claim.document_id)
                 upload = session.get(DocumentFile, claim.document_id)
                 if document is None:
-                    raise _ClaimLost
+                    raise ClaimLost
                 filename = document.source_name
                 data = upload.data if upload is not None else None
             if data is None:
@@ -329,23 +248,34 @@ class IngestionService:
                 raise ExtractionError("document contains no extractable text")
             vectors: list[bytes] = []
             for i in range(0, len(spans), _EMBED_BATCH):
-                self._renew(claim, should_stop)
+                # Each batch is a checkpoint: stop if asked to, otherwise renew the lease.
+                if should_stop():
+                    raise _Stopping
+                self.queue.renew(claim)
                 batch = spans[i : i + _EMBED_BATCH]
                 embedded = self._embedder.embed_documents(
                     [embedding_input(span.text, span.heading) for span in batch]
                 )
                 vectors.extend(to_blob(vector) for vector in embedded)
-            self._complete(claim, extracted, spans, vectors)
-        except _ClaimLost:
+            self.queue.complete(
+                claim,
+                [self._chunk(claim.document_id, i, s, vectors[i]) for i, s in enumerate(spans)],
+                title=extracted.title,
+                content_type=extracted.content_type,
+                text=extracted.text,
+                metadata_=extracted.metadata,
+                num_chunks=len(spans),
+            )
+        except ClaimLost:
             logger.warning("ingest.claim_lost", extra=log)
             return ProcessOutcome("lost")
         except _Stopping:
-            self._release(claim)
+            self.queue.release(claim)
             logger.info("ingest.released", extra=log)
             return ProcessOutcome("released")
         except Exception as exc:
             code, message, expected = _failure_reason(exc)
-            self._fail(claim, code, message)
+            self.queue.fail(claim, code, message)
             logger.log(
                 logging.WARNING if expected else logging.ERROR,
                 "ingest.failed",
@@ -366,35 +296,7 @@ class IngestionService:
         )
         return ProcessOutcome("ready")
 
-    # --- Reading state ---
-
-    def get(self, document_id: str) -> Document | None:
-        with self._sessions() as session:
-            return session.get(Document, document_id)
-
-    def status_counts(self) -> dict[str, int]:
-        counts = dict.fromkeys(get_args(DocumentStatus), 0)
-        with self._sessions() as session:
-            rows = session.execute(
-                select(Document.status, func.count()).group_by(Document.status)
-            ).all()
-        counts.update(dict(rows))
-        return counts
-
-    def index_stats(self) -> dict[str, int]:
-        """Document and chunk counts, and chunks embedded by a model other than the current one."""
-        with self._sessions() as session:
-            documents = session.scalar(select(func.count()).select_from(Document)) or 0
-            chunks = session.scalar(select(func.count()).select_from(Chunk)) or 0
-            stale = (
-                session.scalar(
-                    select(func.count())
-                    .select_from(Chunk)
-                    .where(Chunk.embedding_model != self._embedder.model_id)
-                )
-                or 0
-            )
-        return {"documents": documents, "chunks": chunks, "stale_chunks": stale}
+    # --- Maintenance ---
 
     def reindex(self, batch_size: int = 256) -> int:
         """Re-embed chunks whose embedding model differs from the configured one."""
@@ -419,161 +321,6 @@ class IngestionService:
                 updated += len(batch)
         logger.info("reindex.completed", extra={"chunks": updated})
         return updated
-
-    # --- State transitions: each is a compare-and-set on the document row ---
-
-    @staticmethod
-    def _set(
-        session: Session,
-        document_id: str,
-        conditions: Sequence[ColumnElement[bool]],
-        **values: Any,
-    ) -> bool:
-        result = cast(
-            "CursorResult[Any]",
-            session.execute(
-                update(Document)
-                .where(Document.id == document_id, *conditions)
-                .values(**values)
-                .execution_options(synchronize_session=False)
-            ),
-        )
-        return result.rowcount == 1
-
-    def _requeued(self, now: datetime) -> dict[str, Any]:
-        return {
-            "status": "queued",
-            "error_code": None,
-            "error_message": None,
-            "attempts": 0,
-            "claim_token": None,
-            "lease_expires_at": None,
-            "updated_at": now,
-        }
-
-    @staticmethod
-    def _failed(code: str, message: str, now: datetime) -> dict[str, Any]:
-        return {
-            "status": "failed",
-            "error_code": code,
-            "error_message": message,
-            "claim_token": None,
-            "lease_expires_at": None,
-            "updated_at": now,
-        }
-
-    def _claim(
-        self,
-        session: Session,
-        document_id: str,
-        status: str,
-        token: str | None,
-        attempts: int,
-    ) -> Claim | None:
-        now = utcnow()
-        new_token = str(uuid.uuid4())
-        claimed = self._set(
-            session,
-            document_id,
-            [Document.status == status, _token_is(token)],
-            status="processing",
-            claim_token=new_token,
-            attempts=attempts + 1,
-            lease_expires_at=now + self._lease,
-            error_code=None,
-            error_message=None,
-            updated_at=now,
-        )
-        return Claim(document_id, new_token, attempts + 1) if claimed else None
-
-    def _claim_queued(self, document_id: str) -> Claim | None:
-        with self._sessions() as session:
-            attempts = session.scalar(
-                select(Document.attempts).where(
-                    Document.id == document_id, Document.status == "queued"
-                )
-            )
-            if attempts is None:
-                return None
-            claim = self._claim(session, document_id, "queued", None, attempts)
-            session.commit()
-        return claim
-
-    def _renew(self, claim: Claim, should_stop: Callable[[], bool]) -> None:
-        if should_stop():
-            raise _Stopping
-        try:
-            with self._sessions() as session:
-                renewed = self._set(
-                    session,
-                    claim.document_id,
-                    [Document.claim_token == claim.token],
-                    lease_expires_at=utcnow() + self._lease,
-                )
-                session.commit()
-        except OperationalError:
-            # Usually "database is locked". Skipping one renewal is safe: if the lease lapses
-            # and another worker takes over, this worker's completion is discarded.
-            logger.warning("ingest.lease_renewal_failed", extra={"document_id": claim.document_id})
-            return
-        if not renewed:
-            raise _ClaimLost
-
-    def _complete(
-        self,
-        claim: Claim,
-        extracted: ExtractedDocument,
-        spans: list[ChunkSpan],
-        vectors: list[bytes],
-    ) -> None:
-        with self._sessions() as session:
-            if not self._set(
-                session,
-                claim.document_id,
-                [Document.claim_token == claim.token],
-                status="ready",
-                title=extracted.title,
-                content_type=extracted.content_type,
-                text=extracted.text,
-                metadata_=extracted.metadata,
-                num_chunks=len(spans),
-                claim_token=None,
-                lease_expires_at=None,
-                updated_at=utcnow(),
-            ):
-                raise _ClaimLost
-            session.add_all(
-                self._chunk(claim.document_id, i, span, vectors[i]) for i, span in enumerate(spans)
-            )
-            session.execute(
-                delete(DocumentFile).where(DocumentFile.document_id == claim.document_id)
-            )
-            session.commit()
-
-    def _fail(self, claim: Claim, code: str, message: str) -> None:
-        with self._sessions() as session:
-            self._set(
-                session,
-                claim.document_id,
-                [Document.claim_token == claim.token],
-                **self._failed(code, message, utcnow()),
-            )
-            session.commit()
-
-    def _release(self, claim: Claim) -> None:
-        """Back to the queue, without counting the attempt: the worker chose to stop."""
-        with self._sessions() as session:
-            self._set(
-                session,
-                claim.document_id,
-                [Document.claim_token == claim.token],
-                status="queued",
-                attempts=Document.attempts - 1,
-                claim_token=None,
-                lease_expires_at=None,
-                updated_at=utcnow(),
-            )
-            session.commit()
 
     def _chunk(self, document_id: str, ordinal: int, span: ChunkSpan, embedding: bytes) -> Chunk:
         return Chunk(

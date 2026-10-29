@@ -129,7 +129,7 @@ def cmd_reindex(_: argparse.Namespace, settings: Settings) -> int:
     container = _container(settings)
     try:
         updated = container.ingestion.reindex()
-        print(json.dumps({"reembedded_chunks": updated, **container.ingestion.index_stats()}))
+        print(json.dumps({"reembedded_chunks": updated, **container.index_stats()}))
     finally:
         container.close()
     return 0

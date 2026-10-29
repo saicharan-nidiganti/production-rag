@@ -106,7 +106,7 @@ def evaluation_index(
         try:
             for path in files:
                 container.ingestion.ingest(path.name, path.read_bytes())
-            yield IndexedCorpus(container, files, container.ingestion.index_stats())
+            yield IndexedCorpus(container, files, container.index_stats())
         finally:
             container.close()
 

@@ -47,7 +47,7 @@ class IngestionWorker:
 
     def stop(self, timeout_s: float = 10.0) -> None:
         self._stopping.set()
-        self._service.work_available.set()  # wake idle threads
+        self._service.queue.work_available.set()  # wake idle threads
         for thread in self._threads:
             thread.join(timeout_s)
         self._threads = [thread for thread in self._threads if thread.is_alive()]
@@ -56,10 +56,10 @@ class IngestionWorker:
         backoff = self._poll_interval_s
         while not self._stopping.is_set():
             try:
-                claim = self._service.claim_next()
+                claim = self._service.queue.claim_next()
                 if claim is None:
-                    self._service.work_available.wait(self._poll_interval_s)
-                    self._service.work_available.clear()
+                    self._service.queue.work_available.wait(self._poll_interval_s)
+                    self._service.queue.work_available.clear()
                     continue
                 self._service.process(claim, should_stop=self._stopping.is_set)
                 backoff = self._poll_interval_s

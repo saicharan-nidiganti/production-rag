@@ -9,7 +9,6 @@ from production_rag.ingestion.extract import (
     validate_upload,
 )
 from production_rag.ingestion.pipeline import (
-    Claim,
     DocumentStateError,
     DocumentTooLargeError,
     IngestionService,
@@ -17,6 +16,7 @@ from production_rag.ingestion.pipeline import (
     ProcessOutcome,
     embedding_input,
 )
+from production_rag.ingestion.queue import Claim, IngestionQueue
 from production_rag.ingestion.worker import IngestionWorker
 
 __all__ = [
@@ -27,6 +27,7 @@ __all__ = [
     "DocumentTooLargeError",
     "ExtractionError",
     "IngestResult",
+    "IngestionQueue",
     "IngestionService",
     "IngestionWorker",
     "ProcessOutcome",

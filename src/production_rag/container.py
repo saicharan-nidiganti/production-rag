@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from production_rag.config import Settings
 from production_rag.db import create_db_engine, session_factory
+from production_rag.db.documents import DocumentRepository
 from production_rag.embeddings import Embedder, build_embedder
 from production_rag.generation import Generator, build_generator
 from production_rag.ingestion import IngestionService
@@ -23,8 +24,12 @@ class Container:
     engine: Engine
     sessions: sessionmaker[Session]
     embedder: Embedder
+    documents: DocumentRepository
     ingestion: IngestionService
     rag: RagService
+
+    def index_stats(self) -> dict[str, int]:
+        return self.documents.index_stats(self.embedder.model_id)
 
     def close(self) -> None:
         self.engine.dispose()
@@ -47,6 +52,7 @@ def build_container(settings: Settings, *, generator: Generator | None = None) -
         engine=engine,
         sessions=sessions,
         embedder=embedder,
+        documents=DocumentRepository(sessions),
         ingestion=IngestionService(sessions, embedder, settings),
         rag=RagService(retriever, generator or build_generator(settings), settings),
     )
