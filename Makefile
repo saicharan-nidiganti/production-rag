@@ -8,11 +8,11 @@
 UV ?= uv
 .DEFAULT_GOAL := help
 
-.PHONY: help install lock-check lint format typecheck test eval-gate smoke package check 	live-test docs-lint serve clean
+.PHONY: help install lock-check lint format typecheck test eval-gate smoke package check \
+	live-test docs-lint serve clean
 
 help: ## List the targets
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-11s %s
-", $$1, $$2}'
+	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-11s %s\n", $$1, $$2}'
 
 install: ## Install the locked dependencies, all extras and the dev tools
 	$(UV) sync --frozen --all-extras
@@ -35,7 +35,8 @@ test: ## Offline test suite with coverage; live and paid tests are skipped
 	$(UV) run python -m pytest --cov --cov-report=term
 
 eval-gate: ## Retrieval regression gate in the offline configuration, as CI runs it
-	RAG_EMBEDDING_PROVIDER=hashing RAG_RERANKER=none $(UV) run rag eval 	  --thresholds eval/thresholds.json --output eval/reports
+	RAG_EMBEDDING_PROVIDER=hashing RAG_RERANKER=none $(UV) run rag eval \
+	  --thresholds eval/thresholds.json --output eval/reports
 
 smoke: ## Start a real server; check readiness, ingestion, search and a cited answer
 	$(UV) run python scripts/smoke_test.py
@@ -44,7 +45,12 @@ package: ## Build sdist and wheel, then install the wheel alone and run the CLI 
 	rm -rf dist
 	$(UV) build
 	$(UV) run python -m zipfile -l dist/*.whl | grep -q "production_rag/db/migrations/versions/"
-	cd "$$(mktemp -d)" && export RAG_DATABASE_URL=sqlite:///./package-check.db && 	  $(UV) run --isolated --no-project --with "$(CURDIR)"/dist/*.whl rag db upgrade && 	  $(UV) run --isolated --no-project --with "$(CURDIR)"/dist/*.whl 	    rag ingest "$(CURDIR)/eval/corpus/deployment-runbook.md" && 	  $(UV) run --isolated --no-project --with "$(CURDIR)"/dist/*.whl 	    rag search "rollback command" | grep -q "deployment-runbook.md"
+	cd "$$(mktemp -d)" && export RAG_DATABASE_URL=sqlite:///./package-check.db && \
+	  $(UV) run --isolated --no-project --with "$(CURDIR)"/dist/*.whl rag db upgrade && \
+	  $(UV) run --isolated --no-project --with "$(CURDIR)"/dist/*.whl \
+	    rag ingest "$(CURDIR)/eval/corpus/deployment-runbook.md" && \
+	  $(UV) run --isolated --no-project --with "$(CURDIR)"/dist/*.whl \
+	    rag search "rollback command" | grep -q "deployment-runbook.md"
 	@echo "package check passed"
 
 check: lock-check lint typecheck test eval-gate ## Everything the CI quality job checks, except the smoke test
