@@ -74,6 +74,15 @@ def test_plan_counts_the_exact_requests_and_never_generates() -> None:
 
     # 10 on-topic unanswerable questions plus the 3 answerable injection questions.
     assert len(plan.cases) == 13
+    # 10 on-topic unanswerable and 4 injection questions; t-par-06 is both.
+    assert plan.categories == {"unanswerable-ontopic": 10, "injection": 4, "conflicting": 1}
+    assert plan.in_several_categories == {
+        "t-par-02": ["injection", "conflicting"],
+        "t-par-06": ["unanswerable-ontopic", "injection"],
+    }
+    assert plan.retrieval["embedding_model"] == "hashing-v1-d512"
+    assert "generator" not in plan.retrieval  # the plan's index never generates
+    assert plan.to_dict()["categories"] == plan.categories
     counted = client.messages.counted
     assert len(counted) == len(plan.calls) > 0
     assert plan.token_source == "count_tokens"
@@ -178,6 +187,12 @@ def test_cli_plan_runs_without_allow_paid_and_prints_the_command(
     assert "--allow-paid" in out and "--tags unanswerable-ontopic,injection" in out
     assert "RAG_ANTHROPIC_MAX_TOKENS=16000" in out
     assert "| t-par-01 | test | yes |" in out
+    assert "(claude-opus-5-5, effort medium, max_tokens 16000)" in out
+    assert "retrieval:        hashing-v1-d512, hybrid, top_k 5; no reranker" in out
+    assert (
+        "categories:       unanswerable-ontopic 8, injection 4, conflicting 1 "
+        "(t-par-02 is injection + conflicting; t-par-06 is unanswerable-ontopic + injection)"
+    ) in out
 
 
 def test_selection_filters_cases() -> None:

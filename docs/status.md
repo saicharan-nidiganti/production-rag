@@ -71,6 +71,23 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
   processed 12 uploads exactly once each.
 - **Fixed:** document timestamps were returned without a time zone when read
   back from SQLite; they are now always UTC (`Z`).
+- **Paid-evaluation plan re-run, free.** `rag eval --plan` now also prints the
+  retrieval configuration and the questions per category, naming those in two.
+  Focused run: 13 questions (10 on-topic unanswerable and 4 injection;
+  `t-par-06` is both), 13 calls, about 14,565 input tokens (estimate), $0.14 to
+  $0.45, worst case $4.22. `--count-tokens` was refused again: the account
+  still has no credit. Nothing was generated; Claude's abstention and injection
+  resistance remain **unverified**.
+
+Checks at the end of the session:
+
+| Check | Result |
+| --- | --- |
+| Ruff lint and format, mypy `--strict` (src and scripts) | Pass |
+| pytest (offline) | 244 passed, 97% coverage; live and paid tests skipped. The background-ingestion and API tests passed 15 runs in a row |
+| Live gates, free (`thresholds.fastembed.json`, `thresholds.reranked.json` with 5 candidates) | Pass |
+| Real-process checks (restart, hard kill, two uvicorn workers) | Pass |
+| CI on GitHub (Python 3.12 and 3.14, gitleaks, pip-audit, markdownlint) | Pass on every push |
 
 ### Session 4 — Paid-evaluation preparation (2026-10-29)
 
@@ -181,7 +198,7 @@ Checks at the end of the session:
 | D-1 | How changes reach GitHub | **Resolved 2026-10-29:** sessions on the developer PC commit and push verified changes directly to `main` | — |
 | D-2 | Generation model provider | **Resolved 2026-10-29:** Anthropic as the configurable hosted provider, offline mode kept ([ADR-0003](decisions/0003-generation-provider-claude.md), accepted). Live behavior is verified only once D-4's run passes | — |
 | D-3 | Storage for v0 | **Resolved 2026-10-29:** SQLite for v0 ([ADR-0002](decisions/0002-v0-storage-and-scope.md), accepted); PostgreSQL + pgvector arrives with accounts in Phase 5 | — |
-| D-4 | Authorize the first paid Claude evaluation. Focused run (on-topic unanswerable + injection): 13 calls, est. $0.14–0.45, worst case $4.22. Full golden v2: 86 calls, est. $0.91–2.98, worst case $27.92. Commands in [evaluation.md](evaluation.md#paid-evaluation-with-claude) | Add credit, then authorize the focused run; run the full set if it passes | Next milestone |
+| D-4 | Authorize the first paid Claude evaluation. Focused run (on-topic unanswerable + injection): 13 calls, est. $0.14–0.45, worst case $4.22. Full golden v2: 86 calls, est. $0.91–2.97, worst case $27.91. Commands in [evaluation.md](evaluation.md#paid-evaluation-with-claude) | Add credit, then authorize the focused run; run the full set if it passes | Next milestone |
 
 ## Blockers and risks
 

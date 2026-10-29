@@ -246,20 +246,24 @@ correct answers.
 
 ### Commands, calls and cost
 
-`rag eval --plan` prints all of this for the current configuration. Add `--count-tokens` for
-exact input counts once the account has credit. The figures below come from the estimate mode
-(characters ÷ 3, deliberately high), at `claude-opus-5-5` list prices ($4 input and $20 output
-per million tokens), with 300 to 1,500 output tokens per answer.
+`rag eval --plan` prints all of this for the current configuration: the generation and
+retrieval settings, the questions per category (and those in two), the calls, tokens, cost and
+the exact command. Add `--count-tokens` for exact input counts once the account has credit
+(re-checked 2026-10-29: still refused for lack of credit). The figures below come from the
+estimate mode (characters ÷ 3, deliberately high), at `claude-opus-5-5` list prices ($4 input
+and $20 output per million tokens), with 300 to 1,500 output tokens per answer, and reranking 5
+candidates.
 
 | Run | Questions | Claude calls | Estimated cost | Worst case (16,000 output tokens per answer) |
 | --- | --- | --- | --- | --- |
 | Focused (recommended first) | 13 | 13 | $0.14 to $0.45 | $4.22 |
-| Full golden v2 | 94 | 86 (8 abstain at retrieval) | $0.91 to $2.98 | $27.92 |
+| Full golden v2 | 94 | 86 (8 abstain at retrieval) | $0.91 to $2.97 | $27.91 |
 
-Focused run: on-topic unanswerable and injection cases.
+Focused run: 10 on-topic unanswerable and 4 injection cases, 13 questions because `t-par-06`
+is both. About 14,600 input tokens.
 
 ```bash
-RAG_EMBEDDING_PROVIDER=fastembed RAG_RERANKER=fastembed RAG_GENERATOR=anthropic RAG_ANTHROPIC_MODEL=claude-opus-5-5 RAG_ANTHROPIC_EFFORT=medium RAG_ANTHROPIC_MAX_TOKENS=16000 uv run rag eval --generation --allow-paid --dataset eval/golden_v2.jsonl   --tags unanswerable-ontopic,injection --thresholds eval/thresholds.claude.json --output eval/reports
+RAG_EMBEDDING_PROVIDER=fastembed RAG_RERANKER=fastembed RAG_GENERATOR=anthropic RAG_ANTHROPIC_MODEL=claude-opus-5-5 RAG_ANTHROPIC_EFFORT=medium RAG_ANTHROPIC_MAX_TOKENS=16000 uv run rag eval --generation --allow-paid --dataset eval/golden_v2.jsonl --tags unanswerable-ontopic,injection --thresholds eval/thresholds.claude.json --output eval/reports
 ```
 
 Full run: the same command without `--tags`. Lowering `RAG_ANTHROPIC_MAX_TOKENS` (for example

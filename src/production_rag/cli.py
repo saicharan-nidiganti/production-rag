@@ -233,9 +233,31 @@ def _print_plan(args: argparse.Namespace, settings: Settings, tags: list[str] | 
     print("Generation evaluation plan (nothing was generated)")
     print(
         f"  generator:        {plan.generator}"
-        + (f" ({plan.model}, effort {plan.effort})" if plan.paid else "")
+        + (
+            f" ({plan.model}, effort {plan.effort}, max_tokens {plan.max_tokens})"
+            if plan.paid
+            else ""
+        )
+    )
+    r = plan.retrieval
+    reranker = (
+        f"reranker {r['reranker']} on {r['rerank_candidates']} candidates"
+        if r["reranker"] != "none"
+        else "no reranker"
+    )
+    print(
+        f"  retrieval:        {r['embedding_model']}, {r['retrieval_mode']}, top_k {r['top_k']}; "
+        f"{reranker}; abstains below cosine {r['abstain_threshold']}"
+        + (
+            f" or rerank score {r['rerank_abstain_threshold']}"
+            if r["rerank_abstain_threshold"] is not None
+            else ""
+        )
     )
     print(f"  questions:        {summary['cases']}")
+    categories = ", ".join(f"{tag} {n}" for tag, n in plan.categories.items())
+    several = "; ".join(f"{i} is {' + '.join(t)}" for i, t in plan.in_several_categories.items())
+    print(f"  categories:       {categories}" + (f" ({several})" if several else ""))
     abstained = summary["abstained_at_retrieval"]
     print(
         f"  generator calls:  {summary['generator_calls']} "

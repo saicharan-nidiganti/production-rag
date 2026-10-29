@@ -10,6 +10,7 @@ request, without a billed call. It never calls ``generate``.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,7 +20,7 @@ import anthropic
 
 from production_rag.config import Settings
 from production_rag.evaluation.dataset import EvalCase, load_dataset
-from production_rag.evaluation.runner import evaluation_index, select_cases
+from production_rag.evaluation.runner import config_snapshot, evaluation_index, select_cases
 from production_rag.generation import ExtractiveGenerator
 from production_rag.generation.anthropic_generator import AnthropicGenerator
 
@@ -75,10 +76,20 @@ class GenerationPlan:
     token_source: str  # "count_tokens" (exact, free API) or "estimate" (characters / 3)
     cases: list[PlannedCase] = field(default_factory=list)
     prices_per_mtok: tuple[float, float] | None = None
+    retrieval: dict[str, Any] = field(default_factory=dict)  # as the run will configure it
 
     @property
     def calls(self) -> list[PlannedCase]:
         return [c for c in self.cases if c.calls_generator]
+
+    @property
+    def categories(self) -> dict[str, int]:
+        """Selected questions per tag, most common first. A question can carry two tags."""
+        return dict(Counter(tag for c in self.cases for tag in c.tags).most_common())
+
+    @property
+    def in_several_categories(self) -> dict[str, list[str]]:
+        return {c.id: c.tags for c in self.cases if len(c.tags) > 1}
 
     @property
     def input_tokens(self) -> int:
@@ -116,6 +127,9 @@ class GenerationPlan:
             "abstained_at_retrieval": len(self.cases) - len(self.calls),
             "input_tokens": self.input_tokens,
             "cost_usd": self.cost_usd(),
+            "retrieval": self.retrieval,
+            "categories": self.categories,
+            "in_several_categories": self.in_several_categories,
             "planned": [c.__dict__ for c in self.cases],
         }
 
@@ -144,6 +158,9 @@ def plan_generation(
     )
     # The index's own generator is the offline one: nothing in this function can generate.
     with evaluation_index(settings, corpus_dir, generator=ExtractiveGenerator()) as index:
+        plan.retrieval = {
+            k: v for k, v in config_snapshot(index.container).items() if k != "generator"
+        }
         rag = index.container.rag
         for case in cases:
             result = rag.search(case.question)
