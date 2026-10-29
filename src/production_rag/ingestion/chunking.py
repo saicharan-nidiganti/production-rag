@@ -8,6 +8,7 @@ back to its exact source span.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -24,6 +25,18 @@ class ChunkSpan:
     text: str
     heading: str | None
     page: int | None
+
+
+def chunk_key(content_hash: str, start: int, end: int) -> str:
+    """A chunk's stable identifier: a hash of the document's content and the chunk's span.
+
+    Re-ingesting identical bytes with the same chunk settings yields the same keys, even
+    after the document was deleted and its database ids changed. Different content always
+    yields different keys; a different chunk size or overlap changes the keys of the
+    chunks whose spans move. Two chunks share a key only if they cover the same text of the
+    same content.
+    """
+    return hashlib.sha256(f"{content_hash}:{start}:{end}".encode()).hexdigest()[:32]
 
 
 def chunk_document(

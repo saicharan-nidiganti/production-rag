@@ -34,7 +34,7 @@ def test_upgrade_creates_schema_fts_and_triggers(migrated_settings: Settings) ->
         assert generation == 0
         assert fk == 1
         assert is_at_head(engine)
-        assert current_revision(engine) == head_revision() == "0002"
+        assert current_revision(engine) == head_revision() == "0003"
     finally:
         engine.dispose()
 

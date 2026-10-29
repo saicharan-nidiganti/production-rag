@@ -183,7 +183,11 @@ stateDiagram-v2
    the window: a paragraph break, else a sentence end, else whitespace, else a
    hard cut. Consecutive chunks overlap by up to `RAG_CHUNK_OVERLAP` characters
    (default 150), and a chunk starts on a word boundary where possible.
-   `text[start:end] == chunk.text` is a tested invariant.
+   `text[start:end] == chunk.text` is a tested invariant, and so is
+   determinism: the same text and settings give the same chunks. Each chunk
+   gets a stable `chunk_key`, a hash of the document's content hash and its
+   span. Re-ingesting identical bytes reproduces every key, even though row ids
+   change ([test_chunk_keys.py](../tests/integration/test_chunk_keys.py)).
 7. **Embed** the chunk text, prefixed with its heading path for context, in
    batches of 64.
 8. **Complete** in one transaction: the document becomes `ready` with its
@@ -200,7 +204,7 @@ CLI and the evaluation runner process in the calling thread (`ingest`).
 ## 5. Storage
 
 SQLite through SQLAlchemy 2, with the schema owned by Alembic migrations
-([versions/](../src/production_rag/db/migrations/versions/): 0001 initial schema, 0002 ingestion status).
+([versions/](../src/production_rag/db/migrations/versions/): 0001 initial schema, 0002 ingestion status, 0003 stable chunk keys).
 [ADR-0002](decisions/0002-v0-storage-and-scope.md) (accepted) explains why v0
 departs from ADR-0001's PostgreSQL design.
 
@@ -208,7 +212,7 @@ departs from ADR-0001's PostgreSQL design.
 | --- | --- |
 | `documents` | One row per unique upload: name, title, type, content hash, size, chunk count, extracted text, metadata, and processing state (status, error code and message, attempts, claim token, lease expiry, last status change) |
 | `document_files` | The uploaded bytes of documents not yet ready |
-| `chunks` | Text, character offsets, heading path, page, embedding (float32 little-endian blob) and the embedding model id |
+| `chunks` | Text, character offsets, stable chunk key, heading path, page, embedding (float32 little-endian blob) and the embedding model id |
 | `chunks_fts` | External-content FTS5 index over `chunks.text`, using the Porter stemmer |
 | `index_state` | Single row with a `generation` counter |
 

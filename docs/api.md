@@ -218,6 +218,7 @@ discards that work.
   "hits": [
     {
       "chunk_id": 3,
+      "chunk_key": "f5fbe50623bae00f1afdde1e88aabe06",
       "document_id": "cb006f27-b49b-4798-b70c-cb6d8d900c30",
       "document_title": "Public API Usage Limits",
       "source_name": "api-rate-limits.md",
@@ -245,6 +246,13 @@ reranker; with one, `timings_ms.rerank` reports the reranking time, which is
 included in `timings_ms.retrieval`. `start_char` and `end_char` locate the chunk in the
 document's extracted text.
 
+Use `chunk_key`, not `chunk_id`, to refer to a passage over time. `chunk_id` is a database
+row id: it changes when a document is deleted and uploaded again, and SQLite may reuse it for
+another chunk. `chunk_key` is derived from the document's content hash and the chunk's
+character span, so identical bytes chunked with the same `RAG_CHUNK_SIZE` and
+`RAG_CHUNK_OVERLAP` always get the same keys. Changed content gets new keys, and changing the
+chunk settings changes the keys of every chunk whose span moves.
+
 ## Question answering
 
 ### `POST /v1/query`
@@ -266,6 +274,7 @@ document's extracted text.
   "citations": [
     {
       "chunk_id": 3,
+      "chunk_key": "f5fbe50623bae00f1afdde1e88aabe06",
       "document_id": "cb006f27-b49b-4798-b70c-cb6d8d900c30",
       "document_title": "Public API Usage Limits",
       "source_name": "api-rate-limits.md",

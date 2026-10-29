@@ -20,7 +20,8 @@ from production_rag.retrieval.vector import VectorIndex
 
 @dataclass(frozen=True)
 class RetrievedChunk:
-    chunk_id: int
+    chunk_id: int  # database row id; changes if the document is deleted and re-ingested
+    chunk_key: str  # stable for identical content and chunk settings
     document_id: str
     document_title: str
     source_name: str
@@ -130,6 +131,7 @@ class Retriever:
             results.append(
                 RetrievedChunk(
                     chunk_id=chunk.id,
+                    chunk_key=chunk.chunk_key,
                     document_id=chunk.document_id,
                     document_title=title,
                     source_name=source,

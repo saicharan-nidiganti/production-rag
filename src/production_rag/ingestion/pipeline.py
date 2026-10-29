@@ -27,7 +27,7 @@ from production_rag.config import Settings
 from production_rag.db.documents import DocumentRepository
 from production_rag.db.models import Chunk, Document, DocumentFile, utcnow
 from production_rag.embeddings import Embedder, to_blob
-from production_rag.ingestion.chunking import ChunkSpan, chunk_document
+from production_rag.ingestion.chunking import ChunkSpan, chunk_document, chunk_key
 from production_rag.ingestion.queue import Claim, ClaimLost, IngestionQueue
 from production_rag.parsing.extract import (
     ExtractionError,
@@ -234,6 +234,7 @@ class IngestionService:
                 if document is None:
                     raise ClaimLost
                 filename = document.source_name
+                content_hash = document.content_hash
                 data = upload.data if upload is not None else None
             if data is None:
                 raise UploadMissingError(
@@ -261,7 +262,10 @@ class IngestionService:
                 vectors.extend(to_blob(vector) for vector in embedded)
             self.queue.complete(
                 claim,
-                [self._chunk(claim.document_id, i, s, vectors[i]) for i, s in enumerate(spans)],
+                [
+                    self._chunk(claim.document_id, content_hash, i, span, vectors[i])
+                    for i, span in enumerate(spans)
+                ],
                 title=extracted.title,
                 content_type=extracted.content_type,
                 text=extracted.text,
@@ -324,9 +328,17 @@ class IngestionService:
         logger.info("reindex.completed", extra={"chunks": updated})
         return updated
 
-    def _chunk(self, document_id: str, ordinal: int, span: ChunkSpan, embedding: bytes) -> Chunk:
+    def _chunk(
+        self,
+        document_id: str,
+        content_hash: str,
+        ordinal: int,
+        span: ChunkSpan,
+        embedding: bytes,
+    ) -> Chunk:
         return Chunk(
             document_id=document_id,
+            chunk_key=chunk_key(content_hash, span.start, span.end),
             ordinal=ordinal,
             text=span.text,
             start_char=span.start,

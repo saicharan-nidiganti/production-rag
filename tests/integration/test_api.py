@@ -201,6 +201,7 @@ def test_search_and_query(client: TestClient) -> None:
     assert search.status_code == 200
     hits = search.json()["hits"]
     assert len(hits) == 2 and "Rollback" in hits[0]["heading"]
+    assert all(len(hit["chunk_key"]) == 32 for hit in hits)
     assert "retrieval" in search.json()["timings_ms"]
 
     query = client.post("/v1/query", json={"question": "How long does the canary run?"})

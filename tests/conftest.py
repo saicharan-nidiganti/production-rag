@@ -98,6 +98,7 @@ def make_chunk(
 ) -> RetrievedChunk:
     return RetrievedChunk(
         chunk_id=chunk_id,
+        chunk_key=f"key-{chunk_id}",
         document_id=f"doc-{chunk_id}",
         document_title="Deployment Runbook",
         source_name=source,

@@ -85,6 +85,9 @@ class Chunk(Base):
     document_id: Mapped[str] = mapped_column(
         ForeignKey("documents.id", ondelete="CASCADE"), index=True
     )
+    # Stable across re-ingestion of identical content (ingestion/chunking.py: chunk_key);
+    # `id` is a database row id and changes when a document is deleted and re-ingested.
+    chunk_key: Mapped[str] = mapped_column(String(32), index=True, unique=True)
     ordinal: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text)
     start_char: Mapped[int] = mapped_column(Integer)

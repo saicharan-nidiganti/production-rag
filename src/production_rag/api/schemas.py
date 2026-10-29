@@ -87,7 +87,8 @@ class SearchRequest(BaseModel):
 
 
 class SearchHit(BaseModel):
-    chunk_id: int
+    chunk_id: int = Field(description="Row id; changes if the document is re-ingested.")
+    chunk_key: str = Field(description="Stable for identical content and chunk settings.")
     document_id: str
     document_title: str
     source_name: str
@@ -105,6 +106,7 @@ class SearchHit(BaseModel):
     def from_chunk(cls, chunk: RetrievedChunk) -> SearchHit:
         return cls(
             chunk_id=chunk.chunk_id,
+            chunk_key=chunk.chunk_key,
             document_id=chunk.document_id,
             document_title=chunk.document_title,
             source_name=chunk.source_name,
@@ -148,6 +150,7 @@ class QueryRequest(BaseModel):
 
 class CitationOut(BaseModel):
     chunk_id: int
+    chunk_key: str
     document_id: str
     document_title: str
     source_name: str
@@ -184,6 +187,7 @@ class QueryResponse(BaseModel):
             citations=[
                 CitationOut(
                     chunk_id=c.chunk.chunk_id,
+                    chunk_key=c.chunk.chunk_key,
                     document_id=c.chunk.document_id,
                     document_title=c.chunk.document_title,
                     source_name=c.chunk.source_name,
