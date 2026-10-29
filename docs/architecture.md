@@ -439,6 +439,38 @@ security as defense in depth) are listed in ADR-0001 §10 and
   memory, which is comfortable to about 100k chunks per process.
 - Retrieval-level abstention can't recognize on-topic questions the corpus
   doesn't answer; only the generator can decline those.
-- Ingestion is synchronous. Large PDFs block a worker for the duration.
+- Uploads are processed in the background by one worker thread per process by
+  default, so a large PDF delays the documents queued behind it.
 - No OCR: scanned PDFs without a text layer are rejected as having no
   extractable text.
+
+## 11. Technology compatibility assessment
+
+Whether each technology choice fits the selected architecture: one local-first Python
+process on SQLite, serving the API and running ingestion
+([ADR-0002](decisions/0002-v0-storage-and-scope.md),
+[ADR-0006](decisions/0006-background-ingestion.md)). Checks marked *CI* run on every push on
+Python 3.12, 3.13 and 3.14 ([test_compatibility.py](../tests/unit/test_compatibility.py)
+and the suites named).
+
+| Requirement of the architecture | Technology | Verdict | Evidence |
+| --- | --- | --- | --- |
+| One supported Python range, stated once and tested at both ends | Python ≥ 3.12 | Compatible | `requires-python`, the lockfile, Ruff and mypy targets and CI's oldest job agree on 3.12 (CI); 3.12, 3.13 and 3.14 run the full suite (CI) |
+| Full-text search, cascading deletes and concurrent reads during writes, in one file | SQLite through Python's `sqlite3`: FTS5 with the Porter stemmer, foreign keys, WAL | Compatible | Capabilities checked directly (CI); migrations and retrieval tests (CI) |
+| Schema changes in place, reversible | Alembic on SQLite ≥ 3.35 (`DROP COLUMN` in downgrades) | Compatible | SQLite version checked (CI); upgrade and downgrade tests (CI). Batch migrations are avoided because they would cascade-delete chunks |
+| Several threads and processes sharing one database | SQLAlchemy 2 with a busy timeout; compare-and-set claims | Compatible within one machine | Two engines × two worker threads process each document once (CI); two uvicorn processes checked by hand. Not across machines, by design (ADR-0002) |
+| Blocking work without blocking the event loop | FastAPI with sync handlers (thread pool); ingestion in worker threads | Compatible | API and background-ingestion tests (CI); smoke test against a real server (CI) |
+| Untrusted parsing contained | pypdf in a separate process (ADR-0007) | Compatible | Isolation tests (CI); memory limits only on Linux and macOS |
+| Works offline, no credentials | Hashing embedder and extractive generator as defaults | Compatible | Defaults test and the whole suite run offline (CI) |
+| Local semantic models in the same process | fastembed and ONNX Runtime (optional extra) | Compatible | The extra installs and imports on every CI Python (CI); model quality gates run locally only, because they download models |
+| A hosted answer model behind a replaceable interface | Anthropic SDK 2.x, `Generator` protocol | Compatible in code; **not verified live** | Request building, citation mapping and error mapping tested with a fake client (CI). The API has never accepted a request from this code: the account has no credit |
+| Operating systems | Linux (CI), Windows (development) | Linux and Windows verified; **macOS not tested** | CI runs on Ubuntu; the suite, smoke test and real-process checks ran on Windows 11 |
+
+Open points:
+
+- [ADR-0001](decisions/0001-technology-stack.md) (Proposed) still says "Python 3.11+".
+  The code requires 3.12 and nothing tests 3.11. The owner should correct this when
+  deciding on ADR-0001.
+- Whether Claude accepts the exact request this code sends is unverified until the account
+  has credit. The free token-counting check (`rag eval --plan --count-tokens`) is the
+  first step.
