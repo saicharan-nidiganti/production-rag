@@ -468,9 +468,9 @@ and the suites named).
 
 Open points:
 
-- [ADR-0001](decisions/0001-technology-stack.md) (Proposed) still says "Python 3.11+".
-  The code requires 3.12 and nothing tests 3.11. The owner should correct this when
-  deciding on ADR-0001.
+- Resolved: [ADR-0001](decisions/0001-technology-stack.md) said "Python 3.11+"; the owner
+  amended it to 3.12+, which is what the package declares and CI tests. A test now keeps
+  ADR-0001 in step with `requires-python`.
 - Whether Claude accepts the exact request this code sends is unverified until the account
   has credit. The free token-counting check (`rag eval --plan --count-tokens`) is the
   first step.

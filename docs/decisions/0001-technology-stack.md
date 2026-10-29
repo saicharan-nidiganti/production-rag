@@ -6,6 +6,10 @@
   (storage), §9 (background ingestion) and §10 (authentication), and
   [ADR-0003](0003-generation-provider-claude.md) for §8 (generation provider).
   The rest awaits the owner's acceptance as the v1 plan.
+- **Amended 2026-10-29 (owner, issue #3):** §1 said Python 3.11+. The supported floor is
+  3.12: `requires-python` in `pyproject.toml`, the lockfile, the Ruff and mypy targets
+  and CI's oldest job all say 3.12, and CI tests 3.12, 3.13 and 3.14. Nothing declares or
+  tests 3.11. The status of this ADR is otherwise unchanged.
 - **Deciders:** Project owner, with engineering analysis
 - **Supersedes:** none
 
@@ -40,7 +44,7 @@ Constraints that shape the choices:
 | Python + Django | Batteries included, but heavier, and its ORM fits pgvector and custom SQL less well. |
 | Node.js (Express/Nest) | Good for APIs, but parsing, embedding and evaluation tooling would be split across two languages. |
 
-**Decision:** Python 3.11+, FastAPI, Pydantic v2, SQLAlchemy 2.0, Alembic. Dependencies managed with uv.
+**Decision:** Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy 2.0, Alembic. Dependencies managed with uv.
 
 ### 2. Storage and vector index
 

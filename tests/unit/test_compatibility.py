@@ -71,3 +71,10 @@ def test_the_semantic_extra_installs_on_this_python() -> None:
     else:
         pytest.importorskip("fastembed")
         pytest.importorskip("onnxruntime")
+
+
+def test_adr_0001_states_the_supported_python() -> None:
+    adr = (REPO_ROOT / "docs" / "decisions" / "0001-technology-stack.md").read_text(
+        encoding="utf-8"
+    )
+    assert f"**Decision:** Python {MINIMUM}+," in adr

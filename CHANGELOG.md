@@ -52,7 +52,8 @@ Detailed per-session notes and verification results are in
   failed generation per case instead of aborting the run.
 - Reference evaluation reports for every compared configuration
   (`eval/results/2026-10-29/`, written by `scripts/reference_results.py`).
-- ADR-0008 (Proposed): the architecture-style evaluation.
+- ADR-0008 (accepted): the architecture-style evaluation, confirming the local-first
+  modular monolith. ADR-0001's Python floor corrected from 3.11+ to 3.12+.
 
 ### Changed
 

@@ -39,6 +39,20 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 
 ## Session log
 
+### Session 9 — Owner decisions and the final pre-release review (2026-10-29)
+
+- **Issue #2:** the owner accepted ADR-0008 (architecture style). The rationale and the
+  alternatives are unchanged.
+- **Issue #3:** ADR-0001's Python requirement was corrected from 3.11+ to 3.12+. The
+  package metadata, the lockfile, the Ruff and mypy targets and CI all say 3.12. The code
+  parses under 3.11's grammar and uses no 3.12-only API found, so 3.11 is excluded
+  because it is neither declared nor tested, not because the code can't run on it. A test
+  keeps ADR-0001 in step with `requires-python`.
+- **Issue #27:** the owner accepted the environment-variable and `.env` design, with no
+  profiles, as satisfying "environment-aware" configuration.
+- The release checklist was re-run against the final commit; the results are in the
+  session report. Nothing is tagged.
+
 ### Session 8 — Closing the evidence gaps in the issue review (2026-10-29)
 
 Real changes for the acceptance criteria the review found unmet. Each test was

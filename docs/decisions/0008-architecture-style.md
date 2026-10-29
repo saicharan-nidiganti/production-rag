@@ -1,11 +1,11 @@
 # ADR-0008: Architecture style: a local-first modular monolith behind an API and a CLI
 
-- **Status:** Proposed, 2026-10-29. It records an evaluation the project never wrote
-  down (issue #2) and proposes the style already built. The owner accepted the parts
-  it rests on in [ADR-0002](0002-v0-storage-and-scope.md) (one process, SQLite, single
-  tenant); accepting this ADR confirms the style as a whole.
+- **Status:** Accepted by the project owner, 2026-10-29 (issue #2). Proposed the same
+  day; it records an evaluation the project never wrote down and confirms the style
+  already built, which rests on [ADR-0002](0002-v0-storage-and-scope.md) (one process,
+  SQLite, single tenant).
 - **Date:** 2026-10-29
-- **Deciders:** Project owner (pending), with engineering analysis
+- **Deciders:** Project owner, with engineering analysis
 - **Supersedes:** none
 
 ## Context
@@ -52,7 +52,7 @@ Against the criteria issue #2 names. "Evidence" points at what exists in this re
 | Portfolio value | Low: no service to show | High, but mostly infrastructure | High: the engineering is in retrieval, evaluation and reliability | — |
 | Risk of over-engineering | Low | High for one maintainer and one tenant | Low | — |
 
-## Decision (proposed)
+## Decision
 
 A **local-first modular monolith with an HTTP API and a CLI** (the hybrid):
 
