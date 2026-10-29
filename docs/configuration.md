@@ -23,8 +23,13 @@ An **empty** value (`RAG_API_KEY=`) means the variable is unset.
 | `RAG_MAX_PDF_PAGES` | `500` | PDFs with more pages are rejected. |
 | `RAG_CHUNK_SIZE` | `1000` | Maximum chunk length in characters (at least 100). |
 | `RAG_CHUNK_OVERLAP` | `150` | Characters shared by consecutive chunks; must be smaller than `RAG_CHUNK_SIZE`. |
+| `RAG_INGEST_WORKERS` | `1` | Background ingestion threads in each API process (0–16). `0` processes nothing in that process: uploads stay `queued` until a process with workers picks them up. More threads rarely help, because embedding already uses every CPU core. |
+| `RAG_INGEST_POLL_INTERVAL_S` | `2` | How often idle workers check for queued documents, in seconds. A process wakes its own workers on upload, so this mainly sets how quickly *other* processes pick up work and how long a crashed worker's documents wait after their lease lapses. |
+| `RAG_INGEST_LEASE_S` | `300` | A worker's claim on a document lapses this many seconds after its last renewal; another worker then takes the document over. Workers renew before each batch of 64 chunks, so this only needs to exceed the slowest single step (extracting a large PDF). |
+| `RAG_INGEST_MAX_ATTEMPTS` | `3` | Times a document may be interrupted (its worker stopped mid-way) before it is marked `failed` with code `interrupted`. Ordinary errors fail at once and are never retried automatically. |
 
-Changing chunking settings affects only documents ingested afterwards.
+Changing chunking settings affects only documents ingested afterwards. Processing states,
+recovery and retries are described in [operations.md](operations.md#background-ingestion).
 
 ## Embeddings
 

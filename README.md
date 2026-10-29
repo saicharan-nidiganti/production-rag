@@ -4,7 +4,7 @@ A production-oriented Retrieval-Augmented Generation system designed around reli
 
 Upload your documents, ask questions in plain language, and get answers grounded in those documents. Every answer cites the exact passages it came from, and the system says so when the documents don't contain the answer.
 
-> **Status:** the **v0 backend** is implemented: ingestion, hybrid retrieval with optional reranking, grounded generation with citations, an HTTP API, a CLI and an evaluation suite (94 questions with a held-out test split) gated in CI. Accounts, background ingestion, streaming and the web app are next. SQLite is the v0 store, and Anthropic is the configurable hosted answer provider, with an offline mode. Claude's live answer quality hasn't been measured yet. See [docs/status.md](docs/status.md) and the [roadmap](docs/roadmap.md).
+> **Status:** the **v0 backend** is implemented: ingestion, hybrid retrieval with optional reranking, grounded generation with citations, an HTTP API, a CLI and an evaluation suite (94 questions with a held-out test split) gated in CI. Uploads are processed in the background with a status per document. Accounts, streaming and the web app are next. SQLite is the v0 store, and Anthropic is the configurable hosted answer provider, with an offline mode. Claude's live answer quality hasn't been measured yet. See [docs/status.md](docs/status.md) and the [roadmap](docs/roadmap.md).
 
 ---
 
@@ -126,9 +126,10 @@ Without a `.env`, everything runs offline with lexical-only `hashing` embeddings
 | --- | --- | --- |
 | `GET` | `/health` | Liveness (no dependencies checked) |
 | `GET` | `/ready` | Readiness: database reachable and schema migrated; 503 otherwise |
-| `POST` | `/v1/documents` | Upload a file (multipart `file`). 201 when created, 200 for duplicate content |
-| `GET` | `/v1/documents` | List documents (`limit`, `offset`) |
-| `GET`, `DELETE` | `/v1/documents/{id}` | Fetch or delete a document and its chunks |
+| `POST` | `/v1/documents` | Upload a file (multipart `file`). 202 when queued for processing, 200 for content that is already ready |
+| `GET` | `/v1/documents` | List documents (`limit`, `offset`, `status`) |
+| `GET`, `DELETE` | `/v1/documents/{id}` | Fetch a document with its processing status (`queued`, `processing`, `ready`, `failed` with a reason), or delete it and its chunks |
+| `POST` | `/v1/documents/{id}/retry` | Queue a failed document again |
 | `POST` | `/v1/search` | `{"query", "top_k"?, "mode"?}` returns ranked chunks with scores |
 | `POST` | `/v1/query` | `{"question", "top_k"?, "mode"?}` returns an answer, segments, citations, retrieved chunks and timings |
 

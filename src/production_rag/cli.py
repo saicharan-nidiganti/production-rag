@@ -63,6 +63,7 @@ def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
                         "path": str(path),
                         "document_id": doc.id,
                         "created": result.created,
+                        "status": doc.status,
                         "chunks": doc.num_chunks,
                     }
                 )

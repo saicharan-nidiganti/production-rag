@@ -13,7 +13,14 @@ def test_upgrade_creates_schema_fts_and_triggers(migrated_settings: Settings) ->
     engine = create_db_engine(migrated_settings.database_url)
     try:
         tables = set(inspect(engine).get_table_names())
-        assert {"documents", "chunks", "index_state", "chunks_fts", "alembic_version"} <= tables
+        assert {
+            "documents",
+            "document_files",
+            "chunks",
+            "index_state",
+            "chunks_fts",
+            "alembic_version",
+        } <= tables
         with engine.connect() as conn:
             triggers = {
                 r[0]
@@ -27,7 +34,7 @@ def test_upgrade_creates_schema_fts_and_triggers(migrated_settings: Settings) ->
         assert generation == 0
         assert fk == 1
         assert is_at_head(engine)
-        assert current_revision(engine) == head_revision() == "0001"
+        assert current_revision(engine) == head_revision() == "0002"
     finally:
         engine.dispose()
 
@@ -65,5 +72,56 @@ def test_unmigrated_database_is_not_at_head(settings: Settings) -> None:
     try:
         assert current_revision(engine) is None
         assert not is_at_head(engine)
+    finally:
+        engine.dispose()
+
+
+def test_upgrading_keeps_existing_documents_ready(settings: Settings) -> None:
+    """Documents ingested before revision 0002 keep their chunks and become ready."""
+    config = alembic_config(settings.database_url)
+    command.upgrade(config, "0001")
+    engine = create_db_engine(settings.database_url)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO documents (id, source_name, title, content_type, content_hash,"
+                    " size_bytes, num_chunks, text, metadata, created_at) VALUES ('d1', 'a.md',"
+                    " 'A', 'text/markdown', 'h1', 5, 1, 'hello', '{}',"
+                    " '2026-10-28 10:00:00.000000')"
+                )
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO chunks (document_id, ordinal, text, start_char, end_char,"
+                    " embedding, embedding_model) VALUES ('d1', 0, 'hello', 0, 5, x'00', 'm')"
+                )
+            )
+        command.upgrade(config, "head")
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT status, attempts, updated_at, error_code FROM documents")
+            ).one()
+            chunks = conn.execute(text("SELECT count(*) FROM chunks")).scalar()
+        assert tuple(row) == ("ready", 1, "2026-10-28 10:00:00.000000", None)
+        assert chunks == 1
+
+        # Downgrading drops documents revision 0001 can't represent, and keeps the rest.
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO documents (id, source_name, title, content_type, content_hash,"
+                    " size_bytes, num_chunks, text, metadata, created_at, status, attempts,"
+                    " updated_at) VALUES ('d2', 'b.md', 'b', 'text/markdown', 'h2', 5, 0, '',"
+                    " '{}', '2026-10-29 10:00:00', 'queued', 0, '2026-10-29 10:00:00')"
+                )
+            )
+        command.downgrade(config, "0001")
+        with engine.connect() as conn:
+            ids = [r[0] for r in conn.execute(text("SELECT id FROM documents"))]
+            columns = {c["name"] for c in inspect(conn).get_columns("documents")}
+            chunks = conn.execute(text("SELECT count(*) FROM chunks")).scalar()
+        assert ids == ["d1"] and chunks == 1
+        assert "status" not in columns and "document_files" not in inspect(engine).get_table_names()
     finally:
         engine.dispose()

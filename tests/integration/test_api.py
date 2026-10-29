@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Iterator, Sequence
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,6 +11,7 @@ from pydantic import SecretStr
 from production_rag.api import create_app
 from production_rag.config import Settings
 from production_rag.container import Container, build_container
+from production_rag.db.migrate import head_revision
 from production_rag.generation import GeneratedAnswer, GenerationError
 from production_rag.retrieval import RetrievedChunk
 from tests.conftest import CORPUS_DIR
@@ -20,14 +23,42 @@ def _upload(client: TestClient, name: str = "deployment-runbook.md", data: bytes
     return client.post("/v1/documents", files={"file": (name, data)}, **kw)
 
 
+def _wait_for_final_status(
+    client: TestClient, document_id: str, timeout_s: float = 15.0
+) -> dict[str, Any]:
+    deadline = time.monotonic() + timeout_s
+    while True:
+        doc: dict[str, Any] = client.get(f"/v1/documents/{document_id}").json()
+        if doc["status"] in ("ready", "failed"):
+            return doc
+        assert time.monotonic() < deadline, f"still {doc['status']}"
+        time.sleep(0.02)
+
+
+def _upload_and_wait(
+    client: TestClient, name: str = "deployment-runbook.md", data: bytes = RUNBOOK
+) -> dict[str, Any]:
+    response = _upload(client, name=name, data=data)
+    assert response.status_code in (200, 202), response.text
+    return _wait_for_final_status(client, response.json()["document"]["id"])
+
+
 def test_health_and_ready(client: TestClient) -> None:
     assert client.get("/health").json() == {"status": "ok"}
     ready = client.get("/ready")
     assert ready.status_code == 200
     body = ready.json()
     assert body["status"] == "ready"
-    assert body["checks"]["schema_revision"] == body["checks"]["expected_revision"] == "0001"
+    assert body["checks"]["schema_revision"] == body["checks"]["expected_revision"]
+    assert body["checks"]["schema_revision"] == head_revision()
     assert body["checks"]["documents"] == 0
+    assert body["checks"]["ingestion"] == {
+        "queued": 0,
+        "processing": 0,
+        "ready": 0,
+        "failed": 0,
+        "workers": 1,
+    }
 
 
 def test_ready_is_503_before_migrations(settings: Settings) -> None:
@@ -44,17 +75,32 @@ def test_ready_is_503_before_migrations(settings: Settings) -> None:
 
 def test_document_lifecycle(client: TestClient) -> None:
     created = _upload(client)
-    assert created.status_code == 201
-    doc = created.json()["document"]
-    assert created.json()["created"] is True
+    assert created.status_code == 202 and created.json()["created"] is True
+    queued = created.json()["document"]
+    assert created.headers["Location"] == f"/v1/documents/{queued['id']}"
+    assert queued["status"] == "queued" and queued["error"] is None
+    assert (queued["title"], queued["num_chunks"], queued["attempts"]) == (
+        "deployment-runbook",
+        0,
+        0,
+    )
+
+    doc = _wait_for_final_status(client, queued["id"])
+    assert doc["status"] == "ready" and doc["error"] is None and doc["attempts"] == 1
     assert doc["title"] == "Deployment Runbook" and doc["num_chunks"] >= 4
+    assert doc["updated_at"] >= doc["created_at"]
+    assert doc["created_at"] == queued["created_at"] and doc["created_at"].endswith("Z")
 
     duplicate = _upload(client, name="copy.md")
     assert duplicate.status_code == 200 and duplicate.json()["created"] is False
     assert duplicate.json()["document"]["id"] == doc["id"]
+    assert duplicate.json()["document"]["status"] == "ready"
 
     listing = client.get("/v1/documents").json()
     assert listing["total"] == 1 and listing["items"][0]["id"] == doc["id"]
+    assert client.get("/v1/documents", params={"status": "ready"}).json()["total"] == 1
+    assert client.get("/v1/documents", params={"status": "failed"}).json()["total"] == 0
+    assert client.get("/v1/documents", params={"status": "bogus"}).status_code == 422
     assert client.get(f"/v1/documents/{doc['id']}").json()["content_hash"] == doc["content_hash"]
 
     assert client.delete(f"/v1/documents/{doc['id']}").status_code == 204
@@ -70,6 +116,7 @@ def test_document_lifecycle(client: TestClient) -> None:
         ("malware.exe", b"MZ", 415, "unsupported_document_type"),
         ("empty.md", b"\n\n", 422, "extraction_failed"),
         ("latin1.txt", "café".encode("latin-1"), 422, "extraction_failed"),
+        ("fake.pdf", b"plain text", 415, "unsupported_document_type"),
     ],
 )
 def test_upload_errors(client: TestClient, name: str, data: bytes, status: int, code: str) -> None:
@@ -80,6 +127,63 @@ def test_upload_errors(client: TestClient, name: str, data: bytes, status: int, 
     assert body["request_id"] == response.headers["X-Request-ID"]
 
 
+def test_failed_processing_is_reported_and_can_be_retried(client: TestClient) -> None:
+    """Problems found only by parsing are reported on the document, not by the upload."""
+    upload = _upload(client, name="headings.md", data=b"# Title\n\n## Nothing here\n")
+    assert upload.status_code == 202
+    doc = _wait_for_final_status(client, upload.json()["document"]["id"])
+    assert doc["status"] == "failed" and doc["num_chunks"] == 0
+    assert doc["error"] == {
+        "code": "extraction_failed",
+        "message": "document contains no extractable text",
+    }
+    failed = client.get("/v1/documents", params={"status": "failed"}).json()
+    assert [d["id"] for d in failed["items"]] == [doc["id"]]
+    assert client.get("/ready").json()["checks"]["ingestion"]["failed"] == 1
+
+    retried = client.post(f"/v1/documents/{doc['id']}/retry")
+    assert retried.status_code == 202
+    assert retried.json()["status"] == "queued" and retried.json()["error"] is None
+    assert _wait_for_final_status(client, doc["id"])["status"] == "failed"  # same bytes
+
+    reupload = _upload(client, name="headings.md", data=b"# Title\n\n## Nothing here\n")
+    assert reupload.status_code == 202 and reupload.json()["created"] is False
+    assert reupload.json()["document"]["status"] == "queued"
+
+
+def test_retry_is_refused_unless_the_document_failed(client: TestClient) -> None:
+    doc = _upload_and_wait(client)
+    conflict = client.post(f"/v1/documents/{doc['id']}/retry")
+    assert conflict.status_code == 409
+    assert conflict.json()["error"]["code"] == "invalid_document_state"
+    assert "this one is ready" in conflict.json()["error"]["message"]
+    missing = client.post("/v1/documents/no-such-id/retry")
+    assert missing.status_code == 404 and missing.json()["error"]["code"] == "not_found"
+
+
+def test_queued_uploads_are_processed_after_a_restart(migrated_settings: Settings) -> None:
+    """An upload accepted by one server process is processed by the next one."""
+    no_workers = migrated_settings.model_copy(update={"ingest_workers": 0})
+    first = build_container(no_workers)
+    try:
+        with TestClient(create_app(container=first)) as client:
+            document_id = _upload(client).json()["document"]["id"]
+            assert client.get("/ready").json()["checks"]["ingestion"]["workers"] == 0
+            assert client.get(f"/v1/documents/{document_id}").json()["status"] == "queued"
+    finally:
+        first.close()
+
+    second = build_container(migrated_settings)
+    try:
+        with TestClient(create_app(container=second)) as client:
+            doc = _wait_for_final_status(client, document_id)
+            assert doc["status"] == "ready" and doc["num_chunks"] >= 4
+            hits = client.post("/v1/search", json={"query": "rollback command"}).json()["hits"]
+            assert hits and hits[0]["document_id"] == document_id
+    finally:
+        second.close()
+
+
 def test_upload_size_limit(container: Container, client: TestClient) -> None:
     container.settings.max_upload_bytes = 100
     response = _upload(client)
@@ -88,7 +192,7 @@ def test_upload_size_limit(container: Container, client: TestClient) -> None:
 
 
 def test_search_and_query(client: TestClient) -> None:
-    _upload(client)
+    assert _upload_and_wait(client)["status"] == "ready"
     search = client.post(
         "/v1/search", json={"query": "rollback command", "top_k": 2, "mode": "hybrid"}
     )

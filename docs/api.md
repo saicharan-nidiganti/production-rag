@@ -26,9 +26,10 @@ machine-readable schema at `/openapi.json` and interactive documentation at
 | --- | --- | --- |
 | 401 | `unauthorized` | Missing or wrong API key |
 | 404 | `not_found` | Unknown document or route |
+| 409 | `invalid_document_state` | Retrying a document that hasn't failed |
 | 413 | `document_too_large` | Upload over `RAG_MAX_UPLOAD_BYTES` |
 | 415 | `unsupported_document_type` | Extension not supported, or a `.pdf` whose content isn't a PDF |
-| 422 | `extraction_failed` | No extractable text, not UTF-8, encrypted or corrupt PDF, too many pages |
+| 422 | `extraction_failed` | Upload is empty or not UTF-8 text. Problems found while parsing are reported on the document instead ([processing status](#processing-status)) |
 | 422 | `validation_error` | Request body or parameters invalid (see `details`) |
 | 502 | `generation_failed` | The model provider rejected the request: bad or missing credentials, unknown model |
 | 503 | `generation_unavailable` | Rate limit, overload or network failure after retries; retry later |
@@ -50,58 +51,143 @@ migration. Returns 200, or 503 with `"status": "not_ready"`:
   "status": "ready",
   "checks": {
     "embedding_model": "hashing-v1-d512",
-    "schema_revision": "0001",
-    "expected_revision": "0001",
-    "documents": 1,
+    "schema_revision": "0002",
+    "expected_revision": "0002",
+    "documents": 2,
     "chunks": 5,
-    "stale_chunks": 0
+    "stale_chunks": 0,
+    "ingestion": {"queued": 0, "processing": 0, "ready": 1, "failed": 1, "workers": 1}
   }
 }
 ```
 
 `stale_chunks` counts chunks embedded by a model other than the configured one.
-Run `rag reindex` to fix them.
+Run `rag reindex` to fix them. `ingestion` counts documents by status and the
+live ingestion threads in the process that answered. It's for monitoring and
+doesn't affect readiness.
 
 ## Documents
 
 ### `POST /v1/documents`
 
 Multipart upload with one `file` field. Supported: `.txt`, `.md`, `.markdown`,
-`.pdf` (with a text layer). Returns **201** for new content, or **200** with
-`created: false` when identical bytes were already ingested.
+`.pdf` (with a text layer). The upload is checked and stored, then processed in
+the background (FR-3):
+
+- **202** with `created: true`: new content, queued. `Location` points at the
+  document; poll it until `status` is `ready` or `failed`.
+- **202** with `created: false`: identical bytes were submitted before and
+  aren't processed yet, or had failed and are queued again.
+- **200** with `created: false`: identical bytes are already `ready`.
+- **413**, **415**, **422**: the checks that need no parsing (size, type, PDF
+  signature, UTF-8, empty text) reject the upload outright. Nothing is stored.
 
 ```bash
-curl -s localhost:8000/v1/documents -F "file=@eval/corpus/api-rate-limits.md"
+curl -si localhost:8000/v1/documents -F "file=@eval/corpus/api-rate-limits.md"
 ```
 
-```json
+```http
+HTTP/1.1 202 Accepted
+location: /v1/documents/37f7f8c9-44cd-463d-ab2d-94778be20085
+
 {
   "document": {
-    "id": "cb006f27-b49b-4798-b70c-cb6d8d900c30",
+    "id": "37f7f8c9-44cd-463d-ab2d-94778be20085",
     "source_name": "api-rate-limits.md",
-    "title": "Public API Usage Limits",
+    "title": "api-rate-limits",
     "content_type": "text/markdown",
     "size_bytes": 1275,
-    "num_chunks": 5,
+    "num_chunks": 0,
     "content_hash": "1d850177f624841c75767edcdeeb582aa45bc9e19949825050ec43fddb46f303",
     "metadata": {},
-    "created_at": "2026-10-29T10:00:00Z"
+    "status": "queued",
+    "error": null,
+    "attempts": 0,
+    "created_at": "2026-10-29T03:54:07.870544Z",
+    "updated_at": "2026-10-29T03:54:07.870544Z"
   },
   "created": true
 }
 ```
 
-The title is the first Markdown H1, the PDF title metadata, or the file name.
-For PDFs, `metadata.pages` holds the page count.
+### Processing status
 
-### `GET /v1/documents?limit=50&offset=0`
+| `status` | Meaning | Next |
+| --- | --- | --- |
+| `queued` | Stored, waiting for a worker | `processing` |
+| `processing` | A worker is extracting, chunking and embedding it | `ready`, `failed`, or `queued` again if the server shuts down mid-way |
+| `ready` | Chunks are indexed and searchable | final |
+| `failed` | `error` says why; nothing was indexed | `queued` on retry or re-upload |
+
+Only `ready` documents appear in search and answers. Until then, `title` is the
+file name and `num_chunks` is 0. Once ready, the title is the first Markdown H1,
+the PDF title metadata, or the file name, and for PDFs `metadata.pages` holds
+the page count.
+
+`GET /v1/documents/{id}` once processing has finished:
+
+```json
+{
+  "id": "37f7f8c9-44cd-463d-ab2d-94778be20085",
+  "title": "Public API Usage Limits",
+  "num_chunks": 5,
+  "status": "ready",
+  "error": null,
+  "attempts": 1,
+  "created_at": "2026-10-29T03:54:07.870544Z",
+  "updated_at": "2026-10-29T03:54:07.890220Z",
+  ...
+}
+```
+
+A failure carries a code and a message written for the person who uploaded it:
+
+```json
+{
+  "id": "5eb40076-dcb3-45cc-b930-1fa1cdc9d42b",
+  "source_name": "notes.md",
+  "num_chunks": 0,
+  "status": "failed",
+  "error": {"code": "extraction_failed", "message": "document contains no extractable text"},
+  "attempts": 1,
+  ...
+}
+```
+
+| `error.code` | Cause | What to do |
+| --- | --- | --- |
+| `extraction_failed` | No text after parsing, encrypted or corrupt PDF, too many pages | Fix the file and upload it again |
+| `unsupported_document_type` | The content doesn't match its type | Upload the right file |
+| `interrupted` | The worker stopped mid-way `RAG_INGEST_MAX_ATTEMPTS` times (crash, restart, out of memory) | Retry; if it recurs, check the server log for this document |
+| `internal_error` | Unexpected failure, for example the embedding model couldn't load. The message names only the error type | Fix the cause (server log), then retry |
+| `upload_missing` | The stored upload is gone | Upload the document again |
+
+`attempts` counts processing attempts since the document was last queued. An
+attempt cut short by a crash counts; one handed back at shutdown doesn't.
+
+### `POST /v1/documents/{id}/retry`
+
+Queues a `failed` document again with its stored upload. Returns **202** with
+the document (`status: queued`, `error: null`, `attempts: 0`), **404** for an
+unknown id, or **409** `invalid_document_state` in any other status:
+
+```json
+{"error": {"code": "invalid_document_state", "message": "only failed documents can be retried; this one is ready", "request_id": "…"}}
+```
+
+Uploading identical bytes again has the same effect as a retry.
+
+### `GET /v1/documents?limit=50&offset=0&status=failed`
 
 Newest first. Returns `{"items": [document, ...], "total", "limit", "offset"}`.
-`limit` is 1–200.
+`limit` is 1–200. `status` (optional) keeps one status; `total` counts the
+filtered set.
 
 ### `GET /v1/documents/{id}` and `DELETE /v1/documents/{id}`
 
-Fetch one document, or delete it with all its chunks and index entries (204).
+Fetch one document, or delete it, in any status, with its stored upload, chunks
+and index entries (204). Deleting a document while it's being processed
+discards that work.
 
 ## Retrieval
 

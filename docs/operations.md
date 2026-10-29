@@ -27,7 +27,9 @@ uv run python -c \
 ## Deploy sequence
 
 1. `uv run rag db upgrade`: apply migrations. This is an explicit step; the service doesn't
-   migrate on startup. `/ready` returns 503 until the schema is at head.
+   migrate on startup. `/ready` returns 503 until the schema is at head, and ingestion
+   workers retry with a backoff (logging `ingest.worker_error`) until then. Revision 0002
+   adds ingestion status; documents ingested before it become `ready`.
 2. Start the API: `uv run uvicorn --factory production_rag.api.app:app_factory --host 0.0.0.0
    --port 8000 --workers 4`, or `uv run rag serve --host 0.0.0.0` for a single process.
 3. Point the liveness probe at `GET /health` and the readiness probe at `GET /ready`.
@@ -39,6 +41,34 @@ don't share the database file across machines or over network filesystems
 
 Put a reverse proxy in front for TLS and to cap request bodies at `RAG_MAX_UPLOAD_BYTES`. The
 app enforces the limit too, but only after the body has been received.
+
+## Background ingestion
+
+Uploads return `202` and are processed by worker threads inside each API process
+(`RAG_INGEST_WORKERS`, default 1). With `--workers 4`, four processes each run one thread;
+they share the queue through the database and never process the same document twice. Clients
+poll `GET /v1/documents/{id}` until the status is `ready` or `failed`
+([api.md](api.md#processing-status)). `rag ingest` doesn't use the queue: it processes each
+file before moving on.
+
+| Situation | What happens | Operator action |
+| --- | --- | --- |
+| Processing error (bad file, embedding failure) | `failed` with `error.code` and `error.message`; no chunks are written; the upload is kept | Fix the cause, then `POST /v1/documents/{id}/retry` (or re-upload). Errors are never retried automatically |
+| Graceful shutdown (SIGTERM, deploy) | Workers stop at the next embedding batch and hand the document back as `queued`, without counting the attempt; shutdown waits up to 10 s | None: the next start picks it up |
+| Crash, kill or power loss mid-way | The document stays `processing` until its lease lapses (`RAG_INGEST_LEASE_S`, default 5 min), then any worker takes it over | None. To recover sooner after a known crash, restart with a shorter lease |
+| Interrupted `RAG_INGEST_MAX_ATTEMPTS` times (default 3) | `failed` with code `interrupted`, so a file that crashes the process can't loop forever | Check memory and the log for that document, then retry |
+| No workers anywhere (`RAG_INGEST_WORKERS=0` in every process) | Uploads stay `queued` | Run at least one process with workers |
+| Restart with work queued | Queued documents and their uploads are in the database; workers continue after startup | None |
+
+Watch `/ready`: `checks.ingestion` gives documents by status and the live worker threads of the
+process that answered. A growing `queued` count means workers can't keep up or aren't running;
+`processing` that never drains points at a stuck or crashed worker. Failed documents keep their
+upload in the database: delete the ones you won't retry.
+
+Concurrent writes still go through SQLite's single writer. Workers hold the write lock only
+briefly (claims, lease renewals) and once per document to write its chunks, and queries never
+wait on it (WAL). Raising `RAG_INGEST_WORKERS` rarely helps: embedding already uses every CPU
+core.
 
 ## Reranking
 
@@ -73,6 +103,9 @@ Logs are JSON lines on stderr. Useful fields and signals:
 | Pre-generation abstentions | `query.completed` with `abstained_before_generation = true` |
 | Stage latency | `query.completed.timings_ms.retrieval` / `.generation` |
 | Model usage and cost | `event = generation.completed`: `input_tokens`, `output_tokens`, `model` |
+| Ingestion throughput and failures | `ingest.queued`, `ingest.completed` (`chunks`, `duration_ms`), `ingest.failed` (`error_code`, `attempt`) |
+| Ingestion recovery | `ingest.recovered` (a lapsed lease was taken over), `ingest.claim_lost` (a late worker's result was discarded), `ingest.released` (handed back at shutdown) |
+| Ingestion worker health | `ingest.worker_error` (database unavailable or not migrated; retried with a backoff up to 30 s), `ingest.lease_renewal_failed` |
 | Refusals | `event = generation.refused` (`category`) |
 | Upstream failures | `event = generation.failed` (`retryable`); HTTP 502/503 |
 
@@ -98,6 +131,9 @@ checklist are in [security.md](security.md). All settings are listed in
 | Symptom | Cause and fix |
 | --- | --- |
 | `/ready` 503 with `schema: not at head` | Run `rag db upgrade` |
+| Documents stay `queued` | No process runs workers (`checks.ingestion.workers` is 0 everywhere), or workers log `ingest.worker_error`. Start a process with `RAG_INGEST_WORKERS` ≥ 1, or fix the database error |
+| A document stays `processing` for minutes | Its worker died; it's taken over once the lease lapses (`RAG_INGEST_LEASE_S`). Large PDFs can also simply take that long: check for `ingest.completed` |
+| `failed` with `internal_error` | The message names the exception type; the full error is in the `ingest.failed` log line. Fix it, then retry |
 | HTTP 502 `generation_failed`, "no Claude API credentials configured" | Set `ANTHROPIC_API_KEY` (read by the SDK, without the `RAG_` prefix) |
 | "the Claude API account has no credit left" (HTTP 502 `generation_failed`, or from `rag eval --plan --count-tokens`) | The key authenticates but the account's credit balance is empty; even token counting is refused. Add credits under Plans & Billing in the Claude Console |
 | HTTP 503 `generation_unavailable` | Rate limit, overload or network failure after SDK retries; retry later, check `generation.failed` logs |

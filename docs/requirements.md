@@ -33,9 +33,9 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould.
 | --- | --- | --- | --- | --- |
 | FR-1 | Users can register, sign in and sign out. All data is scoped to the signed-in user. | M | 5 | Not started (v0 is single tenant) |
 | FR-2 | Upload documents in PDF (text-based), DOCX, TXT, Markdown and HTML. *Assumption:* default limit 25 MB per file, configurable. | M | 2 | Partial: PDF, TXT, Markdown; 25 MiB default. DOCX and HTML pending |
-| FR-3 | Each document shows an ingestion status: `queued`, `processing`, `ready` or `failed`, with an actionable reason on failure. Failed documents can be retried. | M | 2 | Not started (ingestion is synchronous) |
+| FR-3 | Each document shows an ingestion status: `queued`, `processing`, `ready` or `failed`, with an actionable reason on failure. Failed documents can be retried. | M | 2 | Done: background workers, failure code and message, retry endpoint; survives restarts ([ADR-0006](decisions/0006-background-ingestion.md)) |
 | FR-4 | Re-uploading identical content (same SHA-256) for the same user does not create a duplicate. The existing document is returned. | M | 2 | Done (across all documents, not yet per user) |
-| FR-5 | Users can delete a document. This removes the stored file, its chunks and its vectors. | M | 2 | Done (raw files are never stored) |
+| FR-5 | Users can delete a document. This removes the stored file, its chunks and its vectors. | M | 2 | Done: the raw upload is kept only until processing succeeds, and deletion removes it with the chunks |
 | FR-6 | Users can ask a question across all of their documents or a selected subset. | M | 3–4 | Partial: all documents; subset selection pending |
 | FR-7 | Answers are generated only from retrieved evidence and carry inline citations that identify the document, the page (where the format has pages) and the passage. | M | 4 | Done: document, heading path, page, passage |
 | FR-8 | When the evidence is insufficient, the system states that the documents do not contain the answer. Partially supported answers identify which parts are unsupported. | M | 4 | Partial: retrieval-level abstention catches off-topic questions; on-topic unanswerable ones rely on the generator; partial-support marking relies on the model prompt |
@@ -53,7 +53,7 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould.
 | NFR-2 | Security | Uploaded files are validated by content (not extension), stored under generated names, and never executed. Passwords are hashed with a memory-hard algorithm. Rate limits apply to authentication, upload and question endpoints. | Partial: content-validated, never stored or executed; no passwords or rate limits yet |
 | NFR-3 | Prompt injection | Document text is treated as untrusted data. Instructions inside documents must not change system behavior, leak data or alter citation rules. | Partial: untrusted-data framing; injection cases in golden v2, not yet measured with an LLM |
 | NFR-4 | Privacy | Document contents, questions and answers are not written to application logs. Documents are sent only to the model providers configured by the operator. | Met |
-| NFR-5 | Reliability | A failed ingestion leaves no partial chunks or vectors behind. Reprocessing a document is idempotent. | Met: one transaction per document; idempotent by hash |
+| NFR-5 | Reliability | A failed ingestion leaves no partial chunks or vectors behind. Reprocessing a document is idempotent. | Met: chunks are written in the transaction that marks a document ready; a worker that lost its claim discards its work; idempotent by hash |
 | NFR-6 | Traceability | Every answer records which chunks were retrieved and cited, with the retrieval configuration and model versions used. | Partial: responses carry retrieved and cited chunks and the model; answers aren't stored |
 | NFR-7 | Performance | Initial targets in §7. They are measured on a reference dataset, not assumed. | Partial: measured on golden v1, not yet on the 10k-chunk reference |
 | NFR-8 | Accessibility | The web interface meets WCAG 2.1 AA for core flows (sign in, upload, ask, read citations). | Not started (no UI) |

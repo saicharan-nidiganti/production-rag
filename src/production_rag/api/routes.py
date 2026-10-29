@@ -24,8 +24,8 @@ from production_rag.api.schemas import (
 from production_rag.api.security import require_api_key
 from production_rag.container import Container
 from production_rag.db.migrate import current_revision, head_revision
-from production_rag.db.models import Document
-from production_rag.ingestion import DocumentTooLargeError
+from production_rag.db.models import Document, DocumentStatus
+from production_rag.ingestion import DocumentTooLargeError, IngestionWorker
 from production_rag.observability import Timer
 
 
@@ -40,7 +40,7 @@ health_router = APIRouter(tags=["health"])
 api_router = APIRouter(prefix="/v1", dependencies=[Depends(require_api_key)])
 
 _ERRORS: dict[int | str, dict[str, object]] = {
-    code: {"model": ErrorResponse} for code in (401, 404, 413, 415, 422, 502, 503)
+    code: {"model": ErrorResponse} for code in (401, 404, 409, 413, 415, 422, 502, 503)
 }
 
 
@@ -51,8 +51,12 @@ def health() -> dict[str, str]:
 
 
 @health_router.get("/ready", response_model=ReadinessResponse)
-def ready(container: ContainerDep) -> JSONResponse:
-    """Readiness: the database is reachable and its schema is at the latest migration."""
+def ready(request: Request, container: ContainerDep) -> JSONResponse:
+    """Readiness: the database is reachable and its schema is at the latest migration.
+
+    Also reports documents by status and the live ingestion threads, for monitoring; neither
+    affects readiness.
+    """
     checks: dict[str, object] = {"embedding_model": container.embedder.model_id}
     ok = True
     try:
@@ -66,6 +70,11 @@ def ready(container: ContainerDep) -> JSONResponse:
             checks["schema"] = "not at head; run `rag db upgrade`"
         else:
             checks.update(container.ingestion.index_stats())
+            worker: IngestionWorker | None = getattr(request.app.state, "ingest_worker", None)
+            checks["ingestion"] = {
+                **container.ingestion.status_counts(),
+                "workers": worker.alive if worker else 0,
+            }
     except Exception as exc:
         ok = False
         checks["database"] = f"unavailable: {type(exc).__name__}"
@@ -76,19 +85,24 @@ def ready(container: ContainerDep) -> JSONResponse:
 @api_router.post(
     "/documents",
     response_model=IngestResponse,
-    status_code=status.HTTP_201_CREATED,
-    responses={200: {"model": IngestResponse}, **_ERRORS},
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={
+        200: {"model": IngestResponse, "description": "Identical content is already ready."},
+        **_ERRORS,
+    },
 )
 def upload_document(
     container: ContainerDep, response: Response, file: Annotated[UploadFile, File()]
 ) -> IngestResponse:
+    """Queue a document for processing. Poll its `Location` until the status is final."""
     limit = container.settings.max_upload_bytes
     data = file.file.read(limit + 1)
     if len(data) > limit:
         raise DocumentTooLargeError(f"document exceeds the {limit}-byte limit")
-    result = container.ingestion.ingest(file.filename or "untitled.txt", data)
-    if not result.created:
+    result = container.ingestion.submit(file.filename or "untitled.txt", data)
+    if result.document.status == "ready":
         response.status_code = status.HTTP_200_OK
+    response.headers["Location"] = f"/v1/documents/{result.document.id}"
     return IngestResponse(document=DocumentOut.from_model(result.document), created=result.created)
 
 
@@ -97,11 +111,14 @@ def list_documents(
     container: ContainerDep,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    status_filter: Annotated[DocumentStatus | None, Query(alias="status")] = None,
 ) -> DocumentList:
+    where = [Document.status == status_filter] if status_filter else []
     with container.sessions() as session:
-        total = session.scalar(select(func.count()).select_from(Document)) or 0
+        total = session.scalar(select(func.count()).select_from(Document).where(*where)) or 0
         docs = session.scalars(
             select(Document)
+            .where(*where)
             .order_by(Document.created_at.desc(), Document.id)
             .limit(limit)
             .offset(offset)
@@ -117,6 +134,20 @@ def get_document(container: ContainerDep, document_id: str) -> DocumentOut:
         if doc is None:
             raise NotFoundError(f"document {document_id} not found")
         return DocumentOut.from_model(doc)
+
+
+@api_router.post(
+    "/documents/{document_id}/retry",
+    response_model=DocumentOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    responses=_ERRORS,
+)
+def retry_document(container: ContainerDep, document_id: str) -> DocumentOut:
+    """Queue a failed document for processing again (409 in any other status)."""
+    doc = container.ingestion.retry(document_id)
+    if doc is None:
+        raise NotFoundError(f"document {document_id} not found")
+    return DocumentOut.from_model(doc)
 
 
 @api_router.delete(

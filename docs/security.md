@@ -15,7 +15,7 @@ and per-user isolation (FR-1, NFR-1) arrive in Phase 5
 
 | Asset | Where it lives | Leaves the host? |
 | --- | --- | --- |
-| Uploaded documents | Only the extracted text, in the SQLite database. Raw files are never written to disk. | Retrieved chunks are sent to the Claude API on each query when `RAG_GENERATOR=anthropic` |
+| Uploaded documents | The extracted text, in the SQLite database. The raw upload is stored there too (`document_files`) until processing succeeds; a failed document keeps it until it's retried successfully or deleted. Raw files are never written to the filesystem. | Retrieved chunks are sent to the Claude API on each query when `RAG_GENERATOR=anthropic` |
 | Questions | Request memory only; never logged | Sent to the Claude API with the chunks |
 | `RAG_API_KEY`, Claude API key | Environment or `.env` (git-ignored) | The Claude key goes only to the Claude API |
 | Logs | stderr, JSON | Wherever the operator ships them. They contain ids, counts and timings, never document text or questions (NFR-4). |
@@ -34,7 +34,7 @@ policy before enabling the Claude generator.
 | Prompt injection in documents | Retrieved text is sent as search-result blocks; the system prompt treats it as data, not instructions; citations can only reference retrieved chunks | [anthropic_generator.py](../src/production_rag/generation/anthropic_generator.py) |
 | Unintended spending | `rag eval --generation` with Claude needs `--allow-paid`; paid tests need `RAG_RUN_PAID_TESTS=1`; `rag eval --plan` previews calls and cost without generating | [cli.py](../src/production_rag/cli.py), [plan.py](../src/production_rag/evaluation/plan.py) |
 | Fabricated citations | Citations are mapped from search-result indexes; out-of-range indexes are dropped; uncited answers are not reported as `answered` | same |
-| Information leaks in errors | Unexpected errors return a generic 500 with a request id; upstream API error text is logged, not returned | [errors.py](../src/production_rag/api/errors.py) |
+| Information leaks in errors | Unexpected errors return a generic 500 with a request id; upstream API error text is logged, not returned. An unexpected processing failure records only the error type on the document (`internal_error`); the details go to the log | [errors.py](../src/production_rag/api/errors.py), [pipeline.py](../src/production_rag/ingestion/pipeline.py) |
 | Secrets in logs or the repository | `SecretStr` settings, never logged; `.env` git-ignored; gitleaks in CI. A test checks the Claude key appears in no log line, settings dump, evaluation report or cost plan | [ci.yml](../.github/workflows/ci.yml), [test_plan.py](../tests/integration/test_plan.py) |
 
 ## Supply chain
@@ -57,7 +57,7 @@ policy before enabling the Claude generator.
 | No rate limiting | NFR-2 | Phase 5; until then, rate-limit at the reverse proxy |
 | Upload size is enforced after the body is received | NFR-2 | Cap request bodies at the reverse proxy ([operations.md](operations.md#deploy-sequence)) |
 | Prompt-injection cases exist (`partner-integrations.md` in the corpus, `t-par-*` in golden v2) but are only informative with an LLM generator | NFR-3, requirements §7 | Run them with Claude once the owner authorizes a paid evaluation |
-| PDF parsing runs in the API process | NFR-2 | Moves to the ingestion worker with background ingestion (FR-3) |
+| PDF parsing runs in a worker thread of the API process, outside the request but not isolated from it | NFR-2 | A file that crashes the process is failed (`interrupted`) after `RAG_INGEST_MAX_ATTEMPTS` tries instead of crashing it forever. Run parsing in a separate, resource-limited process before accepting untrusted uploads |
 | Single static API key, no rotation overlap | — | Replaced by sessions in Phase 5 |
 
 ## Operator checklist
@@ -71,3 +71,5 @@ policy before enabling the Claude generator.
 4. Keep `.env` readable only by that user.
 5. Restrict document uploads to trusted users: uploaded text can influence
    answers.
+6. Delete failed documents you won't retry: each keeps its raw upload
+   (`GET /v1/documents?status=failed` lists them).

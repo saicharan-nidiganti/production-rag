@@ -52,7 +52,7 @@ src/production_rag/
   text.py            tokenization shared by embeddings, lexical search, evaluation
   db/                SQLAlchemy models, engine, Alembic migrations (single source of schema truth)
   embeddings.py      Embedder protocol: hashing and fastembed providers
-  ingestion/         extraction (txt, md, pdf), chunking, ingestion pipeline
+  ingestion/         extraction (txt, md, pdf), chunking, ingestion pipeline, worker threads
   retrieval/         vector index, FTS5 search, RRF fusion, cross-encoder reranking, retriever
   generation/        Generator protocol: Claude and extractive generators, answer types
   rag.py             query orchestration and abstention
@@ -72,35 +72,75 @@ the transport layer imports `api` or `cli`.
 
 ## 4. Ingestion
 
+Uploads are accepted at once and processed in the background (FR-3,
+[ADR-0006](decisions/0006-background-ingestion.md)). The queue is the
+`documents` table itself, so it needs no broker, and it survives restarts
+because the upload is stored with the document until processing succeeds.
+
 ```mermaid
 sequenceDiagram
     participant C as Client
     participant A as API
     participant I as IngestionService
+    participant W as Worker thread
     participant E as Embedder
     participant D as SQLite
     C->>A: POST /v1/documents (multipart)
-    A->>I: ingest(filename, bytes)
-    I->>I: bare filename, supported type, size limit, SHA-256
+    A->>I: submit(filename, bytes)
+    I->>I: bare filename, type, size, PDF signature, UTF-8, SHA-256
     I->>D: look up content hash
     alt duplicate content
-        I-->>A: existing document
-        A-->>C: 200, created=false
+        I-->>A: existing document (requeued if it had failed)
+        A-->>C: 200 if ready, else 202; created=false
     else new content
-        I->>I: extract sections, chunk with offsets
-        I->>E: embed heading path + chunk text
-        I->>D: one transaction: document + chunks
-        Note over D: triggers update chunks_fts and index_state.generation
-        A-->>C: 201, created=true
+        I->>D: document (queued) + upload
+        I->>W: wake
+        A-->>C: 202, Location, status=queued
     end
+    W->>D: claim: queued -> processing, token, lease (compare-and-set)
+    W->>W: extract sections, chunk with offsets
+    loop every 64 chunks
+        W->>D: renew lease (or stop: back to queued)
+        W->>E: embed heading path + chunk text
+    end
+    W->>D: one transaction, if the token still matches: ready + chunks, drop upload
+    Note over D: triggers update chunks_fts and index_state.generation
+    C->>A: GET /v1/documents/{id}
+    A-->>C: status ready (or failed, with error)
 ```
 
-1. **Validate.** The filename is reduced to a bare name. The type must be
-   `.txt`, `.md`/`.markdown` or `.pdf`, and the size within
-   `RAG_MAX_UPLOAD_BYTES`.
+```mermaid
+stateDiagram-v2
+    [*] --> queued: upload
+    queued --> processing: claimed by a worker
+    processing --> ready: chunks written
+    processing --> failed: error (code and message)
+    processing --> queued: shutdown hands it back
+    processing --> processing: lease lapsed, another worker takes over
+    processing --> failed: interrupted RAG_INGEST_MAX_ATTEMPTS times
+    failed --> queued: retry or identical re-upload
+    ready --> [*]
+```
+
+1. **Validate** (at upload). The filename is reduced to a bare name. The type
+   must be `.txt`, `.md`/`.markdown` or `.pdf`, and the size within
+   `RAG_MAX_UPLOAD_BYTES`. Checks that need no parsing run here too: a `.pdf`
+   must start like a PDF, and text must be non-blank UTF-8. These fail the
+   request; nothing is stored.
 2. **Deduplicate** by SHA-256 of the raw bytes (FR-4). A unique index also
-   covers concurrent uploads of the same file.
-3. **Extract** ([extract.py](../src/production_rag/ingestion/extract.py)) full
+   covers concurrent uploads of the same file. A duplicate returns the existing
+   document in whatever state it is; a failed one is queued again.
+3. **Queue.** The document row (`queued`) and its upload (`document_files`)
+   are written in one transaction, and the request returns.
+4. **Claim.** A worker moves the oldest queued document to `processing` with
+   one conditional `UPDATE` (status and token must still match), so threads and
+   processes sharing the database never process the same document twice. The
+   claim carries a lease of `RAG_INGEST_LEASE_S`, renewed before each embedding
+   batch. If the worker dies, the lease lapses and another worker takes the
+   document over; a worker that comes back after losing its claim discards its
+   work. A document interrupted `RAG_INGEST_MAX_ATTEMPTS` times is failed
+   (`interrupted`) instead of retried forever.
+5. **Extract** ([extract.py](../src/production_rag/ingestion/extract.py)) full
    text plus *sections*:
    - Markdown: one section per heading, carrying the heading path
      (`Guide > Install > Windows`). Headings inside code fences are ignored, and
@@ -110,37 +150,45 @@ sequenceDiagram
      are rejected with a clear error.
    - Text: UTF-8 (BOM tolerated), newlines normalized. Other encodings are
      rejected rather than guessed.
-4. **Chunk** ([chunking.py](../src/production_rag/ingestion/chunking.py)).
+6. **Chunk** ([chunking.py](../src/production_rag/ingestion/chunking.py)).
    Chunks never cross a section boundary. Each is at most `RAG_CHUNK_SIZE`
    characters (default 1000) and ends at the best break in the second half of
    the window: a paragraph break, else a sentence end, else whitespace, else a
    hard cut. Consecutive chunks overlap by up to `RAG_CHUNK_OVERLAP` characters
    (default 150), and a chunk starts on a word boundary where possible.
    `text[start:end] == chunk.text` is a tested invariant.
-5. **Embed** the chunk text, prefixed with its heading path for context.
-6. **Persist** the document (including the extracted text, for re-chunking and
-   audit) and its chunks in one transaction. A failure leaves nothing behind
-   (NFR-5).
+7. **Embed** the chunk text, prefixed with its heading path for context, in
+   batches of 64.
+8. **Complete** in one transaction: the document becomes `ready` with its
+   extracted text (kept for re-chunking and audit), its chunks are inserted, and
+   the stored upload is deleted. A failure marks the document `failed` with a
+   code and a message and writes no chunks (NFR-5). Its upload is kept so it can
+   be retried.
 
-Raw uploaded files are never written to disk. Only extracted text is stored.
+Raw uploads are stored in the database only until processing succeeds: while a
+document is queued, processing or failed. Deleting a document deletes its
+upload. Workers are threads in each API process (`RAG_INGEST_WORKERS`); the
+CLI and the evaluation runner process in the calling thread (`ingest`).
 
 ## 5. Storage
 
 SQLite through SQLAlchemy 2, with the schema owned by Alembic migrations
-([0001_initial_schema.py](../src/production_rag/db/migrations/versions/0001_initial_schema.py)).
+([versions/](../src/production_rag/db/migrations/versions/): 0001 initial schema, 0002 ingestion status).
 [ADR-0002](decisions/0002-v0-storage-and-scope.md) (accepted) explains why v0
 departs from ADR-0001's PostgreSQL design.
 
 | Table | Purpose |
 | --- | --- |
-| `documents` | One row per unique upload: name, title, type, content hash, size, chunk count, extracted text, metadata |
+| `documents` | One row per unique upload: name, title, type, content hash, size, chunk count, extracted text, metadata, and processing state (status, error code and message, attempts, claim token, lease expiry, last status change) |
+| `document_files` | The uploaded bytes of documents not yet ready |
 | `chunks` | Text, character offsets, heading path, page, embedding (float32 little-endian blob) and the embedding model id |
 | `chunks_fts` | External-content FTS5 index over `chunks.text`, using the Porter stemmer |
 | `index_state` | Single row with a `generation` counter |
 
 Triggers on `chunks` keep `chunks_fts` in sync and increment
 `index_state.generation` on every insert, update and delete. Foreign keys
-cascade document deletes to chunks, and the triggers then clean the FTS index.
+cascade document deletes to chunks and stored uploads, and the triggers then
+clean the FTS index.
 Connections enable `foreign_keys`, WAL journaling and a 5 s busy timeout. An
 integration test compares the ORM models with the migrated schema, so a model
 change without a migration fails CI.

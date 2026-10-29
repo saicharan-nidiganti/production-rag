@@ -62,6 +62,20 @@ def content_type_for(filename: str) -> str:
     return SUPPORTED_TYPES[suffix]
 
 
+def validate_upload(filename: str, data: bytes) -> str:
+    """Checks that need no parsing, run before a document is accepted. Returns the content type.
+
+    Anything that needs parsing (a damaged PDF, Markdown with headings but no text) fails
+    later, while the document is processed, and is reported in its status.
+    """
+    content_type = content_type_for(filename)
+    if content_type == "application/pdf":
+        _check_pdf_signature(data)
+    elif not _decode(data).strip():
+        raise ExtractionError("document contains no extractable text")
+    return content_type
+
+
 def discover_documents(path: Path) -> list[Path]:
     """Supported files under a directory (recursively, sorted), or ``[path]`` for a file.
 
@@ -90,6 +104,12 @@ def _decode(data: bytes) -> str:
     except UnicodeDecodeError as exc:
         raise ExtractionError("text documents must be UTF-8 encoded") from exc
     return _normalize(text)
+
+
+def _check_pdf_signature(data: bytes) -> None:
+    # Validate by content, not extension (NFR-2): the header must appear in the first 1024 bytes.
+    if PDF_SIGNATURE not in data[:1024]:
+        raise UnsupportedDocumentError("file has a .pdf extension but is not a PDF")
 
 
 def _normalize(text: str) -> str:
@@ -131,9 +151,7 @@ def _extract_pdf(data: bytes, stem: str, max_pages: int) -> ExtractedDocument:
     from pypdf import PdfReader
     from pypdf.errors import PdfReadError
 
-    # Validate by content, not extension (NFR-2): the header must appear in the first 1024 bytes.
-    if PDF_SIGNATURE not in data[:1024]:
-        raise UnsupportedDocumentError("file has a .pdf extension but is not a PDF")
+    _check_pdf_signature(data)
     try:
         reader = PdfReader(io.BytesIO(data))
         if reader.is_encrypted:

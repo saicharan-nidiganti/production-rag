@@ -17,6 +17,7 @@ from production_rag.api.routes import api_router, health_router
 from production_rag.config import Settings, get_settings
 from production_rag.container import Container, build_container
 from production_rag.db.migrate import is_at_head
+from production_rag.ingestion import IngestionWorker
 from production_rag.observability import configure_logging, request_id_var
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,15 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
         app.state.container = container or build_container(settings)
         if not is_at_head(app.state.container.engine):
             # Migrations are an explicit deploy step; /ready reports 503 until they run.
+            # Ingestion workers back off and retry until then.
             logger.error("startup.schema_not_at_head")
+        worker = IngestionWorker(
+            app.state.container.ingestion,
+            threads=settings.ingest_workers,
+            poll_interval_s=settings.ingest_poll_interval_s,
+        )
+        worker.start()
+        app.state.ingest_worker = worker
         if settings.embedding_provider == "hashing":
             logger.warning(
                 "startup.lexical_only_embeddings",
@@ -46,9 +55,11 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
                 "generator": app.state.container.rag.generator.model_id,
                 "embedding_model": app.state.container.embedder.model_id,
                 "auth_enabled": settings.api_key is not None,
+                "ingest_workers": settings.ingest_workers,
             },
         )
         yield
+        worker.stop()
         if owns_container:
             app.state.container.close()
 

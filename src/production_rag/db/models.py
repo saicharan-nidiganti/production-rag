@@ -8,13 +8,16 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, LargeBinary, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+# queued -> processing -> ready | failed. Only ready documents have chunks.
+DocumentStatus = Literal["queued", "processing", "ready", "failed"]
 
-def _utcnow() -> datetime:
+
+def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
@@ -24,6 +27,7 @@ class Base(DeclarativeBase):
 
 class Document(Base):
     __tablename__ = "documents"
+    __table_args__ = (Index("ix_documents_status_updated_at", "status", "updated_at"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     source_name: Mapped[str] = mapped_column(String(512))
@@ -34,7 +38,20 @@ class Document(Base):
     num_chunks: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text)
     metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    # Processing state (FR-3). Title, text and num_chunks are placeholders until "ready".
+    status: Mapped[str] = mapped_column(String(16), default="queued")
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    # Set while processing: the claiming worker's token, and when its claim lapses unless
+    # renewed. A lapsed claim means the worker stopped; another one may take the document.
+    claim_token: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     chunks: Mapped[list[Chunk]] = relationship(
         back_populates="document",
@@ -42,6 +59,21 @@ class Document(Base):
         passive_deletes=True,
         order_by="Chunk.ordinal",
     )
+
+
+class DocumentFile(Base):
+    """Uploaded bytes awaiting processing.
+
+    Kept while the document is queued, processing or failed, so processing survives a
+    restart and a failed document can be retried; deleted when the document becomes ready.
+    """
+
+    __tablename__ = "document_files"
+
+    document_id: Mapped[str] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True
+    )
+    data: Mapped[bytes] = mapped_column(LargeBinary)
 
 
 class Chunk(Base):

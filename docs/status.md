@@ -4,11 +4,11 @@ Last updated: 2026-10-29
 
 ## Current state
 
-**v0 backend: implemented and on `main`.** Ingestion (PDF, TXT, Markdown),
-hybrid retrieval (BM25 + vectors with RRF) with optional cross-encoder
-reranking, grounded generation with Claude search-result citations, an HTTP
-API, the `rag` CLI, and an evaluation suite of 94 questions with a held-out
-test split, gated in CI. See [architecture.md](architecture.md) and the
+**v0 backend: implemented and on `main`.** Background ingestion (PDF, TXT,
+Markdown) with a status per document, hybrid retrieval (BM25 + vectors with
+RRF) with optional cross-encoder reranking, grounded generation with Claude
+search-result citations, an HTTP API, the `rag` CLI, and an evaluation suite of
+94 questions with a held-out test split, gated in CI. See [architecture.md](architecture.md) and the
 [roadmap](roadmap.md).
 
 **Next milestone: measured grounded answers.** Run the first Claude evaluation
@@ -34,7 +34,8 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 | Correct abstention on unanswerable ≥ 0.90 | **Not met yet.** Retrieval abstains on 4 of 4 off-topic test questions but 0 of 8 on-topic ones; the extractive baseline declines 4 of 12. Claude, which has to handle the on-topic ones, is unmeasured ([evaluation.md](evaluation.md#abstention-signals)) |
 | Prompt-injection suite (0 successful injections) | Cases exist (`t-par-*`); only informative with Claude, so **unverified** |
 | Accounts and isolation (FR-1, NFR-1) | Not started; v0 is single tenant ([ADR-0002](decisions/0002-v0-storage-and-scope.md)) |
-| Ingestion status (FR-3), streaming (FR-9), DOCX/HTML (FR-2) | Not started |
+| Ingestion status (FR-3) | Met: `queued` → `processing` → `ready` or `failed` with a code and message, retry, recovery after crashes and restarts ([ADR-0006](decisions/0006-background-ingestion.md)) |
+| Streaming (FR-9), DOCX/HTML (FR-2) | Not started |
 
 ## Session log
 
@@ -45,6 +46,31 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
   hit rate 1.000 and MRR 0.946 either way; overall MRR 0.954 against 0.958
   (one dev question, `inc-06`, needs 20); rerank p50 31 ms against 234 ms. The
   reranked and Claude gates now expect 5.
+- **Background ingestion (FR-3,
+  [ADR-0006](decisions/0006-background-ingestion.md)).** Uploads return `202`
+  after the checks that need no parsing. Worker threads in each API process
+  claim documents from the `documents` table (compare-and-set, with renewable
+  leases), so the queue needs no broker and survives restarts. Uploaded bytes
+  are kept in the database until the document is ready. Failures record a code
+  and a message; `POST /v1/documents/{id}/retry` or an identical re-upload
+  queues them again. Migration 0002 marks existing documents `ready`. New
+  settings: `RAG_INGEST_WORKERS`, `RAG_INGEST_POLL_INTERVAL_S`,
+  `RAG_INGEST_LEASE_S`, `RAG_INGEST_MAX_ATTEMPTS`.
+- **Verified** by 23 service-level and 4 API tests: every state and
+  transition, failure reasons, retry, duplicate uploads in each state, a
+  crashed worker's document taken over after its lease (the late worker's
+  result is discarded, including after its last renewal), repeated
+  interruptions, shutdown hand-back, deletion mid-processing, restarts, two
+  workers with separate database engines processing each document once, and
+  migration of existing data both ways.
+- **Verified with real server processes** (uvicorn, offline configuration):
+  uploads queued by a server without workers were processed after a restart; a
+  server hard-killed two seconds into embedding a 900-chunk document left it
+  `processing` with no chunks, and the next server took it over (attempt 2)
+  and finished it with exactly 900 chunks; two uvicorn worker processes
+  processed 12 uploads exactly once each.
+- **Fixed:** document timestamps were returned without a time zone when read
+  back from SQLite; they are now always UTC (`Z`).
 
 ### Session 4 — Paid-evaluation preparation (2026-10-29)
 
@@ -174,6 +200,7 @@ Checks at the end of the session:
 2. Before the run: `rag eval --plan --count-tokens` for exact input counts.
 3. Run the paid evaluation and record it in [evaluation.md](evaluation.md). If
    on-topic declines fall short, evaluate an answerability check.
-4. Meanwhile (free): background ingestion with status reporting (FR-3), then
-   DOCX and HTML (FR-2).
+4. Meanwhile (free): DOCX and HTML (FR-2), then answer streaming (FR-9).
+   Before untrusted users can upload, move parsing to a separate,
+   resource-limited worker process ([ADR-0006](decisions/0006-background-ingestion.md)).
 5. Phase 5: accounts and isolation, with PostgreSQL + pgvector.

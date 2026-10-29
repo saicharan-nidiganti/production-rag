@@ -14,6 +14,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from production_rag.api.schemas import ErrorBody, ErrorResponse
 from production_rag.generation import GenerationError
 from production_rag.ingestion import (
+    DocumentStateError,
     DocumentTooLargeError,
     ExtractionError,
     UnsupportedDocumentError,
@@ -43,6 +44,10 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(NotFoundError)
     async def _not_found(_: Request, exc: NotFoundError) -> JSONResponse:
         return error_response(404, "not_found", str(exc))
+
+    @app.exception_handler(DocumentStateError)
+    async def _state(_: Request, exc: DocumentStateError) -> JSONResponse:
+        return error_response(409, "invalid_document_state", str(exc))
 
     @app.exception_handler(UnsupportedDocumentError)
     async def _unsupported(_: Request, exc: UnsupportedDocumentError) -> JSONResponse:

@@ -5,6 +5,7 @@ import pytest
 
 from production_rag.cli import main
 from production_rag.config import Settings
+from production_rag.db.migrate import head_revision
 from production_rag.evaluation import check_gate, load_thresholds, run_evaluation
 from tests.conftest import CORPUS_DIR, DATASET, REPO_ROOT
 
@@ -21,13 +22,14 @@ def cli_env(monkeypatch: pytest.MonkeyPatch, db_url: str) -> str:
 def test_cli_end_to_end(cli_env: str, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["db", "upgrade"]) == 0
     assert json.loads(capsys.readouterr().out.strip().splitlines()[-1]) == {
-        "current": "0001",
-        "head": "0001",
+        "current": head_revision(),
+        "head": head_revision(),
     }
 
     assert main(["ingest", str(CORPUS_DIR)]) == 0
     lines = [json.loads(line) for line in capsys.readouterr().out.strip().splitlines()]
-    assert len(lines) == 9 and all(line["created"] for line in lines)
+    assert len(lines) == 9
+    assert all(line["created"] and line["status"] == "ready" for line in lines)
 
     assert main(["search", "rollback command", "--top-k", "2"]) == 0
     assert "deployment-runbook.md" in capsys.readouterr().out

@@ -2,31 +2,53 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from production_rag.config import RetrievalMode
-from production_rag.db.models import Document
+from production_rag.db.models import Document, DocumentStatus
 from production_rag.generation import AnswerStatus
 from production_rag.rag import QueryResult
 from production_rag.retrieval import RetrievedChunk, SearchResult
 
 
+def _utc(value: datetime) -> datetime:
+    """SQLite returns timestamps without a zone; they are stored in UTC."""
+    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+
+
+class DocumentError(BaseModel):
+    code: str = Field(
+        description="extraction_failed, unsupported_document_type, interrupted, "
+        "upload_missing or internal_error."
+    )
+    message: str = Field(description="What went wrong and what to do about it.")
+
+
 class DocumentOut(BaseModel):
     id: str
     source_name: str
-    title: str
+    title: str = Field(description="The file name until the document is ready.")
     content_type: str
     size_bytes: int
-    num_chunks: int
+    num_chunks: int = Field(description="0 until the document is ready.")
     content_hash: str
     metadata: dict[str, Any]
+    status: DocumentStatus = Field(
+        description="queued -> processing -> ready or failed. Only ready documents are searched."
+    )
+    error: DocumentError | None = Field(description="Why processing failed; null otherwise.")
+    attempts: int = Field(description="Processing attempts since the document was last queued.")
     created_at: datetime
+    updated_at: datetime = Field(description="When the status last changed.")
 
     @classmethod
     def from_model(cls, doc: Document) -> DocumentOut:
+        error = None
+        if doc.error_code is not None:
+            error = DocumentError(code=doc.error_code, message=doc.error_message or "")
         return cls(
             id=doc.id,
             source_name=doc.source_name,
@@ -36,13 +58,17 @@ class DocumentOut(BaseModel):
             num_chunks=doc.num_chunks,
             content_hash=doc.content_hash,
             metadata=doc.metadata_,
-            created_at=doc.created_at,
+            status=cast(DocumentStatus, doc.status),
+            error=error,
+            attempts=doc.attempts,
+            created_at=_utc(doc.created_at),
+            updated_at=_utc(doc.updated_at),
         )
 
 
 class IngestResponse(BaseModel):
     document: DocumentOut
-    created: bool = Field(description="False when identical content was already ingested.")
+    created: bool = Field(description="False when identical content was already submitted.")
 
 
 class DocumentList(BaseModel):

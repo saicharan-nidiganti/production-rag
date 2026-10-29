@@ -37,7 +37,7 @@ the item notes the proposed decision.
 - [x] Design chunking strategy
 - [x] Implement chunking
 - [x] Preserve document metadata — heading path, page, character offsets, content hash
-- [ ] Upload validation, duplicate detection and ingestion status reporting — content-based validation and duplicate detection done; status reporting (FR-3) needs background ingestion
+- [x] Upload validation, duplicate detection and ingestion status reporting — background workers with per-document status, failure reasons and retry (FR-3, [ADR-0006](decisions/0006-background-ingestion.md))
 - [x] Handle empty, encrypted, corrupt and oversized files
 - [x] Add ingestion tests
 

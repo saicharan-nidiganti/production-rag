@@ -16,10 +16,11 @@ ADRs document important technical decisions, including:
 | ADR | Title | Status |
 | --- | --- | --- |
 | [0001](0001-technology-stack.md) | Technology stack for v1 | Proposed (v1 target; §2, §8–§10 settled for v0 by 0002 and 0003) |
-| [0002](0002-v0-storage-and-scope.md) | v0 storage and scope: SQLite, single tenant, synchronous ingestion | Accepted (owner, D-3) |
+| [0002](0002-v0-storage-and-scope.md) | v0 storage and scope: SQLite, single tenant, synchronous ingestion | Accepted (owner, D-3); synchronous ingestion superseded by 0006 |
 | [0003](0003-generation-provider-claude.md) | Generation provider: Claude with search-result citations | Accepted (owner, D-2); live behavior not yet verified |
 | [0004](0004-embeddings-hybrid-retrieval-and-abstention.md) | Embedding providers, hybrid retrieval and calibrated abstention | Accepted |
-| [0005](0005-reranking-and-abstention.md) | Cross-encoder reranking and rerank-score abstention | Accepted |
+| [0005](0005-reranking-and-abstention.md) | Cross-encoder reranking and rerank-score abstention | Accepted; default candidates amended to 5 |
+| [0006](0006-background-ingestion.md) | Background ingestion on a SQLite-backed queue | Accepted |
 
 Open decisions that these ADRs depend on are tracked in
 [status.md](../status.md#open-decisions).

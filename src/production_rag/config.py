@@ -42,6 +42,25 @@ class Settings(BaseSettings):
     max_pdf_pages: int = Field(default=500, gt=0)
     chunk_size: int = Field(default=1000, ge=100, description="Target chunk size in characters.")
     chunk_overlap: int = Field(default=150, ge=0)
+    ingest_workers: int = Field(
+        default=1,
+        ge=0,
+        le=16,
+        description="Background ingestion threads per API process; 0 processes nothing here.",
+    )
+    ingest_poll_interval_s: float = Field(
+        default=2.0, gt=0, description="How often idle workers look for queued documents."
+    )
+    ingest_lease_s: float = Field(
+        default=300.0,
+        gt=0,
+        description="A worker's claim on a document lapses this long after its last renewal.",
+    )
+    ingest_max_attempts: int = Field(
+        default=3,
+        ge=1,
+        description="Interrupted processing attempts before a document is marked failed.",
+    )
 
     # --- Embeddings ---
     embedding_provider: EmbeddingProvider = "hashing"
