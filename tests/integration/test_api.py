@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Iterator, Sequence
 from typing import Any
@@ -13,6 +14,7 @@ from production_rag.config import Settings
 from production_rag.container import Container, build_container
 from production_rag.db.migrate import head_revision
 from production_rag.generation import GeneratedAnswer, GenerationError
+from production_rag.observability import JsonFormatter
 from production_rag.retrieval import RetrievedChunk
 from tests.conftest import CORPUS_DIR
 
@@ -328,3 +330,21 @@ def test_generation_failures_map_to_http_errors(
         assert "boom" not in body["message"]  # internal details are not leaked
     finally:
         container.close()
+
+
+def test_logs_never_contain_questions_or_document_text(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    """NFR-4: logs carry ids, counts and timings only, even at DEBUG."""
+    secret_fact = "The vault combination is nine-four-seven-two-tango."
+    question = "What is the vault combination, zebra-unique-phrase?"
+    document = f"# Vault\n\n## Access\n\n{secret_fact}\n".encode()
+    with caplog.at_level(logging.DEBUG):
+        upload = _upload(client, name="vault.md", data=document)
+        assert _wait_for_final_status(client, upload.json()["document"]["id"])["status"] == "ready"
+        assert client.post("/v1/search", json={"query": question}).status_code == 200
+        assert client.post("/v1/query", json={"question": question}).status_code == 200
+    logged = "\n".join(JsonFormatter().format(r) for r in caplog.records)
+    assert "query.completed" in logged and "ingest.completed" in logged  # logging did run
+    for text in ("nine-four-seven-two-tango", "zebra-unique-phrase", "vault combination"):
+        assert text not in logged

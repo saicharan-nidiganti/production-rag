@@ -11,6 +11,17 @@ machine-readable schema at `/openapi.json` and interactive documentation at
 - **Authentication:** when `RAG_API_KEY` is set, every `/v1/*` request needs
   `Authorization: Bearer <key>` or `X-API-Key: <key>`. `/health` and `/ready`
   are always open, for probes.
+- **Versioning:** endpoints live under `/v1`; `/health` and `/ready` are
+  unversioned. Within a version, changes are additive only: new endpoints,
+  new optional request fields and new response fields, so clients should
+  ignore fields they don't know. Removing or renaming a field, changing its
+  type or meaning, or rejecting requests that used to be accepted needs a new
+  version (`/v2`), served alongside the old one for a deprecation period
+  announced in [CHANGELOG.md](../CHANGELOG.md). Until the first release
+  (`0.x`), `/v1` may still change incompatibly, and every such change is
+  listed in the changelog: uploads, for example, moved from `201` to `202`
+  with background ingestion. `/openapi.json` always describes the running
+  server.
 - **Request ids:** send `X-Request-ID` (1–64 characters from `A-Z a-z 0-9 . _ -`)
   to correlate logs, or let the server generate one. Every response carries
   `X-Request-ID`, and every log line for the request includes it.

@@ -42,6 +42,31 @@ def test_cli_end_to_end(cli_env: str, capsys: pytest.CaptureFixture[str]) -> Non
     assert json.loads(capsys.readouterr().out)["reembedded_chunks"] == 0
 
 
+def test_cli_ask_is_readable_without_log_noise(
+    cli_env: str, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("RAG_LOG_LEVEL")  # the default: one-shot commands log warnings only
+    main(["db", "upgrade"])
+    main(["ingest", str(CORPUS_DIR / "deployment-runbook.md")])
+    capsys.readouterr()
+    assert main(["ask", "How long does the canary run?"]) == 0
+    out, err = capsys.readouterr()
+    assert "canary.[1] The canary receives" in out  # markers don't swallow the space
+    assert '"event"' not in err and '"event"' not in out
+
+
+def test_cli_ingest_reports_a_missing_file_and_continues(
+    cli_env: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    main(["db", "upgrade"])
+    capsys.readouterr()
+    missing = tmp_path / "missing.md"
+    assert main(["ingest", str(missing), str(CORPUS_DIR / "deployment-runbook.md")]) == 1
+    lines = [json.loads(line) for line in capsys.readouterr().out.strip().splitlines()]
+    assert lines[0]["path"] == str(missing) and "error" in lines[0]
+    assert lines[1]["status"] == "ready"
+
+
 def test_cli_ingest_reports_failures(
     cli_env: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

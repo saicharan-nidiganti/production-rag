@@ -79,3 +79,11 @@ def test_every_non_space_character_is_covered(seed: int) -> None:
         covered.update(range(chunk.start, chunk.end))
     missing = [i for i, ch in enumerate(text) if not ch.isspace() and i not in covered]
     assert missing == []
+
+
+def test_chunking_is_deterministic() -> None:
+    text = "\n\n".join(f"Paragraph {i}. " + "Some words follow here. " * 12 for i in range(30))
+    sections = [Section(0, len(text))]
+    first = chunk_document(text, sections, chunk_size=300, overlap=60)
+    second = chunk_document(text, sections, chunk_size=300, overlap=60)
+    assert len(first) > 5 and first == second

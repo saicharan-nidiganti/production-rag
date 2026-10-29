@@ -84,3 +84,13 @@ def test_timer_records_stages() -> None:
     with timer.stage("a"):
         pass
     assert set(timer.timings_ms) == {"a"} and timer.timings_ms["a"] >= 0
+
+
+def test_environment_variables_override_dotenv(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / ".env").write_text("RAG_TOP_K=3\nRAG_RETRIEVAL_MODE=lexical\n", encoding="utf-8")
+    monkeypatch.setenv("RAG_TOP_K", "9")
+    settings = Settings(_env_file=tmp_path / ".env")  # type: ignore[call-arg]
+    assert settings.top_k == 9  # the environment wins
+    assert settings.retrieval_mode == "lexical"  # .env fills what the environment doesn't set

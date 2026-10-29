@@ -117,7 +117,8 @@ def cmd_ask(args: argparse.Namespace, settings: Settings) -> int:
     print(f"[{answer.status} | {answer.model}]\n")
     for segment in answer.segments:
         marks = "".join(f"[{i + 1}]" for i in segment.citations)
-        print(f"{segment.text}{marks}", end="")
+        text = segment.text.rstrip()  # markers go after the sentence, before its spacing
+        print(f"{text}{marks}{segment.text[len(text) :]}", end="")
     print("\n")
     for i, citation in enumerate(answer.citations, start=1):
         chunk = citation.chunk
@@ -370,7 +371,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     settings = get_settings()
-    configure_logging(settings.log_level)
+    level = settings.log_level
+    if args.command != "serve" and "log_level" not in settings.model_fields_set:
+        # One-shot commands print their own results; INFO logs on the terminal are noise.
+        # The server, and an explicit RAG_LOG_LEVEL, keep the configured level.
+        level = "WARNING"
+    configure_logging(level)
     code: int = args.func(args, settings)
     return code
 
