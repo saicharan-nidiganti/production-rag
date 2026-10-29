@@ -110,7 +110,7 @@ sequenceDiagram
     I->>D: look up content hash
     alt duplicate content
         I-->>A: existing document (requeued if it had failed)
-        A-->>C: 200 if ready, else 202; created=false
+        A-->>C: 200 if ready, else 202, created=false
     else new content
         I->>D: document (queued) + upload
         I->>W: wake
@@ -231,7 +231,7 @@ sequenceDiagram
     R->>R: RRF fusion, hydrate chunks
     opt reranker configured
         R->>X: score rerank_candidates (question, passage) pairs
-        X-->>R: relevance scores; re-sort
+        X-->>R: relevance scores, then re-sort
     end
     R->>R: keep top_k
     alt nothing retrieved, or best cosine or rerank score below its threshold

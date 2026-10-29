@@ -78,3 +78,36 @@ def test_every_setting_is_documented(variable: str) -> None:
     assert re.search(
         rf"^#? ?{variable}=", (REPO_ROOT / ".env.example").read_text(encoding="utf-8"), re.M
     ), f"{variable} missing from .env.example"
+
+
+_MERMAID = re.compile(r"```mermaid\n(.*?)```", re.S)
+
+
+def _mid_line_semicolons(markdown: str) -> list[str]:
+    """Mermaid lines with a semicolon followed by more text, outside quotes.
+
+    Mermaid reads `;` as a statement separator, so `A-->>B: ready; then go` ends the
+    message at the semicolon and fails to parse the rest; GitHub then shows an error box
+    instead of the diagram.
+    """
+    found = []
+    for block in _MERMAID.findall(markdown):
+        for line in block.splitlines():
+            unquoted = re.sub(r'"[^"]*"', '""', line)
+            if re.search(r";\s*\S", unquoted):
+                found.append(line.strip())
+    return found
+
+
+@pytest.mark.parametrize(
+    "doc", _markdown_files(), ids=lambda p: p.relative_to(REPO_ROOT).as_posix()
+)
+def test_mermaid_diagrams_have_no_statement_breaking_semicolons(doc: Path) -> None:
+    assert _mid_line_semicolons(doc.read_text(encoding="utf-8")) == []
+
+
+def test_the_semicolon_check_catches_a_broken_message() -> None:
+    broken = "```mermaid\nsequenceDiagram\n    A-->>C: 200 if ready, else 202; created=false\n```\n"
+    fine = '```mermaid\nflowchart LR\n    a["x; y"] --> b;\n```\n'
+    assert _mid_line_semicolons(broken) == ["A-->>C: 200 if ready, else 202; created=false"]
+    assert _mid_line_semicolons(fine) == []

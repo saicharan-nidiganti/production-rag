@@ -46,37 +46,30 @@ documents, and as a worked example of taking RAG from prototype to an engineered
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     client(["Client or rag CLI"])
-    subgraph service["FastAPI service"]
-        routes["Routes: auth, request ids, errors"]
-        workers[["Ingestion worker threads"]]
+    subgraph process["One API process"]
+        routes["HTTP routes<br/>auth, request ids, errors"]
+        ingestion["Ingestion<br/>queue, worker threads,<br/>extract, chunk, embed"]
+        query["Question answering<br/>hybrid retrieval, rerank,<br/>abstention, citations"]
     end
-    subgraph core["Core"]
-        intake["Intake: validate, deduplicate"]
-        queue["Ingestion queue: claims and leases"]
-        pipeline["Pipeline: extract, chunk, embed"]
-        rag["RagService: retrieve, abstain, generate"]
-        retriever["Retriever: BM25 + vectors, RRF, rerank"]
-        generator["Generator: Claude or extractive"]
-    end
-    db[("SQLite: documents, uploads, chunks, FTS5 index, vectors")]
-    claude{{"Claude API"}}
+    db[("SQLite<br/>documents, uploads, chunks,<br/>FTS5 index, vectors")]
+    claude{{"Claude API<br/>or the offline generator"}}
 
     client --> routes
-    routes -- "upload" --> intake --> db
-    workers -- "claim" --> queue --> db
-    workers --> pipeline --> db
-    routes -- "search / query" --> rag
-    rag --> retriever --> db
-    rag --> generator --> claude
+    routes -- "upload, status" --> ingestion
+    routes -- "search, ask" --> query
+    ingestion -- "claims, chunks" --> db
+    query -- "BM25 + vectors" --> db
+    query -- "chunks as search results" --> claude
 ```
 
 A single process serves the API and runs the ingestion workers. SQLite holds everything,
 including the queue, so there is nothing else to operate
 ([ADR-0002](docs/decisions/0002-v0-storage-and-scope.md),
 [ADR-0006](docs/decisions/0006-background-ingestion.md)). Package dependencies point one
-way and a test enforces it ([architecture](docs/architecture.md#3-code-layout)).
+way, and a test enforces it. Component and sequence diagrams are in
+[docs/architecture.md](docs/architecture.md).
 
 ### How a question is answered
 
