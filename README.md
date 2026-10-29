@@ -159,6 +159,7 @@ Full request and response fields, error codes and real examples are in [docs/api
 RAG_EMBEDDING_PROVIDER=hashing uv run rag eval --thresholds eval/thresholds.json   # what CI runs
 RAG_EMBEDDING_PROVIDER=fastembed uv run rag eval --thresholds eval/thresholds.fastembed.json
 RAG_GENERATOR=extractive uv run rag eval --generation   # also score answers (free baseline)
+uv run rag eval --plan --tags unanswerable-ontopic,injection   # preview a paid run: calls, cost (free)
 uv run rag eval --generation --allow-paid   # with Claude: paid, one API call per question
 ```
 

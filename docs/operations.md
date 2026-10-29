@@ -99,6 +99,7 @@ checklist are in [security.md](security.md). All settings are listed in
 | --- | --- |
 | `/ready` 503 with `schema: not at head` | Run `rag db upgrade` |
 | HTTP 502 `generation_failed`, "no Claude API credentials configured" | Set `ANTHROPIC_API_KEY` (read by the SDK, without the `RAG_` prefix) |
+| "the Claude API account has no credit left" (HTTP 502 `generation_failed`, or from `rag eval --plan --count-tokens`) | The key authenticates but the account's credit balance is empty; even token counting is refused. Add credits under Plans & Billing in the Claude Console |
 | HTTP 503 `generation_unavailable` | Rate limit, overload or network failure after SDK retries; retry later, check `generation.failed` logs |
 | Many `insufficient_evidence` answers | Check `best_vector_score` in `query.completed`: if it's low, the corpus may lack the content; if retrieval looks right, run `rag eval` and recalibrate the threshold |
 | fastembed fails with "Could not load model … from any source" | Often not the network: Hugging Face downloads large files through its Xet client, which writes to `~/.cache/huggingface`. If that isn't writable, set `HF_HOME` and `RAG_FASTEMBED_CACHE_DIR` to writable directories |

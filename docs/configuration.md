@@ -49,7 +49,7 @@ Changing the provider, model or dimensions requires `rag reindex`
 | `RAG_MIN_VECTOR_SCORE` | unset | Abstain without calling the generator when the best cosine is below this value. Unset uses the calibrated default: 0.05 for `hashing`, 0.55 for `fastembed` ([evaluation.md](evaluation.md#calibrating-abstention)). |
 | `RAG_RERANKER` | `none` | `fastembed` reranks retrieved candidates with a local cross-encoder (recommended; needs the `local-embeddings` extra and downloads ~80 MB on first use). Adds about 250 ms per query on a laptop CPU ([ADR-0005](decisions/0005-reranking-and-abstention.md)). |
 | `RAG_RERANKER_MODEL` | `Xenova/ms-marco-MiniLM-L-6-v2` | Cross-encoder used by the `fastembed` reranker |
-| `RAG_RERANK_CANDIDATES` | `20` | Fused candidates the reranker scores before keeping `RAG_TOP_K`. 5 cuts rerank latency about 8× and misses one dev paraphrase question. |
+| `RAG_RERANK_CANDIDATES` | `20` | Fused candidates the reranker scores before keeping `RAG_TOP_K`. 5 cuts rerank latency about 7× (p50 32 ms against 234 ms) and misses one dev paraphrase question ([trade-offs](evaluation.md#reranker-trade-offs)). |
 | `RAG_MIN_RERANK_SCORE` | unset | With a reranker, also abstain when the best rerank score is below this value. Unset uses the calibrated default: −8.4 for `Xenova/ms-marco-MiniLM-L-6-v2`; other models have no default and never abstain on this score. |
 
 ## Generation
@@ -60,7 +60,7 @@ Changing the provider, model or dimensions requires `rag reindex`
 | `ANTHROPIC_API_KEY` or `RAG_ANTHROPIC_API_KEY` | unset | Claude API key. Unset lets the SDK resolve credentials itself, for example from an `ant auth login` profile. |
 | `RAG_ANTHROPIC_MODEL` | `claude-opus-5-5` | Claude model ID |
 | `RAG_ANTHROPIC_EFFORT` | `medium` | `low`, `medium`, `high`, `xhigh` or `max`. Higher effort costs more tokens and time. |
-| `RAG_ANTHROPIC_MAX_TOKENS` | `16000` | Output limit per answer, including the model's thinking |
+| `RAG_ANTHROPIC_MAX_TOKENS` | `16000` | Output limit per answer, including the model's thinking. It sets the worst-case cost of a paid evaluation (`rag eval --plan`). |
 | `RAG_ANTHROPIC_TIMEOUT_S` | `120` | Request timeout in seconds |
 | `RAG_ANTHROPIC_MAX_RETRIES` | `2` | SDK retries for rate limits, overload and connection errors |
 | `RAG_ANTHROPIC_FALLBACKS` | `true` | Server-side refusal fallback (beta). Set to `false` on platforms that don't support it. |

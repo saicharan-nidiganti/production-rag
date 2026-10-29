@@ -53,7 +53,9 @@ The test suite runs offline. Tests marked `live` download an embedding model
 and run only with `RAG_RUN_LIVE_TESTS=1`. Tests marked `paid` call the Claude
 API and run only with `RAG_RUN_PAID_TESTS=1`. `rag eval --generation` with the
 Claude generator refuses to start without `--allow-paid`. Get the maintainer's
-approval before running anything paid.
+approval before running anything paid, and show them `rag eval --plan` first: it
+lists the calls, the estimated cost and what each question tests, without
+generating anything.
 
 On Windows, use `uv run python -m pytest` rather than `uv run pytest`: some
 Application Control policies block the `pytest.exe` launcher.

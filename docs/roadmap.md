@@ -64,7 +64,7 @@ the item notes the proposed decision.
 - [ ] Defend against prompt injection in document content — system-prompt mitigation in place; injection cases in golden v2 (`t-par-*`), to be measured with Claude
 - [x] Add generation tests
 - [ ] Stream answers to the client (FR-9)
-- [ ] Measure Claude answers with `rag eval --generation` (needs an API key)
+- [ ] Measure Claude answers: prepared (`rag eval --plan`, acceptance gate `eval/thresholds.claude.json`); blocked on API credit and the owner's authorization
 
 ## Phase 5 — Security and Multi-User Isolation
 

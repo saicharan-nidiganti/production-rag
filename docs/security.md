@@ -32,9 +32,10 @@ policy before enabling the Claude generator.
 | Path traversal | Client file names are reduced to a bare name and used only as metadata, never as a path | `safe_filename` in extract.py |
 | SQL and FTS injection | Bound parameters everywhere; user text is reduced to quoted terms before reaching FTS5 | [lexical.py](../src/production_rag/retrieval/lexical.py) |
 | Prompt injection in documents | Retrieved text is sent as search-result blocks; the system prompt treats it as data, not instructions; citations can only reference retrieved chunks | [anthropic_generator.py](../src/production_rag/generation/anthropic_generator.py) |
+| Unintended spending | `rag eval --generation` with Claude needs `--allow-paid`; paid tests need `RAG_RUN_PAID_TESTS=1`; `rag eval --plan` previews calls and cost without generating | [cli.py](../src/production_rag/cli.py), [plan.py](../src/production_rag/evaluation/plan.py) |
 | Fabricated citations | Citations are mapped from search-result indexes; out-of-range indexes are dropped; uncited answers are not reported as `answered` | same |
 | Information leaks in errors | Unexpected errors return a generic 500 with a request id; upstream API error text is logged, not returned | [errors.py](../src/production_rag/api/errors.py) |
-| Secrets in logs or the repository | `SecretStr` settings, never logged; `.env` git-ignored; gitleaks in CI | [ci.yml](../.github/workflows/ci.yml) |
+| Secrets in logs or the repository | `SecretStr` settings, never logged; `.env` git-ignored; gitleaks in CI. A test checks the Claude key appears in no log line, settings dump, evaluation report or cost plan | [ci.yml](../.github/workflows/ci.yml), [test_plan.py](../tests/integration/test_plan.py) |
 
 ## Supply chain
 
