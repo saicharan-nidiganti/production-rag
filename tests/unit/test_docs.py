@@ -120,3 +120,27 @@ def test_package_version_matches_pyproject() -> None:
 
     pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert __version__ == pyproject["project"]["version"]
+
+
+def test_the_regression_targets_in_the_requirements_match_the_gate() -> None:
+    """requirements.md quotes the CI gate; this keeps the quote and the file equal."""
+    import json
+
+    gate = json.loads((REPO_ROOT / "eval" / "thresholds.json").read_text(encoding="utf-8"))
+    row = next(
+        line
+        for line in (REPO_ROOT / "docs" / "requirements.md")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.startswith("| Retrieval on golden v2 in the offline configuration")
+    )
+    quoted = {
+        "retrieval.hit_rate": "hit rate",
+        "retrieval.recall": "recall",
+        "retrieval.mrr": "MRR",
+        "splits.test.retrieval.hit_rate": "held-out test hit rate",
+        "abstention.false_abstention_rate": "false abstention",
+    }
+    for key, value in {**gate["min"], **gate["max"]}.items():
+        assert f"{quoted[key]} {value}" in row, key
+    assert set(quoted) == set(gate["min"]) | set(gate["max"])

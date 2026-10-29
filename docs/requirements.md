@@ -125,6 +125,32 @@ computed on the current golden dataset (see [evaluation.md](evaluation.md#princi
 | Time to first answer token, p95 (excluding model-provider queueing) | < 3 s |
 | Ingestion of a 100-page text PDF, end to end | < 60 s |
 
+### Reliability
+
+Each target is checked by tests that run in CI on every push, unless marked otherwise.
+
+| Target | Verified by |
+| --- | --- |
+| A failed, interrupted or deleted-while-processing ingestion leaves 0 chunks behind (NFR-5) | `tests/integration/test_background_ingestion.py` |
+| Every document reaches a final state: one interrupted by a crash is taken over after its lease and, after `RAG_INGEST_MAX_ATTEMPTS` interruptions, fails with `interrupted` instead of staying `processing` | `tests/integration/test_background_ingestion.py` |
+| No document is processed twice: 8 documents across two database engines with two worker threads each are each processed exactly once | `tests/integration/test_background_ingestion.py` |
+| A file that hangs or crashes the parser fails only its own document; the service keeps serving | `tests/integration/test_parsing_isolation.py` |
+| One failed generation doesn't abort an evaluation; the case is recorded and counted | `tests/integration/test_evaluation_paths.py` |
+| A real server starts, ingests, searches and answers with a citation | `make smoke` in CI |
+| A server killed mid-processing loses no accepted upload, and the next one finishes the document without duplicate chunks | Checked by hand with real processes on 2026-10-29 ([status.md](status.md), Session 5); not in CI |
+
+### Regression
+
+| Target | Verified by |
+| --- | --- |
+| Retrieval on golden v2 in the offline configuration stays at or above: hit rate 0.93, recall 0.92, MRR 0.84, held-out test hit rate 0.93, with false abstention 0.0 | `eval/thresholds.json` through `make eval-gate`; CI fails below it. `tests/unit/test_docs.py` keeps this row equal to the file |
+| The recommended configurations (bge-small, and bge-small with reranking) stay at or above their own gates | `eval/thresholds.fastembed.json` and `eval/thresholds.reranked.json`, in the live tests (`RAG_RUN_LIVE_TESTS=1`); run before changes to retrieval, not in CI, because they download models |
+| Test coverage stays at or above 90% | `fail_under` in `pyproject.toml`, in CI |
+| Published evaluation numbers stay reproducible: the held-out split doesn't leak from the calibration split, golden v1 survives unchanged as the dev split, and reference reports are committed | `tests/unit/test_evaluation_units.py`, `eval/results/` |
+
+Answer-quality targets (the table above) have no regression gate yet: they need the paid
+Claude evaluation, whose acceptance gate is `eval/thresholds.claude.json`.
+
 ### Engineering
 
 - CI passes lint, type checks, tests and build on `main`.
