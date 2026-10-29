@@ -14,7 +14,7 @@ from fastapi import FastAPI, Request, Response
 from production_rag import __version__
 from production_rag.api.errors import error_response, register_error_handlers
 from production_rag.api.routes import api_router, health_router
-from production_rag.config import Settings, get_settings
+from production_rag.config import ConfigurationError, Settings, get_settings
 from production_rag.container import Container, build_container
 from production_rag.db.migrate import is_at_head
 from production_rag.ingestion import IngestionWorker
@@ -108,6 +108,9 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
 
 def app_factory() -> FastAPI:
     """Entry point for ``uvicorn --factory production_rag.api.app:app_factory``."""
-    settings = get_settings()
+    try:
+        settings = get_settings()
+    except ConfigurationError as exc:
+        raise SystemExit(str(exc)) from None  # a clean message, without the rejected values
     configure_logging(settings.log_level)
     return create_app(settings)

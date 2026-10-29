@@ -94,3 +94,122 @@ def test_environment_variables_override_dotenv(
     settings = Settings(_env_file=tmp_path / ".env")  # type: ignore[call-arg]
     assert settings.top_k == 9  # the environment wins
     assert settings.retrieval_mode == "lexical"  # .env fills what the environment doesn't set
+
+
+# --- Configuration strategy (#4, #27): validation, safe defaults, environments ---------
+
+
+def test_configuration_errors_name_variables_but_never_echo_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from production_rag.config import ConfigurationError, load_settings
+
+    monkeypatch.setenv("RAG_API_KEY", "tiny-secret")  # too short: rejected
+    monkeypatch.setenv("RAG_TOP_K", "0")
+    with pytest.raises(ConfigurationError) as raised:
+        load_settings()
+    message = str(raised.value)
+    assert "RAG_API_KEY: RAG_API_KEY must be at least 16 characters" in message
+    assert "RAG_TOP_K: Input should be greater than or equal to 1" in message
+    assert "tiny-secret" not in message
+    assert raised.value.__suppress_context__  # the chained error would print the values
+
+
+def test_cross_setting_rules_are_reported_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    from production_rag.config import ConfigurationError, load_settings
+
+    monkeypatch.setenv("RAG_PARSE_TIMEOUT_S", "400")  # longer than the 300 s lease
+    with pytest.raises(ConfigurationError, match="settings: RAG_PARSE_TIMEOUT_S must be shorter"):
+        load_settings()
+
+
+def test_the_cli_reports_bad_configuration_without_a_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from production_rag.cli import main
+
+    monkeypatch.setenv("RAG_API_KEY", "tiny-secret")
+    assert main(["db", "current"]) == 2
+    err = capsys.readouterr().err
+    assert err.startswith("invalid configuration") and "RAG_API_KEY" in err
+    assert "tiny-secret" not in err and "Traceback" not in err
+
+
+def test_the_api_refuses_to_start_with_bad_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
+    from production_rag.api.app import app_factory
+
+    monkeypatch.setenv("RAG_API_KEY", "tiny-secret")
+    with pytest.raises(SystemExit) as raised:
+        app_factory()
+    assert "RAG_API_KEY" in str(raised.value.code)
+    assert "tiny-secret" not in str(raised.value.code)
+
+
+def test_defaults_are_a_safe_offline_development_setup(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("RAG_PARSE_ISOLATION")  # the suite's own override (tests/conftest.py)
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    # No credentials, no downloads, no paid calls: a fresh clone works as is.
+    assert settings.embedding_provider == "hashing"
+    assert settings.reranker == "none"
+    assert settings.generator == "extractive"
+    assert settings.anthropic_api_key is None
+    # Security-relevant defaults that hold in every environment.
+    assert settings.parse_isolation == "process"
+    assert settings.max_upload_bytes == 25 * 1024 * 1024
+
+
+def test_env_example_is_valid_and_holds_no_secrets() -> None:
+    from tests.conftest import REPO_ROOT
+
+    example = REPO_ROOT / ".env.example"
+    settings = Settings(_env_file=example)  # type: ignore[call-arg]
+    # It documents the recommended production-like setup...
+    assert (settings.embedding_provider, settings.reranker, settings.generator) == (
+        "fastembed",
+        "fastembed",
+        "anthropic",
+    )
+    # ...with every secret left empty: placeholders only.
+    for line in example.read_text(encoding="utf-8").splitlines():
+        name, _, value = line.partition("=")
+        if not line.startswith("#") and any(k in name for k in ("KEY", "TOKEN", "SECRET")):
+            assert value.strip() == "", f"{name} must be empty in .env.example"
+    assert settings.api_key is None and settings.anthropic_api_key is None
+
+
+def test_secret_files_are_ignored_by_git() -> None:
+    from tests.conftest import REPO_ROOT
+
+    rules = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    for rule in (".env", ".env.*", "!.env.example", "*.pem", "*.key"):
+        assert rule in rules, rule
+
+
+def test_serving_publicly_without_an_api_key_warns(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import uvicorn
+
+    from production_rag.cli import main
+
+    monkeypatch.setattr(uvicorn, "run", lambda *_, **__: None)
+    monkeypatch.setenv("RAG_DATABASE_URL", "sqlite://")
+    assert main(["serve", "--host", "0.0.0.0"]) == 0
+    assert "without RAG_API_KEY" in capsys.readouterr().err
+    assert main(["serve"]) == 0  # loopback, the default: no warning
+    assert "without RAG_API_KEY" not in capsys.readouterr().err
+    get_settings.cache_clear()
+    monkeypatch.setenv("RAG_API_KEY", "a-long-enough-api-key-0123")
+    assert main(["serve", "--host", "0.0.0.0"]) == 0
+    assert "without RAG_API_KEY" not in capsys.readouterr().err
+
+
+def test_evaluation_never_touches_the_configured_database(tmp_path: Path) -> None:
+    from production_rag.evaluation import run_evaluation
+    from tests.conftest import CORPUS_DIR, DATASET
+
+    production_db = tmp_path / "production.db"
+    settings = Settings(_env_file=None, database_url=f"sqlite:///{production_db.as_posix()}")  # type: ignore[call-arg]
+    report = run_evaluation(settings, corpus_dir=CORPUS_DIR, dataset_path=DATASET, split="dev")
+    assert report["corpus"]["documents"] == 9  # it built its own index...
+    assert not production_db.exists()  # ...in a temporary database, not this one

@@ -5,7 +5,14 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    Field,
+    SecretStr,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 RetrievalMode = Literal["vector", "lexical", "hybrid"]
@@ -175,6 +182,39 @@ class Settings(BaseSettings):
         return self
 
 
+class ConfigurationError(ValueError):
+    """Invalid settings, described by variable name and never by value (it may be a secret)."""
+
+
+def _variable(field: str) -> str:
+    if field.isupper():  # already an environment name, e.g. the ANTHROPIC_API_KEY alias
+        return field
+    known = Settings.model_fields.get(field)
+    alias = known.validation_alias if known is not None else None
+    if isinstance(alias, AliasChoices):
+        return " or ".join(str(choice) for choice in reversed(alias.choices))
+    return f"RAG_{field.upper()}"
+
+
+def describe(error: ValidationError) -> str:
+    """One line per problem. Pydantic's own text includes the rejected input, so it's not used."""
+    lines = []
+    for problem in error.errors(include_input=False, include_url=False):
+        where = _variable(str(problem["loc"][0])) if problem["loc"] else "settings"
+        message = str(problem["msg"]).removeprefix("Value error, ")
+        lines.append(f"  - {where}: {message}")
+    return "invalid configuration (environment variables or .env):\n" + "\n".join(lines)
+
+
+def load_settings() -> Settings:
+    """Settings from the environment and .env, or a ConfigurationError naming what's wrong."""
+    try:
+        return Settings()
+    except ValidationError as exc:
+        # `from None`: the chained ValidationError would print the rejected values.
+        raise ConfigurationError(describe(exc)) from None
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    return load_settings()

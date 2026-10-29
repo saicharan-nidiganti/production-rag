@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from production_rag.config import Settings, get_settings
+from production_rag.config import ConfigurationError, Settings, get_settings
 from production_rag.observability import configure_logging
 
 if TYPE_CHECKING:
@@ -299,6 +299,9 @@ def _print_plan(args: argparse.Namespace, settings: Settings, tags: list[str] | 
     return 0
 
 
+_LOOPBACK = {"127.0.0.1", "localhost", "::1"}
+
+
 def cmd_serve(args: argparse.Namespace, settings: Settings) -> int:
     import uvicorn
 
@@ -308,6 +311,13 @@ def cmd_serve(args: argparse.Namespace, settings: Settings) -> int:
         from production_rag.db.migrate import upgrade_to_head
 
         upgrade_to_head(settings.database_url)
+    if settings.api_key is None and args.host not in _LOOPBACK:
+        print(
+            f"warning: serving on {args.host} without RAG_API_KEY: anyone who can reach this "
+            "port can read, upload and delete every document. Set RAG_API_KEY, or bind to "
+            "127.0.0.1 behind an authenticating proxy.",
+            file=sys.stderr,
+        )
     # access_log=False: the request middleware already logs each request with its request id.
     uvicorn.run(
         create_app(settings), host=args.host, port=args.port, log_config=None, access_log=False
@@ -378,7 +388,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    settings = get_settings()
+    try:
+        settings = get_settings()
+    except ConfigurationError as exc:
+        print(exc, file=sys.stderr)
+        return 2
     level = settings.log_level
     if args.command != "serve" and "log_level" not in settings.model_fields_set:
         # One-shot commands print their own results; INFO logs on the terminal are noise.

@@ -9,6 +9,52 @@ stop the process at startup with a message naming the variable.
 An **empty** value (`RAG_API_KEY=`) means the variable is unset.
 `tests/unit/test_docs.py` fails if a setting is missing from this page.
 
+## Environments
+
+There are no environment profiles: the application has no `RAG_ENV` switch and doesn't know
+which environment it runs in. Every environment is the same code with different settings,
+supplied from outside, from highest to lowest priority: environment variables, then a
+`.env` file in the working directory, then the defaults below. That order is tested
+(`test_environment_variables_override_dotenv`).
+
+What each environment uses, and how much of it is enforced:
+
+| Environment | How it is configured | Enforced by code or tests | Recommended, not enforced |
+| --- | --- | --- | --- |
+| Development | The defaults, or a `.env` copied from `.env.example` | Defaults run fully offline: hashing embeddings, extractive generator, no reranker, no credentials (`test_defaults_are_a_safe_offline_development_setup`) | `RAG_EMBEDDING_PROVIDER=fastembed` and `RAG_RERANKER=fastembed` once the models are downloaded |
+| Test | `tests/conftest.py` removes every `RAG_*` variable, runs each test in an empty directory (no `.env`) on a temporary database, and parses in-process for speed | Paid tests need `RAG_RUN_PAID_TESTS=1`, model downloads `RAG_RUN_LIVE_TESTS=1` | — |
+| Evaluation | `rag eval` builds a fresh index in a temporary database from `eval/corpus/`; the dataset, corpus fingerprint, configuration and commit are written into every report | It never touches `RAG_DATABASE_URL` (`test_evaluation_never_touches_the_configured_database`); Claude runs need `--allow-paid` | Pin providers on the command line (`make eval-gate` does), so a `.env` can't change the configuration being gated |
+| Production | Environment variables from the process manager or a secret store | Invalid settings stop startup; a non-loopback `rag serve` without `RAG_API_KEY` prints a warning | The settings in [operations.md](operations.md#install-and-configure), as in `.env.example`: fastembed, the reranker, Claude, `RAG_API_KEY`, a database on a persistent volume |
+
+`.env.example` is the reference production-like configuration: a test loads it as valid
+settings and checks that every key, token and secret in it is empty
+(`test_env_example_is_valid_and_holds_no_secrets`).
+
+## Validation and secrets
+
+Settings are validated once, at startup, before anything is built. A bad value stops the
+process with one line per problem, naming the variable and never repeating its value, because
+the value may be a secret:
+
+```text
+invalid configuration (environment variables or .env):
+  - RAG_TOP_K: Input should be greater than or equal to 1
+  - RAG_API_KEY: RAG_API_KEY must be at least 16 characters; generate one with: ...
+```
+
+`rag` exits with code 2; the API refuses to start. Rules that involve several settings are
+checked too: `RAG_CHUNK_OVERLAP` below `RAG_CHUNK_SIZE`, and `RAG_PARSE_TIMEOUT_S` below
+`RAG_INGEST_LEASE_S`.
+
+No setting is required: every one has a working default. The Claude credentials are the one
+conditional requirement, and they can't be checked at startup, because the SDK can also find
+them in an `ant auth login` profile. With `RAG_GENERATOR=anthropic` and no credentials, the
+first question fails with HTTP 502 "no Claude API credentials configured".
+
+Secrets (`ANTHROPIC_API_KEY`, `RAG_API_KEY`) are held as secret values. They are never
+logged, never shown in settings dumps or evaluation reports (tested), and never passed to the
+parser process. `.env` and key files are git-ignored (`test_secret_files_are_ignored_by_git`).
+
 ## Storage
 
 | Variable | Default | Description |
