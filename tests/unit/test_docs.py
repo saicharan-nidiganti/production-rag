@@ -111,3 +111,12 @@ def test_the_semicolon_check_catches_a_broken_message() -> None:
     fine = '```mermaid\nflowchart LR\n    a["x; y"] --> b;\n```\n'
     assert _mid_line_semicolons(broken) == ["A-->>C: 200 if ready, else 202; created=false"]
     assert _mid_line_semicolons(fine) == []
+
+
+def test_package_version_matches_pyproject() -> None:
+    import tomllib
+
+    from production_rag import __version__
+
+    pyproject = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    assert __version__ == pyproject["project"]["version"]
