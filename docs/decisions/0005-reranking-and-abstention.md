@@ -8,6 +8,10 @@
 - **Supersedes:** none. It extends
   [ADR-0004](0004-embeddings-hybrid-retrieval-and-abstention.md)'s abstention
   with a second signal.
+- **Amended 2026-10-29:** the default `RAG_RERANK_CANDIDATES` is now 5, not 20
+  (owner decision). On golden v2's held-out test split, 5 gives the same hit rate
+  and MRR as 20 at about a seventh of the latency; 20 recovers one dev question
+  ([evaluation.md](../evaluation.md#reranker-trade-offs)).
 
 ## Context
 

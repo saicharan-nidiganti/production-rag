@@ -38,6 +38,14 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 
 ## Session log
 
+### Session 5 — Background ingestion (2026-10-29)
+
+- **Owner decision:** the reranker scores 5 candidates by default, not 20
+  (`RAG_RERANK_CANDIDATES`, still configurable). Re-measured on golden v2: test
+  hit rate 1.000 and MRR 0.946 either way; overall MRR 0.954 against 0.958
+  (one dev question, `inc-06`, needs 20); rerank p50 31 ms against 234 ms. The
+  reranked and Claude gates now expect 5.
+
 ### Session 4 — Paid-evaluation preparation (2026-10-29)
 
 - **Owner decisions recorded:** SQLite for v0 (ADR-0002 accepted, D-3) and

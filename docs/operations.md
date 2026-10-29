@@ -43,8 +43,8 @@ app enforces the limit too, but only after the body has been received.
 ## Reranking
 
 With `RAG_RERANKER=fastembed`, each query also runs a local cross-encoder over
-`RAG_RERANK_CANDIDATES` passages (default 20; about 250 ms on a laptop CPU, or about 30 ms
-with 5 candidates). Pre-download its model the same way as the embedding model
+`RAG_RERANK_CANDIDATES` passages (default 5; about 30 ms on a laptop CPU, or about 250 ms
+with 20 candidates). Pre-download its model the same way as the embedding model
 (`production_rag.retrieval.reranking.FastEmbedReranker`). After changing `RAG_RERANKER_MODEL`,
 set `RAG_MIN_RERANK_SCORE` from a new calibration: only `Xenova/ms-marco-MiniLM-L-6-v2` has a
 calibrated default, and other models never abstain on rerank score

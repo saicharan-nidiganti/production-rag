@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     )
     reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     rerank_candidates: int = Field(
-        default=20, ge=1, description="Fused candidates the reranker scores before top_k."
+        default=5, ge=1, description="Fused candidates the reranker scores before top_k."
     )
     min_rerank_score: float | None = Field(
         default=None,

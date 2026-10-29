@@ -8,7 +8,7 @@
     "chunk_size": 1000,
     "chunk_overlap": 150,
     "reranker": "Xenova/ms-marco-MiniLM-L-6-v2",
-    "rerank_candidates": 20,
+    "rerank_candidates": 5,
     "rerank_abstain_threshold": -8.4,
     "generator": "claude-opus-5-5"
   },

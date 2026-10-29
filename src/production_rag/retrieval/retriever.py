@@ -53,7 +53,7 @@ class Retriever:
         candidate_pool: int = 30,
         rrf_k: int = 60,
         reranker: Reranker | None = None,
-        rerank_candidates: int = 20,
+        rerank_candidates: int = 5,
     ) -> None:
         self._sessions = sessions
         self._embedder = embedder

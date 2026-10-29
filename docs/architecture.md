@@ -194,11 +194,11 @@ modes:
 
 **Reranking** (optional, `RAG_RERANKER=fastembed`,
 [reranking.py](../src/production_rag/retrieval/reranking.py)): the top
-`RAG_RERANK_CANDIDATES` fused candidates (default 20) are scored by a local
+`RAG_RERANK_CANDIDATES` fused candidates (default 5) are scored by a local
 cross-encoder (`Xenova/ms-marco-MiniLM-L-6-v2`), which reads the question and
 the passage together. They are re-sorted by that score and cut to `top_k`, so
-the reranker can promote a chunk from below the cut. It costs about 250 ms per
-query on a laptop CPU.
+the reranker can promote a chunk from below the cut. It costs about 30 ms per
+query on a laptop CPU at 5 candidates, about 250 ms at 20.
 [ADR-0005](decisions/0005-reranking-and-abstention.md) has the measurements.
 
 Embeddings: `hashing` is a deterministic, dependency-free feature-hashing
