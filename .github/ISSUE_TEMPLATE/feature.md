@@ -2,7 +2,7 @@
 name: Feature request
 about: Propose a new capability or an improvement
 title: "feat: "
-labels: enhancement
+labels: feature work
 ---
 
 ## Problem

@@ -39,6 +39,49 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 
 ## Session log
 
+### Session 6 — Repository audit and engineering quality (2026-10-29)
+
+Audited the repository, code, CI, documentation and GitHub metadata against the
+actual implementation, then fixed what the audit found. No paid API calls.
+
+- **Architecture.** The ingestion queue's claim protocol moved to
+  `ingestion/queue.py` (pipeline.py: 593 → about 330 lines), and document
+  queries to `db/documents.py`, so route handlers hold no SQL. A new
+  layering test checks every import against the documented layers; it was
+  verified by injecting an upward import, which first exposed a gap in the
+  test itself (`from production_rag import cli` went unseen), since fixed.
+- **Quality system.** A `Makefile` shared by developers and CI; a real-server
+  smoke test (`scripts/smoke_test.py`: readiness, a 202 upload, background
+  ingestion, search, a cited answer), verified to fail when ingestion fails;
+  a package job that installs the wheel alone and runs `rag db upgrade`,
+  `ingest` and `search` from it; a test that the held-out split doesn't leak
+  from the calibration split, with a positive control; coverage floor 85% →
+  90%; Dependabot for the pinned GitHub Actions.
+- **A broken push, caught by CI:** the first `Makefile` (commit `3ad09f2`)
+  failed every quality and package job, because generating it lost its
+  backslashes. Fixed in `e535329` and checked with GNU make 4.3 before
+  pushing; CI then passed.
+- **Documentation.** README rewritten. The old one said reranking wasn't
+  implemented, listed gitleaks as future work and quoted 20-candidate
+  latency. The new one has a status table, architecture and query-flow
+  diagrams, real measured results and real API output. The diagrams were
+  reviewed by hand; rendering them locally was blocked. Also added: a
+  documentation index (`docs/README.md`) with a shared status vocabulary,
+  `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1 by reference),
+  `CHANGELOG.md` from the git history, and third-party model licenses,
+  verified on Hugging Face. `methodology.md`, which still described the
+  dataset as future work, was folded into evaluation.md's principles.
+- **GitHub templates.** A template for evaluation problems, and a PR template
+  that asks for implementation notes, risks and rollback, and confirms no paid
+  calls were added. The bug and feature templates referenced labels that don't
+  exist (`bug`, `enhancement`), so labels were never applied; they now use the
+  repository's own labels.
+- **Removed:** the unused `data/processed/` placeholder.
+- **Blocked:** GitHub metadata (description, topics) and closing the issues
+  that are already done need API write access, which this environment doesn't
+  have. 44 issues are open and none closed. The owner's action list is in the
+  session report.
+
 ### Session 5 — Background ingestion (2026-10-29)
 
 - **Owner decision:** the reranker scores 5 candidates by default, not 20

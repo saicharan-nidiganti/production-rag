@@ -109,12 +109,13 @@ the item notes the proposed decision.
 - [ ] OCR for scanned PDFs
 - [ ] Container images
 - [x] Operational documentation — [operations.md](operations.md)
+- [x] Deployment smoke test and package check — `make smoke` (a real server over HTTP) and `make package` (the installed wheel) run in CI
 
 ## Phase 9 — Release
 
 - [ ] Final evaluation
 - [ ] Architecture documentation
-- [ ] Methodology documentation
+- [x] Methodology documentation — the principles are in [evaluation.md](evaluation.md#principles)
 - [ ] README completion
 - [ ] Demo preparation
 - [ ] Final cleanup

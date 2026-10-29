@@ -1,8 +1,12 @@
-## Summary
+## Purpose
 
-<!-- What does this change do, and why? -->
+<!-- What problem does this change solve, and why now? -->
 
 Closes #
+
+## Implementation
+
+<!-- The approach, and anything a reviewer should look at first. Alternatives you rejected, briefly. -->
 
 ## Type of change
 
@@ -14,22 +18,30 @@ Closes #
 
 ## How was this tested?
 
-<!-- Commands run and their results. Distinguish unit tests from integration or end-to-end checks. -->
+<!--
+Commands run and their results (`make check`, `make smoke`, ...). Distinguish unit
+tests from integration and end-to-end checks. For bug fixes, name the regression test.
+-->
 
 ## Evaluation impact
 
 <!--
-Required for changes to ingestion, chunking, embeddings, retrieval, prompts or models.
-Include before/after metrics, dataset version and configuration.
-Write "N/A" otherwise.
+Required for changes to ingestion, chunking, embeddings, retrieval, prompts or models:
+before/after metrics with the dataset version and configuration (report `config` block).
+State whether results are offline or from a paid model run. Write "N/A" otherwise.
 -->
+
+## Risks and rollback
+
+<!-- What could break, for whom, and how to undo it (migrations, settings, data). -->
 
 ## Checklist
 
-- [ ] Lint, type checks and tests pass locally
-- [ ] Tests added or updated (regression test for bug fixes)
-- [ ] Documentation updated where behavior changed
-- [ ] ADR added for significant technical decisions
+- [ ] `make check` passes locally (lint, types, tests, retrieval gate)
+- [ ] Tests added or updated, including a regression test for bug fixes
+- [ ] Documentation updated where behavior or settings changed (`docs/configuration.md` for new settings)
+- [ ] ADR added or updated for a consequential technical decision
+- [ ] Schema changes come with an Alembic migration
+- [ ] No paid API calls were added to CI or to the default test run
 - [ ] No secrets, credentials or private documents committed
-- [ ] New endpoints enforce authentication and document ownership on the server
-- [ ] No document contents or personal data written to logs
+- [ ] No document contents, questions or personal data written to logs

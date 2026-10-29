@@ -48,6 +48,15 @@ policy before enabling the Claude generator.
 - Runtime dependency licenses are permissive (MIT, BSD, Apache-2.0, PSF) or
   MPL-2.0, which is compatible when the packages are used unmodified
   (requirements §5). The last check was on 2026-10-29.
+- Models are downloaded from Hugging Face at runtime, not redistributed with
+  the code. Embeddings: `BAAI/bge-small-en-v1.5`, MIT (fastembed fetches
+  Qdrant's ONNX export, also MIT). Reranker: `Xenova/ms-marco-MiniLM-L-6-v2`,
+  an ONNX conversion of `cross-encoder/ms-marco-MiniLM-L-6-v2`, which is
+  Apache-2.0; the conversion states no license of its own. Checked on the
+  model cards on 2026-10-29. Model files aren't hash-pinned: pre-download them
+  into the image ([operations.md](operations.md#install-and-configure)) to fix
+  the version you run.
+- The evaluation corpus is synthetic, written for this project (MIT).
 
 ## Known gaps
 

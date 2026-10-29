@@ -1,7 +1,25 @@
 # Evaluation
 
-How retrieval and answer quality are measured, and how regressions are caught. The principles
-come from [methodology.md](methodology.md).
+How retrieval and answer quality are measured, and how regressions are caught.
+
+## Principles
+
+The project is built evaluation-first: a component or setting is adopted when a measurement
+on a versioned dataset justifies it, and kept only while a gate keeps checking it.
+
+1. **Reproducibility.** A result depends only on the corpus, dataset, configuration and code,
+   all versioned; every report records them.
+2. **Evaluation first.** Decisions that affect quality come with before/after numbers (the
+   ADRs link them).
+3. **Grounded generation.** Answers are generated only from retrieved passages.
+4. **Citation correctness.** Every citation must point to a retrieved passage that supports
+   the claim.
+5. **Regression prevention.** CI fails when retrieval quality drops below the gate.
+6. **Controlled complexity.** Additional components are introduced only when they provide
+   measurable value (reranking was adopted this way; see ADR-0005).
+
+Results are reported for a held-out split that is never used for tuning, and offline results
+are kept apart from live model results, which are reported only once measured.
 
 ## Running it
 
@@ -124,7 +142,7 @@ by run.
 | fastembed | lexical | 0.978 | 0.909 | 0.967 | 0.890 | 0.167 | 0.000 | 1 ms |
 | fastembed | vector | 1.000 | 0.906 | 0.967 | 0.925 | 0.333 | 0.000 | 7 ms |
 | fastembed | hybrid | 1.000 | 0.931 | 0.967 | 0.933 | 0.333 | 0.000 | 7 ms |
-| **fastembed** | **hybrid + rerank (20 candidates)** | **1.000** | **0.946** | **1.000** | **0.978** | 0.333 | 0.000 | 266 ms |
+| **fastembed** | **hybrid + rerank (5 candidates, the default)** | **1.000** | **0.946** | 0.967 | 0.967 | 0.333 | 0.000 | 70 ms |
 
 - Hybrid retrieval with semantic embeddings and reranking is the best configuration on both
   splits ([ADR-0005](decisions/0005-reranking-and-abstention.md)). On the held-out test split,

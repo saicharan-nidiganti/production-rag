@@ -35,19 +35,30 @@ asking questions.
 
 ## Checks
 
-Run these before pushing. CI runs the same commands.
+Run `make check` before pushing; `make help` lists every target. CI's jobs run
+the same targets, so they can't drift from what you run locally. Without make
+(for example on Windows), run the commands directly:
 
-```bash
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy
-uv run python -m pytest --cov                       # coverage floor: 90%
-RAG_EMBEDDING_PROVIDER=hashing uv run rag eval --thresholds eval/thresholds.json   # retrieval gate
-```
+| Target | Command | What it checks |
+| --- | --- | --- |
+| `make lint` | `uv run ruff check .` and `uv run ruff format --check .` | Lint and formatting |
+| `make typecheck` | `uv run mypy` | mypy `--strict` over `src` and `scripts` |
+| `make test` | `uv run python -m pytest --cov` | Offline suite; coverage floor 90% |
+| `make eval-gate` | `RAG_EMBEDDING_PROVIDER=hashing RAG_RERANKER=none uv run rag eval --thresholds eval/thresholds.json` | Retrieval regression gate |
+| `make smoke` | `uv run python scripts/smoke_test.py` | A real server over HTTP: readiness, upload, background ingestion, search, a cited answer |
+| `make package` | see the [Makefile](Makefile) | The wheel installs and its CLI works outside the repository |
+| `make docs-lint` | `npx markdownlint-cli2 "**/*.md"` | Markdown style (links are checked by the tests) |
 
-The gate's thresholds are calibrated for the default offline configuration, so the
-command pins `RAG_EMBEDDING_PROVIDER=hashing`; otherwise a `.env` that selects
-fastembed makes it fail with "calibrated for a different config".
+The gate's thresholds are calibrated for the default offline configuration, so
+the command pins the providers; otherwise a `.env` that selects fastembed makes
+it fail with "calibrated for a different config".
+
+Some tests guard the structure rather than behavior:
+[test_architecture.py](tests/unit/test_architecture.py) fails on an import that
+breaks the package layering, [test_docs.py](tests/unit/test_docs.py) on a
+broken link or an undocumented setting, and
+[test_database.py](tests/integration/test_database.py) when models and
+migrations disagree.
 
 The test suite runs offline. Tests marked `live` download an embedding model
 and run only with `RAG_RUN_LIVE_TESTS=1`. Tests marked `paid` call the Claude
@@ -111,8 +122,9 @@ Scopes follow the system's components, for example `ingestion`, `retrieval`,
 - Format and lint with Ruff. Type-check with mypy in strict mode.
 - Type hints on all public functions. Pydantic models at API boundaries.
 - No business logic in API route handlers. Keep presentation, business logic,
-  retrieval, data access and infrastructure separate. The module boundaries are
-  described in [docs/architecture.md](docs/architecture.md#3-code-layout).
+  retrieval, data access and infrastructure separate. The module boundaries and
+  the enforced layering are described in
+  [docs/architecture.md](docs/architecture.md#3-code-layout).
 
 ### TypeScript (frontend, from Phase 6)
 

@@ -1,248 +1,274 @@
 # Production RAG — Ask My Docs
 
-A production-oriented Retrieval-Augmented Generation system designed around reliable retrieval, grounded generation, citations, evaluation, regression testing, observability, and reproducibility.
+[![CI](https://github.com/saicharan-nidiganti/production-rag/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/saicharan-nidiganti/production-rag/actions/workflows/ci.yml)
+![Python 3.12 | 3.14](https://img.shields.io/badge/python-3.12%20%7C%203.14-blue)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-Upload your documents, ask questions in plain language, and get answers grounded in those documents. Every answer cites the exact passages it came from, and the system says so when the documents don't contain the answer.
+A retrieval-augmented question-answering backend that answers from your documents, cites
+the exact passages it used, says so when the documents don't contain the answer, and
+measures itself against a versioned evaluation set on every commit.
 
-> **Status:** the **v0 backend** is implemented: ingestion, hybrid retrieval with optional reranking, grounded generation with citations, an HTTP API, a CLI and an evaluation suite (94 questions with a held-out test split) gated in CI. Uploads are processed in the background with a status per document. Accounts, streaming and the web app are next. SQLite is the v0 store, and Anthropic is the configurable hosted answer provider, with an offline mode. Claude's live answer quality hasn't been measured yet. See [docs/status.md](docs/status.md) and the [roadmap](docs/roadmap.md).
+> **Status.** The v0 backend works end to end and is checked in CI: background ingestion,
+> hybrid retrieval with reranking, cited answers, abstention, an HTTP API, a CLI and
+> evaluation gates. Answers from Claude are implemented but **not yet measured live**:
+> the paid evaluation awaits the owner's approval and API credit. Accounts, streaming and
+> a web UI are planned. Details: [docs/status.md](docs/status.md).
 
----
+## Why
 
-## Overview
+Internal documentation (runbooks, policies, API guides) is where people need answers they
+can trust and check. A basic "retrieve and generate" prototype falls short in predictable
+ways: it invents details, cites the wrong passage, answers questions the documents can't
+answer, follows instructions hidden in a document, and gets worse without anyone
+noticing. This project treats each of those as an engineering requirement with a test or a
+gate behind it:
 
-Production RAG is an engineering-focused RAG system built to explore what is required to move beyond a basic "retrieve and generate" prototype.
+- Every citation maps to a stored passage, with document, section heading or page, and
+  character offsets.
+- The system abstains before calling a model when retrieval finds no usable evidence.
+- Document text is passed to the model as data, never as instructions.
+- Retrieval quality is a CI gate on a held-out split, so a regression fails the build.
 
-The project treats evaluation, observability, security, reproducibility, and regression detection as first-class parts of the system.
+It is built for teams who want a self-hosted question-answering service over their own
+documents, and as a worked example of taking RAG from prototype to an engineered service.
 
-### Core goals
+## What works today
 
-- Reliable document ingestion
-- High-quality retrieval
-- Hybrid retrieval and reranking
-- Grounded answer generation
-- Source citations
-- Citation correctness evaluation
-- Retrieval and generation evaluation
-- Regression detection
-- Performance benchmarking
-- Structured observability
-- Secure configuration and deployment
-- Reproducible releases
-
-### What v0 does
-
-- **Ingests** `.txt`, `.md` and `.pdf` documents, idempotently by content hash. Chunks respect Markdown sections and PDF pages and keep exact character offsets.
-- **Retrieves** with BM25 (SQLite FTS5), dense vectors, or both fused with Reciprocal Rank Fusion, optionally reranked by a local cross-encoder.
-- **Answers** with Claude using native search-result citations. Every cited span maps back to a retrieved chunk. An answer that cites nothing is reported as `insufficient_evidence`, not `answered`.
-- **Abstains** before calling the model when retrieval finds no usable evidence, using calibrated cosine and rerank-score thresholds.
-- **Measures** itself: `rag eval` rebuilds an index from a versioned corpus, scores a golden dataset, writes a reproducible JSON report and fails CI on regressions.
-
----
+| Capability | State |
+| --- | --- |
+| Ingestion of `.txt`, Markdown and PDF, in the background, with a status per document, retry and crash recovery | **Implemented and verified**: tests, a real-server smoke test in CI, and manual checks with killed and restarted servers |
+| Hybrid retrieval (BM25 + vectors, fused) with optional cross-encoder reranking | **Implemented and verified**: CI gate for the offline configuration; free gates for the recommended models, run locally |
+| Abstention on off-topic questions before any model call | **Implemented and verified**: 4 of 4 held-out off-topic questions, with no false abstentions |
+| Grounded answers from Claude with native citations | **Implemented, not verified live**: tested offline against a fake client; the paid evaluation hasn't run |
+| Declining on-topic questions the documents can't answer; resisting a planted prompt injection | **Not verified**: both depend on Claude and are what the pending paid evaluation measures |
+| Accounts and per-user isolation, answer streaming, DOCX and HTML, web UI | **Planned** ([roadmap](docs/roadmap.md)) |
 
 ## Architecture
 
-The RAG lifecycle:
+```mermaid
+flowchart LR
+    client(["Client or rag CLI"])
+    subgraph service["FastAPI service"]
+        routes["Routes: auth, request ids, errors"]
+        workers[["Ingestion worker threads"]]
+    end
+    subgraph core["Core"]
+        intake["Intake: validate, deduplicate"]
+        queue["Ingestion queue: claims and leases"]
+        pipeline["Pipeline: extract, chunk, embed"]
+        rag["RagService: retrieve, abstain, generate"]
+        retriever["Retriever: BM25 + vectors, RRF, rerank"]
+        generator["Generator: Claude or extractive"]
+    end
+    db[("SQLite: documents, uploads, chunks, FTS5 index, vectors")]
+    claude{{"Claude API"}}
 
-```text
-Documents
-    │
-    ▼
-Ingestion
-    │
-    ▼
-Text Extraction
-    │
-    ▼
-Chunking + Metadata
-    │
-    ▼
-Embeddings / Indexing
-    │
-    ▼
-┌─────────────────────┐
-│ Retrieval           │
-│                     │
-│ • Vector Search     │
-│ • Hybrid Retrieval  │
-│ • Reranking         │
-└──────────┬──────────┘
-           │
-           ▼
-    Context Assembly
-           │
-           ▼
-    Grounded Generation
-           │
-           ▼
-     Citations
-           │
-           ▼
-        Response
-           │
-           ├──────────────► Observability
-           │
-           └──────────────► Evaluation
-                              │
-                              ▼
-                       Regression Gates
+    client --> routes
+    routes -- "upload" --> intake --> db
+    workers -- "claim" --> queue --> db
+    workers --> pipeline --> db
+    routes -- "search / query" --> rag
+    rag --> retriever --> db
+    rag --> generator --> claude
 ```
 
-Components, request flows and the path to the v1 target are described in [docs/architecture.md](docs/architecture.md). Reranking is not implemented yet.
+A single process serves the API and runs the ingestion workers. SQLite holds everything,
+including the queue, so there is nothing else to operate
+([ADR-0002](docs/decisions/0002-v0-storage-and-scope.md),
+[ADR-0006](docs/decisions/0006-background-ingestion.md)). Package dependencies point one
+way and a test enforces it ([architecture](docs/architecture.md#3-code-layout)).
 
-### Stack
+### How a question is answered
 
-| Layer | v0 (implemented) | v1 target ([ADR-0001](docs/decisions/0001-technology-stack.md)) |
-| --- | --- | --- |
-| API | Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy 2.0, Alembic, uv | Same, plus a worker process |
-| Storage and search | SQLite: FTS5 (BM25) + exact vector search, fused with RRF ([ADR-0002](docs/decisions/0002-v0-storage-and-scope.md)) | PostgreSQL + pgvector + full-text search, with accounts (Phase 5) |
-| Reranking | Optional local cross-encoder, `ms-marco-MiniLM-L-6-v2` ([ADR-0005](docs/decisions/0005-reranking-and-abstention.md)) | Same |
-| Parsing | pypdf, Markdown and plain text | Also python-docx and HTML; Tesseract OCR later |
-| Embeddings | `BAAI/bge-small-en-v1.5` via fastembed (recommended), or a hashing baseline | Same |
-| Generation | Claude `claude-opus-5-5` with search-result citations, or an offline extractive baseline ([ADR-0003](docs/decisions/0003-generation-provider-claude.md)) | Same, plus streaming |
-| Frontend | None yet | React, TypeScript, Vite, Tailwind CSS |
-| Quality | Ruff, mypy (strict), pytest, GitHub Actions, evaluation gate | Also ESLint, Playwright, gitleaks |
+```mermaid
+flowchart TB
+    q["Question"] --> bm25["BM25, top 30 (SQLite FTS5)"] & vec["Cosine, top 30 (bge-small embeddings)"]
+    bm25 & vec --> rrf["Reciprocal Rank Fusion"]
+    rrf --> rerank["Cross-encoder rerank of the top 5 (optional)"]
+    rerank --> gate{"Evidence strong enough?"}
+    gate -- "no" --> abstain["insufficient_evidence, no model call"]
+    gate -- "yes" --> gen["Claude reads each chunk as a search_result block"]
+    gen --> cite["Citations mapped to stored passages"]
+    cite --> answered["answered, with citations"]
+    cite -- "nothing cited" --> abstain
+```
 
----
+- **Ingestion.** An upload is checked (type, size, PDF signature, UTF-8), deduplicated by
+  SHA-256, stored and queued, and the request returns `202`. A worker extracts sections
+  (Markdown headings, PDF pages), chunks them without crossing section boundaries, embeds
+  each chunk with its heading path, and writes the chunks in the transaction that marks the
+  document `ready`. A crashed worker's document is taken over once its lease lapses.
+- **Retrieval.** BM25 and exact cosine search each return 30 candidates; Reciprocal Rank
+  Fusion merges them by rank, so their scores never need calibrating against each other.
+- **Reranking.** A local cross-encoder (`ms-marco-MiniLM-L-6-v2`) rescores the top 5 fused
+  candidates, reading question and passage together ([ADR-0005](docs/decisions/0005-reranking-and-abstention.md)).
+- **Abstention.** If the best cosine or rerank score is below its threshold, calibrated on
+  the dev split, the answer is `insufficient_evidence` and no model is called.
+- **Citations.** Claude receives each chunk as a `search_result` block with citations
+  enabled. Each cited span maps back to a chunk by index; an answer that cites nothing is
+  reported as `insufficient_evidence`, not `answered` ([ADR-0003](docs/decisions/0003-generation-provider-claude.md)).
+
+## Results
+
+Retrieval on the held-out test split of [golden v2](docs/evaluation.md#golden-dataset)
+(58 of 94 questions; thresholds were calibrated on the other 36). Top 5 chunks; latency is
+over all 94 questions on a laptop CPU.
+
+| Configuration | Hit rate | MRR | Unanswerable declined at retrieval | False abstentions | Retrieval p95 |
+| --- | --- | --- | --- | --- | --- |
+| Hashing embeddings, hybrid (offline; the CI gate) | 0.957 | 0.859 | 0 of 12 | 0 | 1 ms |
+| bge-small, hybrid | 1.000 | 0.931 | 4 of 12 | 0 | 7 ms |
+| **bge-small, hybrid, reranked (recommended)** | **1.000** | **0.946** | 4 of 12 | 0 | 70 ms |
+
+The 4 declined questions are all off-topic. None of the 8 on-topic unanswerable questions
+can be caught at retrieval by any signal tried, so declining them is the generator's job,
+which is unmeasured until the paid run.
+
+These numbers come from 94 questions written alongside a 9-document synthetic corpus. They
+are a regression baseline for this project, not a benchmark. Metrics, calibration and
+limitations: [docs/evaluation.md](docs/evaluation.md). Reproduce them with
+`uv run python scripts/compare_configs.py`.
 
 ## Quickstart
 
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv sync --all-extras          # dependencies from uv.lock, including local semantic embeddings
-cp .env.example .env          # then set ANTHROPIC_API_KEY, or RAG_GENERATOR=extractive
-
-uv run rag db upgrade         # create the database schema (data/rag.db)
-uv run rag ingest eval/corpus # ingest the sample handbook
-uv run rag ask "How long does a canary run before the rollout continues?"
-uv run rag serve              # HTTP API on http://127.0.0.1:8000 (interactive docs at /docs)
+git clone https://github.com/saicharan-nidiganti/production-rag.git && cd production-rag
+uv sync --all-extras              # locked dependencies, including fastembed for local models
+uv run rag db upgrade             # create the SQLite schema in data/rag.db
+uv run rag ingest eval/corpus     # ingest the sample handbook
+uv run rag ask "How long does the canary run?"
+uv run rag serve                  # http://127.0.0.1:8000, interactive docs at /docs
 ```
 
-Without a `.env`, everything runs offline with lexical-only `hashing` embeddings and the `extractive` generator. That setup is for development, and it's what CI tests. For real use, set `RAG_EMBEDDING_PROVIDER=fastembed`, `RAG_RERANKER=fastembed` and `RAG_GENERATOR=anthropic`, as `.env.example` does.
+With no configuration this runs fully offline: lexical `hashing` embeddings and the
+`extractive` generator, which quotes retrieved sentences instead of writing an answer. For
+real use, copy `.env.example` to `.env`; it selects `bge-small` embeddings, reranking and
+Claude (`ANTHROPIC_API_KEY` required). The models download on first use (about 150 MB).
 
-## HTTP API
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET` | `/health` | Liveness (no dependencies checked) |
-| `GET` | `/ready` | Readiness: database reachable and schema migrated; 503 otherwise |
-| `POST` | `/v1/documents` | Upload a file (multipart `file`). 202 when queued for processing, 200 for content that is already ready |
-| `GET` | `/v1/documents` | List documents (`limit`, `offset`, `status`) |
-| `GET`, `DELETE` | `/v1/documents/{id}` | Fetch a document with its processing status (`queued`, `processing`, `ready`, `failed` with a reason), or delete it and its chunks |
-| `POST` | `/v1/documents/{id}/retry` | Queue a failed document again |
-| `POST` | `/v1/search` | `{"query", "top_k"?, "mode"?}` returns ranked chunks with scores |
-| `POST` | `/v1/query` | `{"question", "top_k"?, "mode"?}` returns an answer, segments, citations, retrieved chunks and timings |
+## API
 
 ```bash
-curl -s localhost:8000/v1/query -H 'Content-Type: application/json' \
-  -d '{"question": "What should a client do after a 429 response?"}'
+export RAG_URL=http://127.0.0.1:8000
+export RAG_API_KEY=replace-with-your-key      # only if the server sets RAG_API_KEY
+
+# Upload: returns 202 and a Location to poll until "status" is "ready" or "failed".
+curl -s "$RAG_URL/v1/documents" -H "Authorization: Bearer $RAG_API_KEY" \
+  -F "file=@eval/corpus/deployment-runbook.md"
+curl -s "$RAG_URL/v1/documents/<document-id>" -H "Authorization: Bearer $RAG_API_KEY"
+
+# Ask.
+curl -s "$RAG_URL/v1/query" -H "Authorization: Bearer $RAG_API_KEY" \
+  -H "Content-Type: application/json" -d '{"question": "How long does the canary run?"}'
 ```
 
-Response shape (illustrative and abridged):
+A real response from the offline configuration, abridged (`retrieved`, ids and timings
+omitted):
 
 ```json
 {
   "status": "answered",
-  "answer": "Wait for the number of seconds in the Retry-After header, then retry with exponential backoff and jitter.",
-  "segments": [{"text": "Wait for the number of seconds in the Retry-After header, ...", "citations": [0]}],
-  "citations": [{"source_name": "api-rate-limits.md", "heading": "Public API Usage Limits > Handling 429 responses", "cited_text": "...", "chunk_id": 7}],
-  "retrieved": ["..."],
-  "model": "claude-opus-5-5",
-  "timings_ms": {"retrieval": 6.1, "generation": 2140.5, "total": 2147.0}
+  "answer": "Production rollouts start with a canary. The canary receives 5% of production traffic for 30 minutes. During that window the pipeline compares the canary's error rate and p99 latency with the stable fleet.",
+  "segments": [
+    {"text": "Production rollouts start with a canary. ", "citations": [0]},
+    {"text": "The canary receives 5% of production traffic for 30 minutes. ", "citations": [1]}
+  ],
+  "citations": [
+    {"source_name": "deployment-runbook.md", "heading": "Deployment Runbook > Canary releases",
+     "start_char": 574, "end_char": 1084, "cited_text": "Production rollouts start with a canary."}
+  ],
+  "model": "extractive-v1"
 }
 ```
 
-Full request and response fields, error codes and real examples are in [docs/api.md](docs/api.md). `status` is `answered`, `insufficient_evidence` or `refused`. When `RAG_API_KEY` is set, `/v1/*` requires `Authorization: Bearer <key>` or `X-API-Key: <key>`. Errors share one shape: `{"error": {"code", "message", "request_id"}}`.
-
-## Evaluation
-
-```bash
-RAG_EMBEDDING_PROVIDER=hashing uv run rag eval --thresholds eval/thresholds.json   # what CI runs
-RAG_EMBEDDING_PROVIDER=fastembed uv run rag eval --thresholds eval/thresholds.fastembed.json
-RAG_GENERATOR=extractive uv run rag eval --generation   # also score answers (free baseline)
-uv run rag eval --plan --tags unanswerable-ontopic,injection   # preview a paid run: calls, cost (free)
-uv run rag eval --generation --allow-paid   # with Claude: paid, one API call per question
-```
-
-Results on `eval/golden_v2.jsonl`: 94 questions over 9 documents, 18 of them unanswerable from the corpus. Thresholds are calibrated on the 36-question `dev` split; the 58-question `test` split is held out. Top-k = 5.
-
-| Embeddings | Mode | Test hit rate | Test MRR | Unanswerable abstained (test) | False abstention | Retrieval p95 |
-| --- | --- | --- | --- | --- | --- | --- |
-| hashing | lexical | 0.978 | 0.909 | 0.167 | 0.000 | 1 ms |
-| hashing | hybrid | 0.957 | 0.859 | 0.000 | 0.000 | 1 ms |
-| fastembed (bge-small) | vector | 1.000 | 0.906 | 0.333 | 0.000 | 7 ms |
-| fastembed (bge-small) | hybrid | 1.000 | 0.931 | 0.333 | 0.000 | 7 ms |
-| **fastembed (bge-small)** | **hybrid + rerank** | **1.000** | **0.946** | 0.333 | 0.000 | 266 ms |
-
-Reranking gives the best ranking, and it abstains on every off-topic test question with a wide margin. No retrieval signal recognizes on-topic questions the corpus can't answer (0 of 8 on test); declining those is the generator's job, and Claude hasn't been measured yet. `uv run python scripts/compare_configs.py` reproduces these numbers. The dataset is small and was written alongside the corpus, so treat them as a regression baseline, not a benchmark. [docs/evaluation.md](docs/evaluation.md) defines every metric and covers abstention calibration and the limitations.
+An off-topic question ("What is the capital of France?") returns `"status":
+"insufficient_evidence"` with no citations. `status` is `answered`, `insufficient_evidence`
+or `refused`. Every endpoint, field and error code, with real responses:
+[docs/api.md](docs/api.md).
 
 ## Configuration
 
-Settings come from environment variables prefixed `RAG_`, or from a `.env` file. The most important:
+Settings are `RAG_*` environment variables or a `.env` file. The ones that matter most:
 
-| Variable | Default | Notes |
+| Variable | Default | Purpose |
 | --- | --- | --- |
-| `RAG_DATABASE_URL` | `sqlite:///data/rag.db` | SQLite only in v0 |
-| `RAG_EMBEDDING_PROVIDER` | `hashing` | `fastembed` recommended |
-| `RAG_RETRIEVAL_MODE` | `hybrid` | `vector`, `lexical` or `hybrid` |
-| `RAG_TOP_K` | `5` | Chunks passed to generation |
-| `RAG_MIN_VECTOR_SCORE` | per provider | Abstention threshold; see docs/evaluation.md |
+| `RAG_EMBEDDING_PROVIDER` | `hashing` | `fastembed` for semantic embeddings (recommended) |
 | `RAG_RERANKER` | `none` | `fastembed` for cross-encoder reranking (recommended) |
-| `RAG_GENERATOR` | `extractive` | `anthropic` for Claude |
-| `RAG_ANTHROPIC_MODEL` | `claude-opus-5-5` | |
-| `RAG_ANTHROPIC_EFFORT` | `medium` | `low` to `max` |
-| `RAG_ANTHROPIC_FALLBACKS` | `true` | Server-side refusal fallback (beta) |
-| `RAG_API_KEY` | unset | Enables API-key auth |
-| `RAG_MAX_UPLOAD_BYTES` | `26214400` (25 MiB) | FR-2 |
+| `RAG_GENERATOR` | `extractive` | `anthropic` for Claude; needs `ANTHROPIC_API_KEY` |
+| `RAG_API_KEY` | unset | When set, `/v1/*` requires it as a bearer token |
+| `RAG_DATABASE_URL` | `sqlite:///data/rag.db` | SQLite only in v0 |
+| `RAG_INGEST_WORKERS` | `1` | Background ingestion threads per API process |
 
-Every setting is listed in [docs/configuration.md](docs/configuration.md). Deployment, migrations and backups are covered in [docs/operations.md](docs/operations.md).
-
-## Documentation
-
-| Document | Contents |
-| --- | --- |
-| [Requirements](docs/requirements.md) | Scope, functional and non-functional requirements, constraints, success criteria |
-| [Architecture](docs/architecture.md) | v0 components and flows, code layout, path to the v1 target |
-| [API](docs/api.md) | Endpoints, request and response fields, errors, examples |
-| [Configuration](docs/configuration.md) | Every environment variable, with defaults |
-| [Decisions](docs/decisions/README.md) | Architecture Decision Records |
-| [Evaluation](docs/evaluation.md) | Dataset, metrics, current results, regression gate |
-| [Methodology](docs/methodology.md) | Evaluation-first engineering principles |
-| [Operations](docs/operations.md) | Deployment, migrations, monitoring, backups, troubleshooting |
-| [Security](docs/security.md) | Controls, data flows, supply chain, known gaps |
-| [Roadmap](docs/roadmap.md) | Phase-by-phase checklist |
-| [Status](docs/status.md) | Current progress, checks run, open decisions |
-
-## Repository layout
-
-```text
-src/production_rag/   Python package: API, CLI, ingestion, retrieval, generation, evaluation, db + migrations
-tests/                unit/ and integration/ tests (offline); live and paid tests behind opt-in flags
-eval/                 evaluation corpus, golden dataset and regression thresholds
-docs/                 requirements, architecture, decisions, evaluation, operations, roadmap, status
-scripts/              reproducible experiments (configuration comparison tables)
-data/                 local-only working data and the default SQLite database (contents git-ignored)
-.github/              CI workflow, issue and pull request templates
-```
-
-A `frontend/` directory arrives with Phase 6.
+All settings, with defaults and trade-offs: [docs/configuration.md](docs/configuration.md).
+Deployment, monitoring, backups and troubleshooting: [docs/operations.md](docs/operations.md).
 
 ## Development
 
 ```bash
-uv sync --all-extras
-uv run python -m pytest --cov                    # unit + integration tests (offline)
-uv run ruff check . && uv run ruff format --check . && uv run mypy
-RAG_RUN_LIVE_TESTS=1 uv run python -m pytest tests/integration/test_live.py   # model download (free)
-RAG_RUN_PAID_TESTS=1 uv run python -m pytest tests/integration/test_live.py   # Claude API (paid)
+make install     # uv sync --frozen --all-extras
+make check       # lock check, lint, mypy --strict, tests with coverage, retrieval gate
+make smoke       # start a real server; upload, wait for ingestion, search, ask
+make help        # every target
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for branch and commit conventions, code standards and testing expectations.
+CI runs these same targets on Python 3.12 and 3.14. Other jobs build the wheel and run the
+CLI from it, scan for secrets (gitleaks), audit the locked dependencies (pip-audit, also
+weekly) and lint the Markdown. Without make, [CONTRIBUTING.md](CONTRIBUTING.md#checks)
+lists the plain `uv` commands.
 
-## Security
+The default test suite is offline and free. Two opt-in groups need more:
 
-Please report vulnerabilities privately. See [SECURITY.md](SECURITY.md).
+```bash
+RAG_RUN_LIVE_TESTS=1 uv run python -m pytest tests/integration/test_live.py   # downloads models; free
+uv run rag eval --plan --tags unanswerable-ontopic,injection                 # preview a paid run: calls, cost
+```
 
-## License
+Anything that calls Claude needs an explicit `--allow-paid` (or `RAG_RUN_PAID_TESTS=1`) and
+the maintainer's approval; CI never makes paid calls.
 
-[MIT](LICENSE)
+## Security and limitations
+
+- **Single tenant.** Anyone with the API key can read and delete every document. Accounts
+  and isolation arrive with PostgreSQL in Phase 5.
+- **Unverified generation.** Claude's citation quality, declining of unanswerable
+  questions and prompt-injection resistance are designed for and tested offline, but not
+  yet measured.
+- **Parsing runs in the API process.** A hostile file can exhaust its memory; restrict
+  uploads to trusted users until parsing moves to an isolated worker.
+- **Data sent to Anthropic.** With the Claude generator, questions and retrieved passages
+  go to the Claude API. Logs never contain document text or questions.
+- **Small evaluation set.** 94 author-written questions; results are optimistic and coarse.
+
+Controls, data flows and known gaps: [docs/security.md](docs/security.md). Report
+vulnerabilities privately: [SECURITY.md](SECURITY.md).
+
+## Roadmap
+
+1. The first paid Claude evaluation, focused on on-topic unanswerable questions and the
+   planted injection (prepared, with a cost preview; awaiting approval and credit).
+2. DOCX and HTML ingestion; streaming answers.
+3. Accounts and per-user isolation on PostgreSQL with pgvector.
+4. A web interface.
+
+The phase-by-phase plan is in [docs/roadmap.md](docs/roadmap.md); decisions and their
+trade-offs are in the [ADRs](docs/decisions/README.md).
+
+## Project layout
+
+```text
+src/production_rag/   the package: api/, ingestion/, retrieval/, generation/, db/, evaluation/, cli.py
+tests/                unit/ and integration/ (offline); live and paid tests are opt-in
+eval/                 synthetic corpus, golden datasets, regression thresholds
+docs/                 requirements, architecture, API, operations, security, evaluation, ADRs
+scripts/              smoke test and the configuration-comparison experiment
+data/                 local working data and the default database (git-ignored)
+```
+
+All documentation: [docs/README.md](docs/README.md).
+
+## Contributing and license
+
+Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[code of conduct](CODE_OF_CONDUCT.md). Notable changes are in [CHANGELOG.md](CHANGELOG.md).
+Licensed under the [MIT License](LICENSE).

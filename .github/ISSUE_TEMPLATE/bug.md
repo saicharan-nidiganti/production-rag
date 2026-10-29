@@ -2,7 +2,7 @@
 name: Bug report
 about: Report incorrect behavior, a crash, or a regression
 title: "bug: "
-labels: bug
+labels: bugs
 ---
 
 <!--

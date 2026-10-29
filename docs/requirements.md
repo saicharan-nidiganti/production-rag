@@ -89,7 +89,7 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould.
 
 These are **initial targets**. They are re-calibrated after the Phase 3 baseline
 is measured, and any change to them is recorded with its reason. Metrics are
-computed on the current golden dataset (see [methodology.md](methodology.md)).
+computed on the current golden dataset (see [evaluation.md](evaluation.md#principles)).
 
 ### Retrieval
 
