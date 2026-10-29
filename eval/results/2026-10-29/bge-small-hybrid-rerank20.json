@@ -1,0 +1,4273 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-10-29T13:57:57.930504+00:00",
+  "code": {
+    "version": "0.1.0",
+    "git_commit": "f1d0d5c0a0a2ffc4befa1f5a16faf81c3f0ce1ea"
+  },
+  "dataset": {
+    "path": "eval/golden_v2.jsonl",
+    "sha256": "52d9416d49f8a988711a7c098734cdbfbfe774a8216389778f2ac8d3d0d64268",
+    "cases": 94,
+    "answerable": 76,
+    "splits": {
+      "dev": 36,
+      "test": 58
+    },
+    "selection": {
+      "split": null,
+      "tags": []
+    }
+  },
+  "corpus": {
+    "path": "eval/corpus",
+    "fingerprint": "3a8f8c2d3e62b666a003673bdcf69e43841dc1442d7694f67c59af5bcbff2fd6",
+    "documents": 9,
+    "chunks": 44
+  },
+  "config": {
+    "embedding_model": "fastembed:BAAI/bge-small-en-v1.5",
+    "retrieval_mode": "hybrid",
+    "top_k": 5,
+    "candidate_pool": 30,
+    "rrf_k": 60,
+    "chunk_size": 1000,
+    "chunk_overlap": 150,
+    "abstain_threshold": 0.55,
+    "reranker": "Xenova/ms-marco-MiniLM-L-6-v2",
+    "rerank_candidates": 20,
+    "rerank_abstain_threshold": -8.4,
+    "generator": "extractive-v1"
+  },
+  "with_generation": false,
+  "summary": {
+    "retrieval": {
+      "hit_rate": 1.0,
+      "recall": 1.0,
+      "mrr": 0.9583,
+      "precision": 0.2105
+    },
+    "abstention": {
+      "false_abstention_rate": 0.0,
+      "unanswerable_abstention_rate": 0.4444
+    },
+    "latency_ms": {
+      "retrieval_p50": 240.03,
+      "retrieval_p95": 281.22,
+      "rerank_p50": 231.68,
+      "rerank_p95": 272.06
+    },
+    "splits": {
+      "dev": {
+        "retrieval": {
+          "hit_rate": 1.0,
+          "recall": 1.0,
+          "mrr": 0.9778,
+          "precision": 0.2067
+        },
+        "abstention": {
+          "false_abstention_rate": 0.0,
+          "unanswerable_abstention_rate": 0.6667
+        },
+        "latency_ms": {
+          "retrieval_p50": 237.45,
+          "retrieval_p95": 260.19,
+          "rerank_p50": 229.5,
+          "rerank_p95": 250.84
+        }
+      },
+      "test": {
+        "retrieval": {
+          "hit_rate": 1.0,
+          "recall": 1.0,
+          "mrr": 0.9457,
+          "precision": 0.213
+        },
+        "abstention": {
+          "false_abstention_rate": 0.0,
+          "unanswerable_abstention_rate": 0.3333
+        },
+        "latency_ms": {
+          "retrieval_p50": 241.85,
+          "retrieval_p95": 289.88,
+          "rerank_p50": 233.25,
+          "rerank_p95": 280.43
+        }
+      }
+    }
+  },
+  "by_tag": {
+    "conflicting": {
+      "retrieval": {
+        "hit_rate": 1.0,
+        "recall": 1.0,
+        "mrr": 0.5,
+        "precision": 0.2
+      },
+      "abstention": {
+        "false_abstention_rate": 0.0,
+        "unanswerable_abstention_rate": null
+      },
+      "latency_ms": {
+        "retrieval_p50": 293.92,
+        "retrieval_p95": 293.92,
+        "rerank_p50": 280.43,
+        "rerank_p95": 280.43
+      }
+    },
+    "injection": {
+      "retrieval": {
+        "hit_rate": 1.0,
+        "recall": 1.0,
+        "mrr": 0.8333,
+        "precision": 0.2
+      },
+      "abstention": {
+        "false_abstention_rate": 0.0,
+        "unanswerable_abstention_rate": 0.0
+      },
+      "latency_ms": {
+        "retrieval_p50": 281.22,
+        "retrieval_p95": 293.92,
+        "rerank_p50": 272.06,
+        "rerank_p95": 280.43
+      }
+    },
+    "lookup": {
+      "retrieval": {
+        "hit_rate": 1.0,
+        "recall": 1.0,
+        "mrr": 0.9818,
+        "precision": 0.2
+      },
+      "abstention": {
+        "false_abstention_rate": 0.0,
+        "unanswerable_abstention_rate": null
+      },
+      "latency_ms": {
+        "retrieval_p50": 239.44,
+        "retrieval_p95": 277.51,
+        "rerank_p50": 230.83,
+        "rerank_p95": 267.71
+      }
+    },
+    "multi-section": {
+      "retrieval": {
+        "hit_rate": 1.0,
+        "recall": 1.0,
+        "mrr": 1.0,
+        "precision": 0.4
+      },
+      "abstention": {
+        "false_abstention_rate": 0.0,
+        "unanswerable_abstention_rate": null
+      },
+      "latency_ms": {
+        "retrieval_p50": 245.83,
+        "retrieval_p95": 261.88,
+        "rerank_p50": 237.26,
+        "rerank_p95": 250.98
+      }
+    },
+    "paraphrase": {
+      "retrieval": {
+        "hit_rate": 1.0,
+        "recall": 1.0,
+        "mrr": 0.881,
+        "precision": 0.2
+      },
+      "abstention": {
+        "false_abstention_rate": 0.0,
+        "unanswerable_abstention_rate": null
+      },
+      "latency_ms": {
+        "retrieval_p50": 245.93,
+        "retrieval_p95": 289.88,
+        "rerank_p50": 237.55,
+        "rerank_p95": 280.49
+      }
+    },
+    "unanswerable-offtopic": {
+      "retrieval": {
+        "hit_rate": null,
+        "recall": null,
+        "mrr": null,
+        "precision": null
+      },
+      "abstention": {
+        "false_abstention_rate": null,
+        "unanswerable_abstention_rate": 1.0
+      },
+      "latency_ms": {
+        "retrieval_p50": 197.37,
+        "retrieval_p95": 246.7,
+        "rerank_p50": 189.71,
+        "rerank_p95": 238.85
+      }
+    },
+    "unanswerable-ontopic": {
+      "retrieval": {
+        "hit_rate": null,
+        "recall": null,
+        "mrr": null,
+        "precision": null
+      },
+      "abstention": {
+        "false_abstention_rate": null,
+        "unanswerable_abstention_rate": 0.0
+      },
+      "latency_ms": {
+        "retrieval_p50": 237.78,
+        "retrieval_p95": 252.23,
+        "rerank_p50": 229.93,
+        "rerank_p95": 244.43
+      }
+    }
+  },
+  "per_query": [
+    {
+      "id": "dep-01",
+      "question": "How long does a canary run before the rollout continues?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.857046365737915,
+        "best_rerank_score": 6.7375264167785645,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Rollback"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > API keys"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          }
+        ],
+        "ms": 194.46,
+        "rerank_ms": 185.33
+      }
+    },
+    {
+      "id": "dep-02",
+      "question": "What share of production traffic does the canary receive?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8145603537559509,
+        "best_rerank_score": 6.323892593383789,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Multi-factor authentication"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          }
+        ],
+        "ms": 198.83,
+        "rerank_ms": 189.98
+      }
+    },
+    {
+      "id": "dep-03",
+      "question": "Which command rolls back a service?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7460366487503052,
+        "best_rerank_score": 6.158852577209473,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Rollback"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Encryption"
+          }
+        ],
+        "ms": 239.11,
+        "rerank_ms": 231.5
+      }
+    },
+    {
+      "id": "dep-04",
+      "question": "Are database migrations reverted when a release is rolled back?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7874120473861694,
+        "best_rerank_score": 8.062126159667969,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Rollback"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Deprecations"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          }
+        ],
+        "ms": 255.74,
+        "rerank_ms": 247.37
+      }
+    },
+    {
+      "id": "dep-05",
+      "question": "When are production deployments not allowed?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7894952893257141,
+        "best_rerank_score": 8.798494338989258,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Production access"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Release pipeline"
+          }
+        ],
+        "ms": 194.5,
+        "rerank_ms": 186.5
+      }
+    },
+    {
+      "id": "dep-06",
+      "question": "How long must a build soak in staging before going to production?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.739700198173523,
+        "best_rerank_score": 7.30814790725708,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Release pipeline"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Production access"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Multi-factor authentication"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          }
+        ],
+        "ms": 260.13,
+        "rerank_ms": 250.84
+      }
+    },
+    {
+      "id": "dep-07",
+      "question": "What makes a new release stop automatically while it is serving a small slice of users?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.6241878271102905,
+        "best_rerank_score": -6.838366508483887,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Release pipeline"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Rollback"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > API keys"
+          }
+        ],
+        "ms": 210.65,
+        "rerank_ms": 200.75
+      }
+    },
+    {
+      "id": "dep-08",
+      "question": "Do I need someone's sign-off to undo a bad release?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.6466526389122009,
+        "best_rerank_score": -3.153212547302246,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Rollback"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Verifying webhook signatures"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes"
+          }
+        ],
+        "ms": 260.19,
+        "rerank_ms": 249.6
+      }
+    },
+    {
+      "id": "inc-01",
+      "question": "How quickly must a SEV1 page be acknowledged?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7747057676315308,
+        "best_rerank_score": 7.030864715576172,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Postmortems"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          }
+        ],
+        "ms": 223.17,
+        "rerank_ms": 214.75
+      }
+    },
+    {
+      "id": "inc-02",
+      "question": "How often are status page updates posted during a SEV1?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.752290666103363,
+        "best_rerank_score": 7.150603771209717,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Postmortems"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          }
+        ],
+        "ms": 251.72,
+        "rerank_ms": 242.27
+      }
+    },
+    {
+      "id": "inc-03",
+      "question": "What does the incident commander do?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8030252456665039,
+        "best_rerank_score": 8.240581512451172,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Escalation"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Postmortems"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          }
+        ],
+        "ms": 239.84,
+        "rerank_ms": 232.53
+      }
+    },
+    {
+      "id": "inc-04",
+      "question": "When is the postmortem draft due?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7848665714263916,
+        "best_rerank_score": 7.149308204650879,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Postmortems"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Deprecations"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Relay 2.0 (July 2026)"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Production access"
+          }
+        ],
+        "ms": 235.37,
+        "rerank_ms": 227.72
+      }
+    },
+    {
+      "id": "inc-05",
+      "question": "Who gets paged if the primary on-call engineer does not respond?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7801989912986755,
+        "best_rerank_score": 6.348584175109863,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Escalation"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Joining the on-call rotation"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          }
+        ],
+        "ms": 257.64,
+        "rerank_ms": 248.66
+      }
+    },
+    {
+      "id": "inc-06",
+      "question": "Who is allowed to downgrade an outage's classification?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 0.3333333333333333,
+        "precision": 0.2,
+        "first_relevant_rank": 3,
+        "best_vector_score": 0.6641556024551392,
+        "best_rerank_score": -5.782771110534668,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Regions"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Escalation"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          }
+        ],
+        "ms": 245.93,
+        "rerank_ms": 237.55
+      }
+    },
+    {
+      "id": "api-01",
+      "question": "What is the rate limit on the Standard plan?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8084434270858765,
+        "best_rerank_score": 6.8872504234313965,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Rate limits by plan"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Monthly quotas"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Support plans"
+          }
+        ],
+        "ms": 242.66,
+        "rerank_ms": 234.84
+      }
+    },
+    {
+      "id": "api-02",
+      "question": "What should a client do after receiving a 429 response?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7953611612319946,
+        "best_rerank_score": 7.575117111206055,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Support plans"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          }
+        ],
+        "ms": 235.01,
+        "rerank_ms": 226.85
+      }
+    },
+    {
+      "id": "api-03",
+      "question": "How often must API keys be rotated?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8840385675430298,
+        "best_rerank_score": 9.938613891601562,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > API keys"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Secrets handling"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Rate limits by plan"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Encryption"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Sandbox environment"
+          }
+        ],
+        "ms": 257.03,
+        "rerank_ms": 243.12
+      }
+    },
+    {
+      "id": "api-04",
+      "question": "When do monthly quotas reset?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7756515741348267,
+        "best_rerank_score": 7.9749321937561035,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Monthly quotas"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Deprecations"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits"
+          }
+        ],
+        "ms": 267.27,
+        "rerank_ms": 258.34
+      }
+    },
+    {
+      "id": "api-05",
+      "question": "How fast does a deactivated credential stop working?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.6619566082954407,
+        "best_rerank_score": -1.5456230640411377,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > API keys"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          }
+        ],
+        "ms": 245.71,
+        "rerank_ms": 237.05
+      }
+    },
+    {
+      "id": "api-06",
+      "question": "Is it okay to briefly exceed the per-minute request allowance?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7613282799720764,
+        "best_rerank_score": -3.88771915435791,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Rate limits by plan"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Monthly quotas"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Lens 3.2 (September 2026)"
+          }
+        ],
+        "ms": 253.68,
+        "rerank_ms": 244.74
+      }
+    },
+    {
+      "id": "ret-01",
+      "question": "How long are application logs retained?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8560447692871094,
+        "best_rerank_score": 9.833195686340332,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Secrets handling"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          }
+        ],
+        "ms": 219.38,
+        "rerank_ms": 211.32
+      }
+    },
+    {
+      "id": "ret-02",
+      "question": "How long until a deleted account's data is gone from backups?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8278419971466064,
+        "best_rerank_score": 7.274349689483643,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Multi-factor authentication"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          }
+        ],
+        "ms": 239.44,
+        "rerank_ms": 230.14
+      }
+    },
+    {
+      "id": "ret-03",
+      "question": "Which encryption algorithm protects customer data at rest?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7936170101165771,
+        "best_rerank_score": 7.592780590057373,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Encryption"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Data residency"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Multi-factor authentication"
+          }
+        ],
+        "ms": 241.91,
+        "rerank_ms": 233.71
+      }
+    },
+    {
+      "id": "ret-04",
+      "question": "Can customers keep their data inside the EU?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "multi-section"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.4,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7481334209442139,
+        "best_rerank_score": 5.336267471313477,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Data residency"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Encryption"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Regions"
+          }
+        ],
+        "ms": 245.83,
+        "rerank_ms": 237.26
+      }
+    },
+    {
+      "id": "ret-05",
+      "question": "How frequently are database backups taken?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7955870628356934,
+        "best_rerank_score": 7.417916297912598,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > API keys"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Secrets handling"
+          }
+        ],
+        "ms": 228.25,
+        "rerank_ms": 220.59
+      }
+    },
+    {
+      "id": "onb-01",
+      "question": "When do new engineers start shadowing on-call?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8532212972640991,
+        "best_rerank_score": 7.361673355102539,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Joining the on-call rotation"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Production access"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Escalation"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          }
+        ],
+        "ms": 236.67,
+        "rerank_ms": 228.66
+      }
+    },
+    {
+      "id": "onb-02",
+      "question": "What command sets up the local development environment?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7447808384895325,
+        "best_rerank_score": 0.03394533693790436,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Development environment"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Release pipeline"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Sandbox environment"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > First day"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Rollback"
+          }
+        ],
+        "ms": 191.65,
+        "rerank_ms": 183.95
+      }
+    },
+    {
+      "id": "onb-03",
+      "question": "What do I need before I can get write access to production?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7463372945785522,
+        "best_rerank_score": 5.437889099121094,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Production access"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > First day"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Multi-factor authentication"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Release pipeline"
+          }
+        ],
+        "ms": 200.38,
+        "rerank_ms": 192.11
+      }
+    },
+    {
+      "id": "plt-01",
+      "question": "What are the three main components of the platform?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7585410475730896,
+        "best_rerank_score": 8.910722732543945,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Components"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Release pipeline"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Encryption"
+          }
+        ],
+        "ms": 202.19,
+        "rerank_ms": 194.37
+      }
+    },
+    {
+      "id": "plt-02",
+      "question": "Is cross-region replication available?",
+      "answerable": true,
+      "split": "dev",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7013343572616577,
+        "best_rerank_score": 6.413557529449463,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Regions"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Data residency"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview"
+          }
+        ],
+        "ms": 206.14,
+        "rerank_ms": 198.65
+      }
+    },
+    {
+      "id": "na-01",
+      "question": "What is the company's parental leave policy?",
+      "answerable": false,
+      "split": "dev",
+      "tags": [
+        "unanswerable-offtopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.5949153900146484,
+        "best_rerank_score": -9.878667831420898,
+        "abstained": true,
+        "retrieved": [
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          }
+        ],
+        "ms": 246.7,
+        "rerank_ms": 238.85
+      }
+    },
+    {
+      "id": "na-02",
+      "question": "Where is the London office located?",
+      "answerable": false,
+      "split": "dev",
+      "tags": [
+        "unanswerable-offtopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.531313955783844,
+        "best_rerank_score": -11.230551719665527,
+        "abstained": true,
+        "retrieved": [
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Data residency"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          }
+        ],
+        "ms": 241.01,
+        "rerank_ms": 233.59
+      }
+    },
+    {
+      "id": "na-03",
+      "question": "Who founded the company and when?",
+      "answerable": false,
+      "split": "dev",
+      "tags": [
+        "unanswerable-offtopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.4961690306663513,
+        "best_rerank_score": -11.163799285888672,
+        "abstained": true,
+        "retrieved": [
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Deprecations"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          }
+        ],
+        "ms": 125.15,
+        "rerank_ms": 117.08
+      }
+    },
+    {
+      "id": "na-04",
+      "question": "What's a good recipe for sourdough bread?",
+      "answerable": false,
+      "split": "dev",
+      "tags": [
+        "unanswerable-offtopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.4482726454734802,
+        "best_rerank_score": -11.094922065734863,
+        "abstained": true,
+        "retrieved": [
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Relay 2.0 (July 2026)"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Joining the on-call rotation"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Rate limits by plan"
+          }
+        ],
+        "ms": 203.47,
+        "rerank_ms": 194.86
+      }
+    },
+    {
+      "id": "na-05",
+      "question": "How much does the Enterprise plan cost per month?",
+      "answerable": false,
+      "split": "dev",
+      "tags": [
+        "unanswerable-ontopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.6896918416023254,
+        "best_rerank_score": 0.4404108226299286,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Monthly quotas"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Rate limits by plan"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Data residency"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Support plans"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          }
+        ],
+        "ms": 233.36,
+        "rerank_ms": 225.1
+      }
+    },
+    {
+      "id": "na-06",
+      "question": "Which programming language is the query engine written in?",
+      "answerable": false,
+      "split": "dev",
+      "tags": [
+        "unanswerable-ontopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.6010384559631348,
+        "best_rerank_score": -1.0597001314163208,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Components"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Lens 3.2 (September 2026)"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Relay 2.0 (July 2026)"
+          }
+        ],
+        "ms": 237.45,
+        "rerank_ms": 229.5
+      }
+    },
+    {
+      "id": "t-dep-01",
+      "question": "What happens to an image with a critical vulnerability finding?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7639652490615845,
+        "best_rerank_score": 4.903827667236328,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Release pipeline"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Lens 3.2 (September 2026)"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > First day"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          }
+        ],
+        "ms": 240.18,
+        "rerank_ms": 232.11
+      }
+    },
+    {
+      "id": "t-dep-02",
+      "question": "How long are the failed release's pods kept after a rollback?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7756330966949463,
+        "best_rerank_score": 7.626385688781738,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Rollback"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          }
+        ],
+        "ms": 219.0,
+        "rerank_ms": 210.14
+      }
+    },
+    {
+      "id": "t-dep-03",
+      "question": "By how much can canary p99 latency exceed the stable fleet before the rollout halts?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8321034908294678,
+        "best_rerank_score": 6.8889265060424805,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Rollback"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          }
+        ],
+        "ms": 278.14,
+        "rerank_ms": 267.71
+      }
+    },
+    {
+      "id": "t-dep-04",
+      "question": "Can an emergency fix for a live incident ship on a Friday evening?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.6467511653900146,
+        "best_rerank_score": 2.1541123390197754,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Escalation"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Postmortems"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy"
+          }
+        ],
+        "ms": 257.54,
+        "rerank_ms": 247.85
+      }
+    },
+    {
+      "id": "t-dep-05",
+      "question": "Why do database migrations have to stay backward compatible?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.6833804845809937,
+        "best_rerank_score": 6.383023738861084,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Rollback"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Regions"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Deprecations"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          }
+        ],
+        "ms": 201.3,
+        "rerank_ms": 192.85
+      }
+    },
+    {
+      "id": "t-dep-06",
+      "question": "Who can sign off on shipping during the year-end change freeze?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.63893723487854,
+        "best_rerank_score": -7.986743927001953,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Deprecations"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          }
+        ],
+        "ms": 289.88,
+        "rerank_ms": 280.49
+      }
+    },
+    {
+      "id": "t-inc-01",
+      "question": "What is the acknowledgement target for a SEV2 incident?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7808182239532471,
+        "best_rerank_score": 4.113778114318848,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Postmortems"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Escalation"
+          }
+        ],
+        "ms": 247.36,
+        "rerank_ms": 239.29
+      }
+    },
+    {
+      "id": "t-inc-02",
+      "question": "Who keeps customers informed while a major outage is being handled?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 0.5,
+        "precision": 0.2,
+        "first_relevant_rank": 2,
+        "best_vector_score": 0.6761413812637329,
+        "best_rerank_score": -2.0294618606567383,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Support plans"
+          }
+        ],
+        "ms": 236.48,
+        "rerank_ms": 227.85
+      }
+    },
+    {
+      "id": "t-inc-03",
+      "question": "Which incidents require a postmortem?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7898725271224976,
+        "best_rerank_score": 7.653846740722656,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Postmortems"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Escalation"
+          }
+        ],
+        "ms": 234.13,
+        "rerank_ms": 226.46
+      }
+    },
+    {
+      "id": "t-inc-04",
+      "question": "Should the incident commander debug the problem directly?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7099045515060425,
+        "best_rerank_score": 8.733680725097656,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Escalation"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Postmortems"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          }
+        ],
+        "ms": 253.72,
+        "rerank_ms": 245.38
+      }
+    },
+    {
+      "id": "t-inc-05",
+      "question": "Who is paged after the secondary on-call engineer?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 0.5,
+        "precision": 0.2,
+        "first_relevant_rank": 2,
+        "best_vector_score": 0.7488082647323608,
+        "best_rerank_score": 4.134707927703857,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Joining the on-call rotation"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Escalation"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          }
+        ],
+        "ms": 237.75,
+        "rerank_ms": 229.46
+      }
+    },
+    {
+      "id": "t-inc-06",
+      "question": "What is the acknowledgement time for a SEV5 incident?",
+      "answerable": false,
+      "split": "test",
+      "tags": [
+        "unanswerable-ontopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.8023021221160889,
+        "best_rerank_score": 4.646620750427246,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Postmortems"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Roles during an incident"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Escalation"
+          }
+        ],
+        "ms": 252.23,
+        "rerank_ms": 244.43
+      }
+    },
+    {
+      "id": "t-api-01",
+      "question": "How many requests per month does the Enterprise quota include?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8634781837463379,
+        "best_rerank_score": 9.13495922088623,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Monthly quotas"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Rate limits by plan"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          }
+        ],
+        "ms": 237.26,
+        "rerank_ms": 229.01
+      }
+    },
+    {
+      "id": "t-api-02",
+      "question": "Do requests rejected with 429 count against the monthly quota?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7930357456207275,
+        "best_rerank_score": 9.162556648254395,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Monthly quotas"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Verifying webhook signatures"
+          }
+        ],
+        "ms": 245.45,
+        "rerank_ms": 236.14
+      }
+    },
+    {
+      "id": "t-api-03",
+      "question": "How many active API keys can one organization have?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8398306369781494,
+        "best_rerank_score": 8.401998519897461,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > API keys"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Rate limits by plan"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Sandbox environment"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Multi-factor authentication"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          }
+        ],
+        "ms": 249.29,
+        "rerank_ms": 241.31
+      }
+    },
+    {
+      "id": "t-api-04",
+      "question": "How much warning do key owners get before a key needs rotating?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7471294403076172,
+        "best_rerank_score": 5.9142045974731445,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > API keys"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Secrets handling"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Encryption"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Rate limits by plan"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Postmortems"
+          }
+        ],
+        "ms": 242.43,
+        "rerank_ms": 233.84
+      }
+    },
+    {
+      "id": "t-api-05",
+      "question": "What is the rate limit on the Free plan?",
+      "answerable": false,
+      "split": "test",
+      "tags": [
+        "unanswerable-ontopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.7851285934448242,
+        "best_rerank_score": 3.639742851257324,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Rate limits by plan"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Monthly quotas"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Relay 2.0 (July 2026)"
+          }
+        ],
+        "ms": 237.78,
+        "rerank_ms": 229.93
+      }
+    },
+    {
+      "id": "t-ret-01",
+      "question": "How long are audit logs retained?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.876346230506897,
+        "best_rerank_score": 9.80426025390625,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Secrets handling"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          }
+        ],
+        "ms": 221.12,
+        "rerank_ms": 213.65
+      }
+    },
+    {
+      "id": "t-ret-02",
+      "question": "Which TLS version is required for traffic to the platform?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.6516090035438538,
+        "best_rerank_score": 4.967442989349365,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Encryption"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Components"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Deprecations"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Rollback"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview"
+          }
+        ],
+        "ms": 242.52,
+        "rerank_ms": 234.28
+      }
+    },
+    {
+      "id": "t-ret-03",
+      "question": "How often are the data encryption keys rotated?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7536717653274536,
+        "best_rerank_score": 4.74612283706665,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Encryption"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > API keys"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Secrets handling"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          }
+        ],
+        "ms": 236.32,
+        "rerank_ms": 228.5
+      }
+    },
+    {
+      "id": "t-ret-04",
+      "question": "Do backups of data pinned to Frankfurt ever leave that region?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.775640606880188,
+        "best_rerank_score": 7.946778297424316,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Data residency"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Regions"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Development environment"
+          }
+        ],
+        "ms": 254.57,
+        "rerank_ms": 246.09
+      }
+    },
+    {
+      "id": "t-ret-05",
+      "question": "How many backup restores can a customer request per month?",
+      "answerable": false,
+      "split": "test",
+      "tags": [
+        "unanswerable-ontopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.7331386208534241,
+        "best_rerank_score": -1.3406262397766113,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Monthly quotas"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Rate limits by plan"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          }
+        ],
+        "ms": 248.34,
+        "rerank_ms": 239.94
+      }
+    },
+    {
+      "id": "t-onb-01",
+      "question": "How long does make bootstrap take on a fresh laptop?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7856981754302979,
+        "best_rerank_score": 9.66208267211914,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Development environment"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > API keys"
+          }
+        ],
+        "ms": 216.93,
+        "rerank_ms": 208.43
+      }
+    },
+    {
+      "id": "t-onb-02",
+      "question": "Who picks a new engineer's onboarding buddy?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 0.5,
+        "precision": 0.2,
+        "first_relevant_rank": 2,
+        "best_vector_score": 0.6950617432594299,
+        "best_rerank_score": -0.6993715763092041,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > First day"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Joining the on-call rotation"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Production access"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Escalation"
+          }
+        ],
+        "ms": 253.01,
+        "rerank_ms": 244.59
+      }
+    },
+    {
+      "id": "t-onb-03",
+      "question": "How long does on-call shadowing last?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7732134461402893,
+        "best_rerank_score": 7.253385066986084,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Joining the on-call rotation"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          }
+        ],
+        "ms": 237.43,
+        "rerank_ms": 228.83
+      }
+    },
+    {
+      "id": "t-onb-04",
+      "question": "Where should I ask for help if the development setup script fails?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.6783264875411987,
+        "best_rerank_score": -2.4266419410705566,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Development environment"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > First day"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Rollback"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Release pipeline"
+          }
+        ],
+        "ms": 252.56,
+        "rerank_ms": 243.78
+      }
+    },
+    {
+      "id": "t-onb-05",
+      "question": "Which laptop model do new engineers receive?",
+      "answerable": false,
+      "split": "test",
+      "tags": [
+        "unanswerable-ontopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.686365008354187,
+        "best_rerank_score": -4.452500820159912,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Joining the on-call rotation"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Production access"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > First day"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Development environment"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide"
+          }
+        ],
+        "ms": 239.22,
+        "rerank_ms": 231.11
+      }
+    },
+    {
+      "id": "t-plt-01",
+      "question": "What monthly availability does Relay target?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7861625552177429,
+        "best_rerank_score": 7.692680835723877,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Relay 2.0 (July 2026)"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Support plans"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Monthly quotas"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Components"
+          }
+        ],
+        "ms": 204.66,
+        "rerank_ms": 196.95
+      }
+    },
+    {
+      "id": "t-plt-02",
+      "question": "How often do the synthetic availability probes run?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.6509917974472046,
+        "best_rerank_score": 6.362696647644043,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > API keys"
+          }
+        ],
+        "ms": 196.01,
+        "rerank_ms": 188.0
+      }
+    },
+    {
+      "id": "t-plt-03",
+      "question": "How fast do Enterprise customers get a response to an urgent support issue?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7817308902740479,
+        "best_rerank_score": 7.763405799865723,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Support plans"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Rate limits by plan"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          }
+        ],
+        "ms": 239.77,
+        "rerank_ms": 230.83
+      }
+    },
+    {
+      "id": "t-plt-04",
+      "question": "Which component stores the events, and in what file format?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.6661453247070312,
+        "best_rerank_score": 3.8435020446777344,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Components"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Relay 2.0 (July 2026)"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Secrets handling"
+          }
+        ],
+        "ms": 258.23,
+        "rerank_ms": 250.31
+      }
+    },
+    {
+      "id": "t-plt-05",
+      "question": "What p95 latency does Lens target for queries that scan 10 GB?",
+      "answerable": false,
+      "split": "test",
+      "tags": [
+        "unanswerable-ontopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.74275803565979,
+        "best_rerank_score": 7.726430892944336,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Lens 3.2 (September 2026)"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Components"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          }
+        ],
+        "ms": 248.19,
+        "rerank_ms": 239.22
+      }
+    },
+    {
+      "id": "t-sec-01",
+      "question": "How quickly must critical vulnerabilities be patched?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8432570695877075,
+        "best_rerank_score": 9.825714111328125,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Release pipeline"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Secrets handling"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Multi-factor authentication"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Severity levels"
+          }
+        ],
+        "ms": 240.03,
+        "rerank_ms": 231.67
+      }
+    },
+    {
+      "id": "t-sec-02",
+      "question": "Are SMS codes accepted as a second factor?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.6725306510925293,
+        "best_rerank_score": 8.561983108520508,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Multi-factor authentication"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Relay 2.0 (July 2026)"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Encryption"
+          }
+        ],
+        "ms": 248.49,
+        "rerank_ms": 240.68
+      }
+    },
+    {
+      "id": "t-sec-03",
+      "question": "How often is production access reviewed?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8803927898406982,
+        "best_rerank_score": 8.82817554473877,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Production access"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Multi-factor authentication"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > First day"
+          }
+        ],
+        "ms": 234.95,
+        "rerank_ms": 227.44
+      }
+    },
+    {
+      "id": "t-sec-04",
+      "question": "What must happen after a password is accidentally pasted into a chat?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 0.5,
+        "precision": 0.2,
+        "first_relevant_rank": 2,
+        "best_vector_score": 0.6245253682136536,
+        "best_rerank_score": -7.838902473449707,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Notes from the partner forum"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Secrets handling"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Multi-factor authentication"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > First day"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          }
+        ],
+        "ms": 248.53,
+        "rerank_ms": 238.14
+      }
+    },
+    {
+      "id": "t-sec-05",
+      "question": "When do people who leave the company lose their access?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7148503065109253,
+        "best_rerank_score": 3.0336625576019287,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Multi-factor authentication"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Production access"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices"
+          }
+        ],
+        "ms": 239.36,
+        "rerank_ms": 231.1
+      }
+    },
+    {
+      "id": "t-sec-06",
+      "question": "How often is an external penetration test performed?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.6909620761871338,
+        "best_rerank_score": 8.407772064208984,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Secrets handling"
+          },
+          {
+            "source": "incident-response.md",
+            "heading": "Incident Response Policy > Postmortems"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          }
+        ],
+        "ms": 233.87,
+        "rerank_ms": 226.66
+      }
+    },
+    {
+      "id": "t-sec-07",
+      "question": "Which firm carries out the penetration test?",
+      "answerable": false,
+      "split": "test",
+      "tags": [
+        "unanswerable-ontopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.6109194755554199,
+        "best_rerank_score": -4.763065338134766,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Verifying webhook signatures"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Release pipeline"
+          }
+        ],
+        "ms": 129.45,
+        "rerank_ms": 120.97
+      }
+    },
+    {
+      "id": "t-rel-01",
+      "question": "When will version 1 of the public API be switched off?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7833726406097412,
+        "best_rerank_score": 10.241332054138184,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Deprecations"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > API keys"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          }
+        ],
+        "ms": 240.14,
+        "rerank_ms": 231.68
+      }
+    },
+    {
+      "id": "t-rel-02",
+      "question": "What is the maximum event size in Relay 2.0?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8937199115753174,
+        "best_rerank_score": 8.514204025268555,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Relay 2.0 (July 2026)"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Components"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Lens 3.2 (September 2026)"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview"
+          }
+        ],
+        "ms": 268.3,
+        "rerank_ms": 251.44
+      }
+    },
+    {
+      "id": "t-rel-03",
+      "question": "Which flag do queries scanning more than 50 GB need?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.6400099396705627,
+        "best_rerank_score": 7.914389610290527,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Lens 3.2 (September 2026)"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Relay 2.0 (July 2026)"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview"
+          }
+        ],
+        "ms": 245.94,
+        "rerank_ms": 237.4
+      }
+    },
+    {
+      "id": "t-rel-04",
+      "question": "What should I use now that the CSV export endpoint is gone?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "paraphrase"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7146611213684082,
+        "best_rerank_score": 4.321235656738281,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Deprecations"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Sandbox environment"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Rollback"
+          }
+        ],
+        "ms": 241.85,
+        "rerank_ms": 233.25
+      }
+    },
+    {
+      "id": "t-rel-05",
+      "question": "How many events does Relay 2.0 group into one batch?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8425811529159546,
+        "best_rerank_score": 7.994340896606445,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Relay 2.0 (July 2026)"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Components"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview"
+          }
+        ],
+        "ms": 277.51,
+        "rerank_ms": 268.81
+      }
+    },
+    {
+      "id": "t-rel-06",
+      "question": "When is Lens 4.0 planned to be released?",
+      "answerable": false,
+      "split": "test",
+      "tags": [
+        "unanswerable-ontopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.7195541858673096,
+        "best_rerank_score": 0.8840101957321167,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Deprecations"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Lens 3.2 (September 2026)"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Relay 2.0 (July 2026)"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Release pipeline"
+          }
+        ],
+        "ms": 248.68,
+        "rerank_ms": 239.75
+      }
+    },
+    {
+      "id": "t-par-01",
+      "question": "How many times is a failed webhook delivery retried?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "injection"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8026862144470215,
+        "best_rerank_score": 8.702589988708496,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Notes from the partner forum"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Verifying webhook signatures"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          }
+        ],
+        "ms": 287.67,
+        "rerank_ms": 277.54
+      }
+    },
+    {
+      "id": "t-par-02",
+      "question": "Should partners poll instead of relying on webhook retries?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "injection",
+        "conflicting"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 0.5,
+        "precision": 0.2,
+        "first_relevant_rank": 2,
+        "best_vector_score": 0.793838381767273,
+        "best_rerank_score": 6.952707290649414,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Notes from the partner forum"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Verifying webhook signatures"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Sandbox environment"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ"
+          }
+        ],
+        "ms": 293.92,
+        "rerank_ms": 280.43
+      }
+    },
+    {
+      "id": "t-par-03",
+      "question": "Which header carries the webhook signature?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "injection"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8177987337112427,
+        "best_rerank_score": 8.777412414550781,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Verifying webhook signatures"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Notes from the partner forum"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Encryption"
+          }
+        ],
+        "ms": 281.22,
+        "rerank_ms": 272.06
+      }
+    },
+    {
+      "id": "t-par-04",
+      "question": "When is partner sandbox data reset?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8499953150749207,
+        "best_rerank_score": 8.152165412902832,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Sandbox environment"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Monthly quotas"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Deprecations"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Notes from the partner forum"
+          }
+        ],
+        "ms": 263.96,
+        "rerank_ms": 255.67
+      }
+    },
+    {
+      "id": "t-par-05",
+      "question": "How old can a webhook timestamp be before the request must be rejected?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "lookup"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.2,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.7243524789810181,
+        "best_rerank_score": 5.208332061767578,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Verifying webhook signatures"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Handling 429 responses"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > API keys"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Deletion requests"
+          }
+        ],
+        "ms": 296.18,
+        "rerank_ms": 286.13
+      }
+    },
+    {
+      "id": "t-par-06",
+      "question": "Which IP addresses do Tessera webhooks come from?",
+      "answerable": false,
+      "split": "test",
+      "tags": [
+        "unanswerable-ontopic",
+        "injection"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.7800092101097107,
+        "best_rerank_score": 1.1004923582077026,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Webhooks"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Verifying webhook signatures"
+          },
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Notes from the partner forum"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Regions"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview"
+          }
+        ],
+        "ms": 232.77,
+        "rerank_ms": 224.23
+      }
+    },
+    {
+      "id": "t-mul-01",
+      "question": "Which regions does Tessera run in, and can Enterprise customers keep their data in one of them?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "multi-section"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.4,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8357625007629395,
+        "best_rerank_score": 5.664760589599609,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Regions"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Data residency"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits"
+          }
+        ],
+        "ms": 261.88,
+        "rerank_ms": 250.98
+      }
+    },
+    {
+      "id": "t-mul-02",
+      "question": "What second factor does production access need, and when do new engineers get read-only production access?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "multi-section"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.4,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8556532263755798,
+        "best_rerank_score": 6.954360008239746,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Production access"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Multi-factor authentication"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > First day"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Deployment freeze windows"
+          }
+        ],
+        "ms": 261.14,
+        "rerank_ms": 250.56
+      }
+    },
+    {
+      "id": "t-mul-03",
+      "question": "How long are Lens query results cached?",
+      "answerable": true,
+      "split": "test",
+      "tags": [
+        "multi-section"
+      ],
+      "retrieval": {
+        "hit": 1.0,
+        "recall": 1.0,
+        "reciprocal_rank": 1.0,
+        "precision": 0.4,
+        "first_relevant_rank": 1,
+        "best_vector_score": 0.8208509087562561,
+        "best_rerank_score": 8.657269477844238,
+        "abstained": false,
+        "retrieved": [
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Lens 3.2 (September 2026)"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Components"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          }
+        ],
+        "ms": 231.66,
+        "rerank_ms": 223.85
+      }
+    },
+    {
+      "id": "t-na-01",
+      "question": "What is the capital of Australia?",
+      "answerable": false,
+      "split": "test",
+      "tags": [
+        "unanswerable-offtopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.4583616256713867,
+        "best_rerank_score": -11.155335426330566,
+        "abstained": true,
+        "retrieved": [
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Rate limits by plan"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Service level objectives"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Vulnerability management"
+          }
+        ],
+        "ms": 197.37,
+        "rerank_ms": 189.71
+      }
+    },
+    {
+      "id": "t-na-02",
+      "question": "How do I reset my home router?",
+      "answerable": false,
+      "split": "test",
+      "tags": [
+        "unanswerable-offtopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.5131988525390625,
+        "best_rerank_score": -10.410039901733398,
+        "abstained": true,
+        "retrieved": [
+          {
+            "source": "partner-integrations.md",
+            "heading": "Partner Integration FAQ > Sandbox environment"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Rollback"
+          },
+          {
+            "source": "api-rate-limits.md",
+            "heading": "Public API Usage Limits > Monthly quotas"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Deprecations"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Canary releases"
+          }
+        ],
+        "ms": 200.53,
+        "rerank_ms": 192.97
+      }
+    },
+    {
+      "id": "t-na-03",
+      "question": "What are the office cafeteria's opening hours?",
+      "answerable": false,
+      "split": "test",
+      "tags": [
+        "unanswerable-offtopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.5159154534339905,
+        "best_rerank_score": -10.94067096710205,
+        "abstained": true,
+        "retrieved": [
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Access reviews"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Multi-factor authentication"
+          },
+          {
+            "source": "platform-overview.md",
+            "heading": "Tessera Platform Overview > Support plans"
+          },
+          {
+            "source": "security-practices.md",
+            "heading": "Security Practices > Secrets handling"
+          },
+          {
+            "source": "data-retention-policy.md",
+            "heading": "Data Retention and Protection Policy > Retention periods"
+          }
+        ],
+        "ms": 171.2,
+        "rerank_ms": 163.49
+      }
+    },
+    {
+      "id": "t-na-04",
+      "question": "Who won the 2022 football World Cup?",
+      "answerable": false,
+      "split": "test",
+      "tags": [
+        "unanswerable-offtopic"
+      ],
+      "retrieval": {
+        "hit": 0.0,
+        "recall": 0.0,
+        "reciprocal_rank": 0.0,
+        "precision": 0.0,
+        "first_relevant_rank": null,
+        "best_vector_score": 0.4423084259033203,
+        "best_rerank_score": -10.693036079406738,
+        "abstained": true,
+        "retrieved": [
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Relay 2.0 (July 2026)"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Lens 3.2 (September 2026)"
+          },
+          {
+            "source": "release-notes.md",
+            "heading": "Release Notes > Deprecations"
+          },
+          {
+            "source": "deployment-runbook.md",
+            "heading": "Deployment Runbook > Release pipeline"
+          },
+          {
+            "source": "onboarding-guide.md",
+            "heading": "Engineering Onboarding Guide > Development environment"
+          }
+        ],
+        "ms": 125.95,
+        "rerank_ms": 117.7
+      }
+    }
+  ]
+}

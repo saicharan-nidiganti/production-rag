@@ -59,7 +59,8 @@ CONFIGURATIONS = [
         "bge-small-lexical",
         "bge-small, lexical (BM25 only)",
         _bge("lexical"),
-        "Ranking ignores the embeddings; abstention still uses the bge-small cosine score.",
+        "Lexical mode computes no vector score, so the embeddings play no part: ranking and "
+        "abstention (only when BM25 finds nothing) match hashing, lexical.",
     ),
     Configuration("bge-small-vector", "bge-small, vector", _bge("vector")),
     Configuration("bge-small-hybrid", "bge-small, hybrid", _bge()),

@@ -112,7 +112,7 @@ to 107 ms on the same machine).
 | --- | --- | --- | --- | --- | --- |
 | Hashing embeddings, hybrid (offline; the CI gate) | 0.957 | 0.859 | 0 of 12 | 0 | 1 ms |
 | bge-small, hybrid | 1.000 | 0.931 | 4 of 12 | 0 | 8 ms |
-| **bge-small, hybrid, reranked (recommended)** | **1.000** | **0.946** | 4 of 12 | 0 | 107 ms |
+| **bge-small, hybrid, reranked (recommended)** | **1.000** | **0.946** | 4 of 12 | 0 | 75 ms |
 
 The 4 declined questions are all off-topic. None of the 8 on-topic unanswerable questions
 can be caught at retrieval by any signal tried, so declining them is the generator's job,
@@ -120,10 +120,10 @@ which is unmeasured until the paid run.
 
 These numbers come from 94 questions written alongside a 9-document synthetic corpus. They
 are a regression baseline for this project, not a benchmark. Metrics, calibration and
-limitations: [docs/evaluation.md](docs/evaluation.md). The raw reports behind this table,
-with every question's retrieved passages, scores and latencies, are in
-[eval/results/2026-10-29/](eval/results/2026-10-29/). Reproduce them with
-`uv run python scripts/compare_configs.py`.
+limitations: [docs/evaluation.md](docs/evaluation.md). The raw reports behind this table and
+eight more configurations, with every question's retrieved passages, scores and latencies,
+are indexed in [eval/results/2026-10-29/](eval/results/2026-10-29/README.md); reproduce them
+with `uv run python scripts/reference_results.py <date>`.
 
 ## Quickstart
 

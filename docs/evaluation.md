@@ -154,7 +154,7 @@ by run.
 | fastembed | lexical | 0.978 | 0.909 | 0.967 | 0.890 | 0.167 | 0.000 | 1 ms |
 | fastembed | vector | 1.000 | 0.906 | 0.967 | 0.925 | 0.333 | 0.000 | 7 ms |
 | fastembed | hybrid | 1.000 | 0.931 | 0.967 | 0.933 | 0.333 | 0.000 | 7 ms |
-| **fastembed** | **hybrid + rerank (5 candidates, the default)** | **1.000** | **0.946** | 0.967 | 0.967 | 0.333 | 0.000 | 70 ms |
+| **fastembed** | **hybrid + rerank (5 candidates, the default)** | **1.000** | **0.946** | 0.967 | 0.967 | 0.333 | 0.000 | 75 ms |
 
 - Hybrid retrieval with semantic embeddings and reranking is the best configuration on both
   splits ([ADR-0005](decisions/0005-reranking-and-abstention.md)). On the held-out test split,
@@ -237,9 +237,9 @@ The reranker's cost grows with the number of candidates it scores
 | Rerank candidates | Test hit rate | Test MRR | Dev hit rate | Dev MRR | Unanswerable abstained (all) | False abstention | Rerank p50 | Rerank p95 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | none (no reranker) | 1.000 | 0.931 | 0.967 | 0.933 | 0.389 | 0.000 | - | - |
-| 5 (default) | 1.000 | 0.946 | 0.967 | 0.967 | 0.444 | 0.000 | 32 ms | 70 ms |
-| 10 | 1.000 | 0.946 | 0.967 | 0.967 | 0.444 | 0.000 | 99 ms | 126 ms |
-| 20 | 1.000 | 0.946 | 1.000 | 0.978 | 0.444 | 0.000 | 234 ms | 263 ms |
+| 5 (default) | 1.000 | 0.946 | 0.967 | 0.967 | 0.444 | 0.000 | 33 ms | 66 ms |
+| 10 | 1.000 | 0.946 | 0.967 | 0.967 | 0.444 | 0.000 | 102 ms | 144 ms |
+| 20 | 1.000 | 0.946 | 1.000 | 0.978 | 0.444 | 0.000 | 232 ms | 272 ms |
 
 - Five candidates, the default since 2026-10-29 (owner decision), keep every gain on the
   held-out test split, including the extra off-topic abstention, at about a seventh of the
@@ -350,10 +350,13 @@ and git commit, dataset path, hash and split counts, corpus fingerprint and coun
 configuration snapshot, the summary (with per-split summaries), per-tag summaries, and
 per-question raw results (retrieved sources, ranks, scores, answers, citations, latencies).
 Reports written to `eval/reports/` are gitignored. Reference reports that back published
-numbers are committed under `eval/results/<date>/`: the README's results table comes from
-[eval/results/2026-10-29/](../eval/results/2026-10-29/) (hashing hybrid, bge-small hybrid,
-and bge-small hybrid reranked with 5 candidates; code at commit `5a652c7`). Each records its
-dataset hash and corpus fingerprint, so a later run can be compared like for like.
+numbers are committed under `eval/results/<date>/`, written by
+`scripts/reference_results.py`: one report per configuration in the tables above (hashing
+and bge-small in each mode, reranking with 5, 10 and 20 candidates) plus the two alternative
+rerankers from ADR-0005, and an index generated from them
+([2026-10-29](../eval/results/2026-10-29/README.md), code at `f1d0d5c`). Each records its
+dataset hash, corpus fingerprint and commit, so a later run can be compared like for like.
+The latencies in the tables come from that run; they vary between runs and machines.
 
 ## Change log
 

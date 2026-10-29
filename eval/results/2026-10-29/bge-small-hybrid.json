@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "created_at": "2026-10-29T05:08:56.123708+00:00",
+  "created_at": "2026-10-29T13:57:14.907158+00:00",
   "code": {
     "version": "0.1.0",
-    "git_commit": "5a652c7281f04aba4b19a3bcbbb73d69f414ae81"
+    "git_commit": "f1d0d5c0a0a2ffc4befa1f5a16faf81c3f0ce1ea"
   },
   "dataset": {
     "path": "eval/golden_v2.jsonl",
@@ -52,8 +52,8 @@
       "unanswerable_abstention_rate": 0.3889
     },
     "latency_ms": {
-      "retrieval_p50": 6.01,
-      "retrieval_p95": 7.81
+      "retrieval_p50": 6.15,
+      "retrieval_p95": 7.5
     },
     "splits": {
       "dev": {
@@ -68,8 +68,8 @@
           "unanswerable_abstention_rate": 0.5
         },
         "latency_ms": {
-          "retrieval_p50": 6.03,
-          "retrieval_p95": 9.04
+          "retrieval_p50": 6.08,
+          "retrieval_p95": 7.39
         }
       },
       "test": {
@@ -84,8 +84,8 @@
           "unanswerable_abstention_rate": 0.3333
         },
         "latency_ms": {
-          "retrieval_p50": 5.98,
-          "retrieval_p95": 7.81
+          "retrieval_p50": 6.16,
+          "retrieval_p95": 7.65
         }
       }
     }
@@ -103,8 +103,8 @@
         "unanswerable_abstention_rate": null
       },
       "latency_ms": {
-        "retrieval_p50": 6.22,
-        "retrieval_p95": 6.22
+        "retrieval_p50": 6.15,
+        "retrieval_p95": 6.15
       }
     },
     "injection": {
@@ -119,8 +119,8 @@
         "unanswerable_abstention_rate": 0.0
       },
       "latency_ms": {
-        "retrieval_p50": 6.14,
-        "retrieval_p95": 6.72
+        "retrieval_p50": 6.15,
+        "retrieval_p95": 7.04
       }
     },
     "lookup": {
@@ -135,8 +135,8 @@
         "unanswerable_abstention_rate": null
       },
       "latency_ms": {
-        "retrieval_p50": 5.94,
-        "retrieval_p95": 7.81
+        "retrieval_p50": 6.2,
+        "retrieval_p95": 7.73
       }
     },
     "multi-section": {
@@ -151,8 +151,8 @@
         "unanswerable_abstention_rate": null
       },
       "latency_ms": {
-        "retrieval_p50": 7.07,
-        "retrieval_p95": 8.39
+        "retrieval_p50": 5.87,
+        "retrieval_p95": 7.65
       }
     },
     "paraphrase": {
@@ -167,8 +167,8 @@
         "unanswerable_abstention_rate": null
       },
       "latency_ms": {
-        "retrieval_p50": 6.03,
-        "retrieval_p95": 7.77
+        "retrieval_p50": 6.29,
+        "retrieval_p95": 7.05
       }
     },
     "unanswerable-offtopic": {
@@ -183,8 +183,8 @@
         "unanswerable_abstention_rate": 0.875
       },
       "latency_ms": {
-        "retrieval_p50": 5.68,
-        "retrieval_p95": 6.82
+        "retrieval_p50": 5.79,
+        "retrieval_p95": 6.1
       }
     },
     "unanswerable-ontopic": {
@@ -199,8 +199,8 @@
         "unanswerable_abstention_rate": 0.0
       },
       "latency_ms": {
-        "retrieval_p50": 5.68,
-        "retrieval_p95": 7.69
+        "retrieval_p50": 6.11,
+        "retrieval_p95": 7.04
       }
     }
   },
@@ -244,7 +244,7 @@
             "heading": "Engineering Onboarding Guide > Development environment"
           }
         ],
-        "ms": 9.25,
+        "ms": 8.78,
         "rerank_ms": null
       }
     },
@@ -287,7 +287,7 @@
             "heading": "Deployment Runbook > Deployment freeze windows"
           }
         ],
-        "ms": 6.33,
+        "ms": 6.19,
         "rerank_ms": null
       }
     },
@@ -330,7 +330,7 @@
             "heading": "Engineering Onboarding Guide > Development environment"
           }
         ],
-        "ms": 5.55,
+        "ms": 5.5,
         "rerank_ms": null
       }
     },
@@ -373,7 +373,7 @@
             "heading": "Deployment Runbook > Release pipeline"
           }
         ],
-        "ms": 5.81,
+        "ms": 5.91,
         "rerank_ms": null
       }
     },
@@ -416,7 +416,7 @@
             "heading": "Deployment Runbook > Release pipeline"
           }
         ],
-        "ms": 6.5,
+        "ms": 5.63,
         "rerank_ms": null
       }
     },
@@ -459,7 +459,7 @@
             "heading": "Public API Usage Limits > API keys"
           }
         ],
-        "ms": 7.57,
+        "ms": 6.45,
         "rerank_ms": null
       }
     },
@@ -502,7 +502,7 @@
             "heading": "Security Practices > Access reviews"
           }
         ],
-        "ms": 7.01,
+        "ms": 6.78,
         "rerank_ms": null
       }
     },
@@ -588,7 +588,7 @@
             "heading": "Incident Response Policy > Escalation"
           }
         ],
-        "ms": 6.04,
+        "ms": 7.39,
         "rerank_ms": null
       }
     },
@@ -631,7 +631,7 @@
             "heading": "Public API Usage Limits > Handling 429 responses"
           }
         ],
-        "ms": 6.51,
+        "ms": 6.86,
         "rerank_ms": null
       }
     },
@@ -674,7 +674,7 @@
             "heading": "Incident Response Policy > Postmortems"
           }
         ],
-        "ms": 5.37,
+        "ms": 5.88,
         "rerank_ms": null
       }
     },
@@ -717,7 +717,7 @@
             "heading": "Incident Response Policy > Severity levels"
           }
         ],
-        "ms": 6.48,
+        "ms": 5.69,
         "rerank_ms": null
       }
     },
@@ -760,7 +760,7 @@
             "heading": "Engineering Onboarding Guide > Production access"
           }
         ],
-        "ms": 9.04,
+        "ms": 6.63,
         "rerank_ms": null
       }
     },
@@ -803,7 +803,7 @@
             "heading": "Data Retention and Protection Policy > Deletion requests"
           }
         ],
-        "ms": 7.77,
+        "ms": 6.02,
         "rerank_ms": null
       }
     },
@@ -846,7 +846,7 @@
             "heading": "Tessera Platform Overview > Support plans"
           }
         ],
-        "ms": 6.19,
+        "ms": 5.71,
         "rerank_ms": null
       }
     },
@@ -889,7 +889,7 @@
             "heading": "Incident Response Policy"
           }
         ],
-        "ms": 6.02,
+        "ms": 6.45,
         "rerank_ms": null
       }
     },
@@ -932,7 +932,7 @@
             "heading": "Partner Integration FAQ > Sandbox environment"
           }
         ],
-        "ms": 5.87,
+        "ms": 5.4,
         "rerank_ms": null
       }
     },
@@ -975,7 +975,7 @@
             "heading": "Partner Integration FAQ > Sandbox environment"
           }
         ],
-        "ms": 5.46,
+        "ms": 5.32,
         "rerank_ms": null
       }
     },
@@ -1018,7 +1018,7 @@
             "heading": "Data Retention and Protection Policy > Retention periods"
           }
         ],
-        "ms": 6.03,
+        "ms": 6.15,
         "rerank_ms": null
       }
     },
@@ -1061,7 +1061,7 @@
             "heading": "Data Retention and Protection Policy > Deletion requests"
           }
         ],
-        "ms": 6.42,
+        "ms": 5.92,
         "rerank_ms": null
       }
     },
@@ -1104,7 +1104,7 @@
             "heading": "Security Practices > Vulnerability management"
           }
         ],
-        "ms": 5.36,
+        "ms": 5.25,
         "rerank_ms": null
       }
     },
@@ -1147,7 +1147,7 @@
             "heading": "Partner Integration FAQ > Sandbox environment"
           }
         ],
-        "ms": 6.4,
+        "ms": 5.8,
         "rerank_ms": null
       }
     },
@@ -1190,7 +1190,7 @@
             "heading": "Data Retention and Protection Policy > Retention periods"
           }
         ],
-        "ms": 6.11,
+        "ms": 6.08,
         "rerank_ms": null
       }
     },
@@ -1233,7 +1233,7 @@
             "heading": "Public API Usage Limits"
           }
         ],
-        "ms": 5.78,
+        "ms": 5.87,
         "rerank_ms": null
       }
     },
@@ -1276,7 +1276,7 @@
             "heading": "Tessera Platform Overview > Components"
           }
         ],
-        "ms": 5.75,
+        "ms": 5.64,
         "rerank_ms": null
       }
     },
@@ -1319,7 +1319,7 @@
             "heading": "Engineering Onboarding Guide"
           }
         ],
-        "ms": 5.59,
+        "ms": 6.41,
         "rerank_ms": null
       }
     },
@@ -1362,7 +1362,7 @@
             "heading": "Incident Response Policy > Roles during an incident"
           }
         ],
-        "ms": 5.43,
+        "ms": 6.52,
         "rerank_ms": null
       }
     },
@@ -1405,7 +1405,7 @@
             "heading": "Deployment Runbook > Release pipeline"
           }
         ],
-        "ms": 7.19,
+        "ms": 7.03,
         "rerank_ms": null
       }
     },
@@ -1448,7 +1448,7 @@
             "heading": "Engineering Onboarding Guide > Joining the on-call rotation"
           }
         ],
-        "ms": 6.35,
+        "ms": 6.52,
         "rerank_ms": null
       }
     },
@@ -1491,7 +1491,7 @@
             "heading": "Tessera Platform Overview > Components"
           }
         ],
-        "ms": 5.9,
+        "ms": 6.5,
         "rerank_ms": null
       }
     },
@@ -1534,7 +1534,7 @@
             "heading": "Tessera Platform Overview > Support plans"
           }
         ],
-        "ms": 5.54,
+        "ms": 6.1,
         "rerank_ms": null
       }
     },
@@ -1577,7 +1577,7 @@
             "heading": "Security Practices > Secrets handling"
           }
         ],
-        "ms": 4.97,
+        "ms": 5.34,
         "rerank_ms": null
       }
     },
@@ -1620,7 +1620,7 @@
             "heading": "Security Practices > Access reviews"
           }
         ],
-        "ms": 5.68,
+        "ms": 5.84,
         "rerank_ms": null
       }
     },
@@ -1663,7 +1663,7 @@
             "heading": "Public API Usage Limits > API keys"
           }
         ],
-        "ms": 5.66,
+        "ms": 5.79,
         "rerank_ms": null
       }
     },
@@ -1706,7 +1706,7 @@
             "heading": "Data Retention and Protection Policy > Retention periods"
           }
         ],
-        "ms": 5.49,
+        "ms": 6.15,
         "rerank_ms": null
       }
     },
@@ -1749,7 +1749,7 @@
             "heading": "Incident Response Policy > Severity levels"
           }
         ],
-        "ms": 6.05,
+        "ms": 6.98,
         "rerank_ms": null
       }
     },
@@ -1792,7 +1792,7 @@
             "heading": "Incident Response Policy > Severity levels"
           }
         ],
-        "ms": 5.71,
+        "ms": 6.96,
         "rerank_ms": null
       }
     },
@@ -1835,7 +1835,7 @@
             "heading": "Deployment Runbook > Canary releases"
           }
         ],
-        "ms": 6.26,
+        "ms": 6.69,
         "rerank_ms": null
       }
     },
@@ -1878,7 +1878,7 @@
             "heading": "Public API Usage Limits > Handling 429 responses"
           }
         ],
-        "ms": 7.4,
+        "ms": 7.73,
         "rerank_ms": null
       }
     },
@@ -1921,7 +1921,7 @@
             "heading": "Incident Response Policy > Severity levels"
           }
         ],
-        "ms": 6.01,
+        "ms": 6.53,
         "rerank_ms": null
       }
     },
@@ -1964,7 +1964,7 @@
             "heading": "Partner Integration FAQ > Notes from the partner forum"
           }
         ],
-        "ms": 6.16,
+        "ms": 6.45,
         "rerank_ms": null
       }
     },
@@ -2007,7 +2007,7 @@
             "heading": "Security Practices > Vulnerability management"
           }
         ],
-        "ms": 6.07,
+        "ms": 6.29,
         "rerank_ms": null
       }
     },
@@ -2050,7 +2050,7 @@
             "heading": "Incident Response Policy"
           }
         ],
-        "ms": 5.94,
+        "ms": 6.46,
         "rerank_ms": null
       }
     },
@@ -2093,7 +2093,7 @@
             "heading": "Data Retention and Protection Policy > Retention periods"
           }
         ],
-        "ms": 6.11,
+        "ms": 5.97,
         "rerank_ms": null
       }
     },
@@ -2136,7 +2136,7 @@
             "heading": "Incident Response Policy > Escalation"
           }
         ],
-        "ms": 5.46,
+        "ms": 5.5,
         "rerank_ms": null
       }
     },
@@ -2179,7 +2179,7 @@
             "heading": "Incident Response Policy > Postmortems"
           }
         ],
-        "ms": 6.14,
+        "ms": 5.86,
         "rerank_ms": null
       }
     },
@@ -2222,7 +2222,7 @@
             "heading": "Engineering Onboarding Guide > Production access"
           }
         ],
-        "ms": 6.45,
+        "ms": 5.77,
         "rerank_ms": null
       }
     },
@@ -2265,7 +2265,7 @@
             "heading": "Incident Response Policy > Postmortems"
           }
         ],
-        "ms": 6.65,
+        "ms": 6.11,
         "rerank_ms": null
       }
     },
@@ -2308,7 +2308,7 @@
             "heading": "Tessera Platform Overview > Support plans"
           }
         ],
-        "ms": 5.5,
+        "ms": 5.89,
         "rerank_ms": null
       }
     },
@@ -2351,7 +2351,7 @@
             "heading": "Partner Integration FAQ > Webhooks"
           }
         ],
-        "ms": 5.89,
+        "ms": 6.84,
         "rerank_ms": null
       }
     },
@@ -2394,7 +2394,7 @@
             "heading": "Public API Usage Limits"
           }
         ],
-        "ms": 5.74,
+        "ms": 5.79,
         "rerank_ms": null
       }
     },
@@ -2437,7 +2437,7 @@
             "heading": "Engineering Onboarding Guide > Production access"
           }
         ],
-        "ms": 5.77,
+        "ms": 6.16,
         "rerank_ms": null
       }
     },
@@ -2480,7 +2480,7 @@
             "heading": "Tessera Platform Overview > Support plans"
           }
         ],
-        "ms": 5.07,
+        "ms": 5.67,
         "rerank_ms": null
       }
     },
@@ -2523,7 +2523,7 @@
             "heading": "Data Retention and Protection Policy > Deletion requests"
           }
         ],
-        "ms": 5.22,
+        "ms": 6.7,
         "rerank_ms": null
       }
     },
@@ -2566,7 +2566,7 @@
             "heading": "Tessera Platform Overview > Components"
           }
         ],
-        "ms": 5.58,
+        "ms": 7.43,
         "rerank_ms": null
       }
     },
@@ -2609,7 +2609,7 @@
             "heading": "Data Retention and Protection Policy > Data residency"
           }
         ],
-        "ms": 5.39,
+        "ms": 7.11,
         "rerank_ms": null
       }
     },
@@ -2652,7 +2652,7 @@
             "heading": "Data Retention and Protection Policy"
           }
         ],
-        "ms": 5.75,
+        "ms": 6.56,
         "rerank_ms": null
       }
     },
@@ -2695,7 +2695,7 @@
             "heading": "Tessera Platform Overview > Support plans"
           }
         ],
-        "ms": 6.83,
+        "ms": 5.82,
         "rerank_ms": null
       }
     },
@@ -2738,7 +2738,7 @@
             "heading": "Public API Usage Limits > Handling 429 responses"
           }
         ],
-        "ms": 6.73,
+        "ms": 6.2,
         "rerank_ms": null
       }
     },
@@ -2781,7 +2781,7 @@
             "heading": "Incident Response Policy > Escalation"
           }
         ],
-        "ms": 6.59,
+        "ms": 5.93,
         "rerank_ms": null
       }
     },
@@ -2824,7 +2824,7 @@
             "heading": "Security Practices > Access reviews"
           }
         ],
-        "ms": 6.17,
+        "ms": 6.21,
         "rerank_ms": null
       }
     },
@@ -2867,7 +2867,7 @@
             "heading": "Security Practices > Vulnerability management"
           }
         ],
-        "ms": 6.91,
+        "ms": 7.05,
         "rerank_ms": null
       }
     },
@@ -2910,7 +2910,7 @@
             "heading": "Engineering Onboarding Guide > Development environment"
           }
         ],
-        "ms": 5.3,
+        "ms": 6.2,
         "rerank_ms": null
       }
     },
@@ -2953,7 +2953,7 @@
             "heading": "Tessera Platform Overview > Components"
           }
         ],
-        "ms": 4.99,
+        "ms": 5.2,
         "rerank_ms": null
       }
     },
@@ -2996,7 +2996,7 @@
             "heading": "Tessera Platform Overview > Regions"
           }
         ],
-        "ms": 5.91,
+        "ms": 5.61,
         "rerank_ms": null
       }
     },
@@ -3039,7 +3039,7 @@
             "heading": "Partner Integration FAQ > Webhooks"
           }
         ],
-        "ms": 5.93,
+        "ms": 6.63,
         "rerank_ms": null
       }
     },
@@ -3082,7 +3082,7 @@
             "heading": "Tessera Platform Overview > Service level objectives"
           }
         ],
-        "ms": 6.08,
+        "ms": 6.44,
         "rerank_ms": null
       }
     },
@@ -3125,7 +3125,7 @@
             "heading": "Deployment Runbook > Canary releases"
           }
         ],
-        "ms": 7.69,
+        "ms": 6.75,
         "rerank_ms": null
       }
     },
@@ -3168,7 +3168,7 @@
             "heading": "Deployment Runbook > Rollback"
           }
         ],
-        "ms": 6.84,
+        "ms": 6.05,
         "rerank_ms": null
       }
     },
@@ -3211,7 +3211,7 @@
             "heading": "Engineering Onboarding Guide > First day"
           }
         ],
-        "ms": 5.86,
+        "ms": 5.84,
         "rerank_ms": null
       }
     },
@@ -3254,7 +3254,7 @@
             "heading": "Incident Response Policy > Postmortems"
           }
         ],
-        "ms": 5.34,
+        "ms": 5.65,
         "rerank_ms": null
       }
     },
@@ -3297,7 +3297,7 @@
             "heading": "Engineering Onboarding Guide > First day"
           }
         ],
-        "ms": 6.0,
+        "ms": 6.58,
         "rerank_ms": null
       }
     },
@@ -3340,7 +3340,7 @@
             "heading": "Data Retention and Protection Policy > Data residency"
           }
         ],
-        "ms": 5.58,
+        "ms": 6.42,
         "rerank_ms": null
       }
     },
@@ -3383,7 +3383,7 @@
             "heading": "Partner Integration FAQ > Webhooks"
           }
         ],
-        "ms": 5.4,
+        "ms": 5.75,
         "rerank_ms": null
       }
     },
@@ -3426,7 +3426,7 @@
             "heading": "Security Practices > Access reviews"
           }
         ],
-        "ms": 5.49,
+        "ms": 5.45,
         "rerank_ms": null
       }
     },
@@ -3469,7 +3469,7 @@
             "heading": "Public API Usage Limits > Rate limits by plan"
           }
         ],
-        "ms": 5.75,
+        "ms": 5.99,
         "rerank_ms": null
       }
     },
@@ -3512,7 +3512,7 @@
             "heading": "Tessera Platform Overview"
           }
         ],
-        "ms": 5.66,
+        "ms": 6.21,
         "rerank_ms": null
       }
     },
@@ -3555,7 +3555,7 @@
             "heading": "Deployment Runbook > Canary releases"
           }
         ],
-        "ms": 5.95,
+        "ms": 5.93,
         "rerank_ms": null
       }
     },
@@ -3598,7 +3598,7 @@
             "heading": "Data Retention and Protection Policy > Encryption"
           }
         ],
-        "ms": 5.98,
+        "ms": 6.15,
         "rerank_ms": null
       }
     },
@@ -3641,7 +3641,7 @@
             "heading": "Incident Response Policy > Severity levels"
           }
         ],
-        "ms": 6.05,
+        "ms": 6.35,
         "rerank_ms": null
       }
     },
@@ -3684,7 +3684,7 @@
             "heading": "Release Notes > Relay 2.0 (July 2026)"
           }
         ],
-        "ms": 5.68,
+        "ms": 5.88,
         "rerank_ms": null
       }
     },
@@ -3727,7 +3727,7 @@
             "heading": "Deployment Runbook > Rollback"
           }
         ],
-        "ms": 5.57,
+        "ms": 5.75,
         "rerank_ms": null
       }
     },
@@ -3771,7 +3771,7 @@
             "heading": "Public API Usage Limits > Handling 429 responses"
           }
         ],
-        "ms": 6.22,
+        "ms": 6.15,
         "rerank_ms": null
       }
     },
@@ -3814,7 +3814,7 @@
             "heading": "Engineering Onboarding Guide > Development environment"
           }
         ],
-        "ms": 6.14,
+        "ms": 6.86,
         "rerank_ms": null
       }
     },
@@ -3857,7 +3857,7 @@
             "heading": "Data Retention and Protection Policy > Data residency"
           }
         ],
-        "ms": 5.13,
+        "ms": 6.46,
         "rerank_ms": null
       }
     },
@@ -3900,7 +3900,7 @@
             "heading": "Data Retention and Protection Policy > Deletion requests"
           }
         ],
-        "ms": 7.81,
+        "ms": 8.24,
         "rerank_ms": null
       }
     },
@@ -3944,7 +3944,7 @@
             "heading": "Partner Integration FAQ"
           }
         ],
-        "ms": 6.72,
+        "ms": 7.04,
         "rerank_ms": null
       }
     },
@@ -3987,7 +3987,7 @@
             "heading": "Tessera Platform Overview > Service level objectives"
           }
         ],
-        "ms": 8.39,
+        "ms": 7.65,
         "rerank_ms": null
       }
     },
@@ -4030,7 +4030,7 @@
             "heading": "Engineering Onboarding Guide > First day"
           }
         ],
-        "ms": 8.21,
+        "ms": 7.5,
         "rerank_ms": null
       }
     },
@@ -4073,7 +4073,7 @@
             "heading": "Data Retention and Protection Policy > Retention periods"
           }
         ],
-        "ms": 7.07,
+        "ms": 5.53,
         "rerank_ms": null
       }
     },
@@ -4116,7 +4116,7 @@
             "heading": "Tessera Platform Overview > Components"
           }
         ],
-        "ms": 6.54,
+        "ms": 5.1,
         "rerank_ms": null
       }
     },
@@ -4159,7 +4159,7 @@
             "heading": "Partner Integration FAQ > Notes from the partner forum"
           }
         ],
-        "ms": 6.82,
+        "ms": 5.37,
         "rerank_ms": null
       }
     },
@@ -4202,7 +4202,7 @@
             "heading": "Data Retention and Protection Policy > Retention periods"
           }
         ],
-        "ms": 6.02,
+        "ms": 5.99,
         "rerank_ms": null
       }
     },
@@ -4245,7 +4245,7 @@
             "heading": "Data Retention and Protection Policy > Data residency"
           }
         ],
-        "ms": 5.96,
+        "ms": 6.04,
         "rerank_ms": null
       }
     }

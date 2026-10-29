@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "created_at": "2026-10-29T05:09:05.308603+00:00",
+  "created_at": "2026-10-29T13:57:21.406556+00:00",
   "code": {
     "version": "0.1.0",
-    "git_commit": "5a652c7281f04aba4b19a3bcbbb73d69f414ae81"
+    "git_commit": "f1d0d5c0a0a2ffc4befa1f5a16faf81c3f0ce1ea"
   },
   "dataset": {
     "path": "eval/golden_v2.jsonl",
@@ -52,10 +52,10 @@
       "unanswerable_abstention_rate": 0.4444
     },
     "latency_ms": {
-      "retrieval_p50": 60.08,
-      "retrieval_p95": 107.39,
-      "rerank_p50": 48.4,
-      "rerank_p95": 95.17
+      "retrieval_p50": 41.73,
+      "retrieval_p95": 75.45,
+      "rerank_p50": 32.98,
+      "rerank_p95": 66.1
     },
     "splits": {
       "dev": {
@@ -70,10 +70,10 @@
           "unanswerable_abstention_rate": 0.6667
         },
         "latency_ms": {
-          "retrieval_p50": 57.89,
-          "retrieval_p95": 81.39,
-          "rerank_p50": 42.99,
-          "rerank_p95": 71.08
+          "retrieval_p50": 42.95,
+          "retrieval_p95": 86.48,
+          "rerank_p50": 35.36,
+          "rerank_p95": 74.33
         }
       },
       "test": {
@@ -88,10 +88,10 @@
           "unanswerable_abstention_rate": 0.3333
         },
         "latency_ms": {
-          "retrieval_p50": 68.82,
-          "retrieval_p95": 132.37,
-          "rerank_p50": 57.09,
-          "rerank_p95": 96.64
+          "retrieval_p50": 41.43,
+          "retrieval_p95": 67.1,
+          "rerank_p50": 32.62,
+          "rerank_p95": 59.36
         }
       }
     }
@@ -109,10 +109,10 @@
         "unanswerable_abstention_rate": null
       },
       "latency_ms": {
-        "retrieval_p50": 54.57,
-        "retrieval_p95": 54.57,
-        "rerank_p50": 41.82,
-        "rerank_p95": 41.82
+        "retrieval_p50": 42.18,
+        "retrieval_p95": 42.18,
+        "rerank_p50": 34.05,
+        "rerank_p95": 34.05
       }
     },
     "injection": {
@@ -127,10 +127,10 @@
         "unanswerable_abstention_rate": 0.0
       },
       "latency_ms": {
-        "retrieval_p50": 54.57,
-        "retrieval_p95": 78.13,
-        "rerank_p50": 41.82,
-        "rerank_p95": 66.79
+        "retrieval_p50": 44.54,
+        "retrieval_p95": 54.58,
+        "rerank_p50": 36.44,
+        "rerank_p95": 46.6
       }
     },
     "lookup": {
@@ -145,10 +145,10 @@
         "unanswerable_abstention_rate": null
       },
       "latency_ms": {
-        "retrieval_p50": 69.84,
-        "retrieval_p95": 109.9,
-        "rerank_p50": 58.02,
-        "rerank_p95": 96.08
+        "retrieval_p50": 42.95,
+        "retrieval_p95": 75.45,
+        "rerank_p50": 35.36,
+        "rerank_p95": 66.1
       }
     },
     "multi-section": {
@@ -163,10 +163,10 @@
         "unanswerable_abstention_rate": null
       },
       "latency_ms": {
-        "retrieval_p50": 45.94,
-        "retrieval_p95": 48.51,
-        "rerank_p50": 34.3,
-        "rerank_p95": 37.17
+        "retrieval_p50": 34.93,
+        "retrieval_p95": 60.08,
+        "rerank_p50": 27.33,
+        "rerank_p95": 49.78
       }
     },
     "paraphrase": {
@@ -181,10 +181,10 @@
         "unanswerable_abstention_rate": null
       },
       "latency_ms": {
-        "retrieval_p50": 70.15,
-        "retrieval_p95": 89.35,
-        "rerank_p50": 59.36,
-        "rerank_p95": 78.95
+        "retrieval_p50": 47.9,
+        "retrieval_p95": 86.48,
+        "rerank_p50": 38.92,
+        "rerank_p95": 70.71
       }
     },
     "unanswerable-offtopic": {
@@ -199,10 +199,10 @@
         "unanswerable_abstention_rate": 1.0
       },
       "latency_ms": {
-        "retrieval_p50": 45.77,
-        "retrieval_p95": 59.14,
-        "rerank_p50": 35.79,
-        "rerank_p95": 48.4
+        "retrieval_p50": 34.42,
+        "retrieval_p95": 45.29,
+        "rerank_p50": 26.82,
+        "rerank_p95": 37.96
       }
     },
     "unanswerable-ontopic": {
@@ -217,10 +217,10 @@
         "unanswerable_abstention_rate": 0.0
       },
       "latency_ms": {
-        "retrieval_p50": 71.52,
-        "retrieval_p95": 132.37,
-        "rerank_p50": 57.14,
-        "rerank_p95": 96.64
+        "retrieval_p50": 38.85,
+        "retrieval_p95": 77.95,
+        "rerank_p50": 30.54,
+        "rerank_p95": 70.45
       }
     }
   },
@@ -264,8 +264,8 @@
             "heading": "Data Retention and Protection Policy"
           }
         ],
-        "ms": 77.94,
-        "rerank_ms": 65.36
+        "ms": 58.99,
+        "rerank_ms": 50.88
       }
     },
     {
@@ -307,8 +307,8 @@
             "heading": "Partner Integration FAQ > Webhooks"
           }
         ],
-        "ms": 69.84,
-        "rerank_ms": 59.0
+        "ms": 63.0,
+        "rerank_ms": 54.32
       }
     },
     {
@@ -350,8 +350,8 @@
             "heading": "Engineering Onboarding Guide > Development environment"
           }
         ],
-        "ms": 61.61,
-        "rerank_ms": 51.93
+        "ms": 42.95,
+        "rerank_ms": 35.36
       }
     },
     {
@@ -393,8 +393,8 @@
             "heading": "Release Notes"
           }
         ],
-        "ms": 74.26,
-        "rerank_ms": 63.82
+        "ms": 54.11,
+        "rerank_ms": 46.28
       }
     },
     {
@@ -436,8 +436,8 @@
             "heading": "Deployment Runbook > Release pipeline"
           }
         ],
-        "ms": 47.16,
-        "rerank_ms": 37.74
+        "ms": 38.74,
+        "rerank_ms": 30.75
       }
     },
     {
@@ -479,8 +479,8 @@
             "heading": "Data Retention and Protection Policy > Retention periods"
           }
         ],
-        "ms": 52.72,
-        "rerank_ms": 41.13
+        "ms": 55.18,
+        "rerank_ms": 45.77
       }
     },
     {
@@ -522,8 +522,8 @@
             "heading": "Release Notes"
           }
         ],
-        "ms": 72.78,
-        "rerank_ms": 60.87
+        "ms": 67.35,
+        "rerank_ms": 54.84
       }
     },
     {
@@ -565,8 +565,8 @@
             "heading": "Release Notes > Deprecations"
           }
         ],
-        "ms": 71.32,
-        "rerank_ms": 59.55
+        "ms": 86.48,
+        "rerank_ms": 70.71
       }
     },
     {
@@ -608,8 +608,8 @@
             "heading": "Incident Response Policy > Escalation"
           }
         ],
-        "ms": 78.29,
-        "rerank_ms": 67.43
+        "ms": 82.79,
+        "rerank_ms": 74.33
       }
     },
     {
@@ -651,8 +651,8 @@
             "heading": "Public API Usage Limits > Handling 429 responses"
           }
         ],
-        "ms": 73.78,
-        "rerank_ms": 64.05
+        "ms": 90.46,
+        "rerank_ms": 82.12
       }
     },
     {
@@ -694,8 +694,8 @@
             "heading": "Incident Response Policy > Severity levels"
           }
         ],
-        "ms": 71.4,
-        "rerank_ms": 63.36
+        "ms": 75.45,
+        "rerank_ms": 66.1
       }
     },
     {
@@ -737,8 +737,8 @@
             "heading": "Partner Integration FAQ > Notes from the partner forum"
           }
         ],
-        "ms": 74.12,
-        "rerank_ms": 65.63
+        "ms": 61.74,
+        "rerank_ms": 53.51
       }
     },
     {
@@ -780,8 +780,8 @@
             "heading": "Engineering Onboarding Guide > Production access"
           }
         ],
-        "ms": 76.74,
-        "rerank_ms": 67.05
+        "ms": 67.52,
+        "rerank_ms": 57.31
       }
     },
     {
@@ -823,8 +823,8 @@
             "heading": "Data Retention and Protection Policy > Deletion requests"
           }
         ],
-        "ms": 81.69,
-        "rerank_ms": 72.51
+        "ms": 64.91,
+        "rerank_ms": 56.78
       }
     },
     {
@@ -866,8 +866,8 @@
             "heading": "Tessera Platform Overview > Support plans"
           }
         ],
-        "ms": 46.95,
-        "rerank_ms": 36.98
+        "ms": 36.88,
+        "rerank_ms": 29.55
       }
     },
     {
@@ -909,8 +909,8 @@
             "heading": "Incident Response Policy"
           }
         ],
-        "ms": 63.16,
-        "rerank_ms": 52.59
+        "ms": 38.62,
+        "rerank_ms": 30.46
       }
     },
     {
@@ -952,8 +952,8 @@
             "heading": "Release Notes > Deprecations"
           }
         ],
-        "ms": 60.06,
-        "rerank_ms": 48.0
+        "ms": 36.63,
+        "rerank_ms": 26.92
       }
     },
     {
@@ -995,8 +995,8 @@
             "heading": "Tessera Platform Overview > Service level objectives"
           }
         ],
-        "ms": 46.82,
-        "rerank_ms": 36.94
+        "ms": 35.03,
+        "rerank_ms": 27.87
       }
     },
     {
@@ -1038,8 +1038,8 @@
             "heading": "Partner Integration FAQ > Sandbox environment"
           }
         ],
-        "ms": 48.08,
-        "rerank_ms": 38.45
+        "ms": 46.19,
+        "rerank_ms": 37.33
       }
     },
     {
@@ -1081,8 +1081,8 @@
             "heading": "Incident Response Policy > Severity levels"
           }
         ],
-        "ms": 81.39,
-        "rerank_ms": 71.07
+        "ms": 57.64,
+        "rerank_ms": 49.12
       }
     },
     {
@@ -1124,8 +1124,8 @@
             "heading": "Public API Usage Limits > Handling 429 responses"
           }
         ],
-        "ms": 48.88,
-        "rerank_ms": 39.87
+        "ms": 35.04,
+        "rerank_ms": 27.22
       }
     },
     {
@@ -1167,8 +1167,8 @@
             "heading": "Partner Integration FAQ > Sandbox environment"
           }
         ],
-        "ms": 48.45,
-        "rerank_ms": 38.37
+        "ms": 40.43,
+        "rerank_ms": 31.67
       }
     },
     {
@@ -1210,8 +1210,8 @@
             "heading": "Data Retention and Protection Policy > Deletion requests"
           }
         ],
-        "ms": 42.31,
-        "rerank_ms": 33.2
+        "ms": 35.66,
+        "rerank_ms": 27.64
       }
     },
     {
@@ -1253,8 +1253,8 @@
             "heading": "Public API Usage Limits"
           }
         ],
-        "ms": 39.98,
-        "rerank_ms": 31.65
+        "ms": 34.93,
+        "rerank_ms": 26.95
       }
     },
     {
@@ -1296,8 +1296,8 @@
             "heading": "Data Retention and Protection Policy > Data residency"
           }
         ],
-        "ms": 57.89,
-        "rerank_ms": 48.15
+        "ms": 44.73,
+        "rerank_ms": 37.15
       }
     },
     {
@@ -1339,8 +1339,8 @@
             "heading": "Engineering Onboarding Guide"
           }
         ],
-        "ms": 80.79,
-        "rerank_ms": 71.08
+        "ms": 61.84,
+        "rerank_ms": 54.06
       }
     },
     {
@@ -1382,8 +1382,8 @@
             "heading": "Incident Response Policy > Roles during an incident"
           }
         ],
-        "ms": 52.81,
-        "rerank_ms": 42.99
+        "ms": 39.47,
+        "rerank_ms": 31.28
       }
     },
     {
@@ -1425,8 +1425,8 @@
             "heading": "Deployment Runbook > Release pipeline"
           }
         ],
-        "ms": 58.87,
-        "rerank_ms": 41.93
+        "ms": 44.42,
+        "rerank_ms": 36.19
       }
     },
     {
@@ -1468,8 +1468,8 @@
             "heading": "Engineering Onboarding Guide > Joining the on-call rotation"
           }
         ],
-        "ms": 46.96,
-        "rerank_ms": 37.33
+        "ms": 36.66,
+        "rerank_ms": 29.07
       }
     },
     {
@@ -1511,8 +1511,8 @@
             "heading": "Partner Integration FAQ > Notes from the partner forum"
           }
         ],
-        "ms": 47.92,
-        "rerank_ms": 38.32
+        "ms": 36.33,
+        "rerank_ms": 28.22
       }
     },
     {
@@ -1554,8 +1554,8 @@
             "heading": "Data Retention and Protection Policy > Data residency"
           }
         ],
-        "ms": 36.69,
-        "rerank_ms": 27.23
+        "ms": 29.96,
+        "rerank_ms": 21.85
       }
     },
     {
@@ -1597,8 +1597,8 @@
             "heading": "Partner Integration FAQ > Notes from the partner forum"
           }
         ],
-        "ms": 45.77,
-        "rerank_ms": 35.79
+        "ms": 33.22,
+        "rerank_ms": 26.02
       }
     },
     {
@@ -1640,8 +1640,8 @@
             "heading": "Security Practices > Access reviews"
           }
         ],
-        "ms": 43.59,
-        "rerank_ms": 35.2
+        "ms": 35.4,
+        "rerank_ms": 28.26
       }
     },
     {
@@ -1683,8 +1683,8 @@
             "heading": "Partner Integration FAQ > Verifying webhook signatures"
           }
         ],
-        "ms": 48.71,
-        "rerank_ms": 38.71
+        "ms": 37.6,
+        "rerank_ms": 29.28
       }
     },
     {
@@ -1726,8 +1726,8 @@
             "heading": "Data Retention and Protection Policy > Retention periods"
           }
         ],
-        "ms": 45.41,
-        "rerank_ms": 35.74
+        "ms": 33.51,
+        "rerank_ms": 25.71
       }
     },
     {
@@ -1769,8 +1769,8 @@
             "heading": "Incident Response Policy > Severity levels"
           }
         ],
-        "ms": 79.37,
-        "rerank_ms": 69.8
+        "ms": 77.95,
+        "rerank_ms": 70.45
       }
     },
     {
@@ -1812,8 +1812,8 @@
             "heading": "Engineering Onboarding Guide > Production access"
           }
         ],
-        "ms": 87.14,
-        "rerank_ms": 74.45
+        "ms": 60.3,
+        "rerank_ms": 52.48
       }
     },
     {
@@ -1855,8 +1855,8 @@
             "heading": "Data Retention and Protection Policy"
           }
         ],
-        "ms": 71.39,
-        "rerank_ms": 61.05
+        "ms": 55.32,
+        "rerank_ms": 46.91
       }
     },
     {
@@ -1898,8 +1898,8 @@
             "heading": "Public API Usage Limits"
           }
         ],
-        "ms": 78.32,
-        "rerank_ms": 65.3
+        "ms": 59.56,
+        "rerank_ms": 49.28
       }
     },
     {
@@ -1941,8 +1941,8 @@
             "heading": "Incident Response Policy > Severity levels"
           }
         ],
-        "ms": 89.35,
-        "rerank_ms": 78.95
+        "ms": 67.98,
+        "rerank_ms": 59.72
       }
     },
     {
@@ -1984,8 +1984,8 @@
             "heading": "Partner Integration FAQ > Notes from the partner forum"
           }
         ],
-        "ms": 83.5,
-        "rerank_ms": 69.79
+        "ms": 44.76,
+        "rerank_ms": 36.89
       }
     },
     {
@@ -2027,8 +2027,8 @@
             "heading": "Engineering Onboarding Guide > Joining the on-call rotation"
           }
         ],
-        "ms": 51.33,
-        "rerank_ms": 40.49
+        "ms": 47.9,
+        "rerank_ms": 38.92
       }
     },
     {
@@ -2070,8 +2070,8 @@
             "heading": "Incident Response Policy"
           }
         ],
-        "ms": 90.93,
-        "rerank_ms": 80.22
+        "ms": 63.9,
+        "rerank_ms": 55.28
       }
     },
     {
@@ -2113,8 +2113,8 @@
             "heading": "Data Retention and Protection Policy > Retention periods"
           }
         ],
-        "ms": 85.86,
-        "rerank_ms": 73.83
+        "ms": 67.1,
+        "rerank_ms": 59.36
       }
     },
     {
@@ -2156,8 +2156,8 @@
             "heading": "Incident Response Policy"
           }
         ],
-        "ms": 83.96,
-        "rerank_ms": 74.13
+        "ms": 54.02,
+        "rerank_ms": 46.17
       }
     },
     {
@@ -2199,8 +2199,8 @@
             "heading": "Incident Response Policy > Severity levels"
           }
         ],
-        "ms": 93.01,
-        "rerank_ms": 79.42
+        "ms": 60.78,
+        "rerank_ms": 52.75
       }
     },
     {
@@ -2242,8 +2242,8 @@
             "heading": "Engineering Onboarding Guide > Production access"
           }
         ],
-        "ms": 84.0,
-        "rerank_ms": 74.1
+        "ms": 60.67,
+        "rerank_ms": 52.52
       }
     },
     {
@@ -2285,8 +2285,8 @@
             "heading": "Incident Response Policy > Escalation"
           }
         ],
-        "ms": 80.74,
-        "rerank_ms": 70.69
+        "ms": 68.27,
+        "rerank_ms": 60.01
       }
     },
     {
@@ -2328,8 +2328,8 @@
             "heading": "Public API Usage Limits"
           }
         ],
-        "ms": 48.92,
-        "rerank_ms": 38.43
+        "ms": 39.72,
+        "rerank_ms": 31.36
       }
     },
     {
@@ -2371,8 +2371,8 @@
             "heading": "Public API Usage Limits > Rate limits by plan"
           }
         ],
-        "ms": 49.85,
-        "rerank_ms": 39.51
+        "ms": 41.43,
+        "rerank_ms": 32.58
       }
     },
     {
@@ -2414,8 +2414,8 @@
             "heading": "Public API Usage Limits"
           }
         ],
-        "ms": 54.51,
-        "rerank_ms": 43.32
+        "ms": 34.32,
+        "rerank_ms": 26.48
       }
     },
     {
@@ -2457,8 +2457,8 @@
             "heading": "Engineering Onboarding Guide > Production access"
           }
         ],
-        "ms": 50.58,
-        "rerank_ms": 40.36
+        "ms": 36.28,
+        "rerank_ms": 27.41
       }
     },
     {
@@ -2500,8 +2500,8 @@
             "heading": "Tessera Platform Overview > Support plans"
           }
         ],
-        "ms": 48.89,
-        "rerank_ms": 38.79
+        "ms": 39.18,
+        "rerank_ms": 31.2
       }
     },
     {
@@ -2543,8 +2543,8 @@
             "heading": "Public API Usage Limits > Handling 429 responses"
           }
         ],
-        "ms": 44.63,
-        "rerank_ms": 36.28
+        "ms": 37.9,
+        "rerank_ms": 30.68
       }
     },
     {
@@ -2586,8 +2586,8 @@
             "heading": "Engineering Onboarding Guide > Development environment"
           }
         ],
-        "ms": 70.09,
-        "rerank_ms": 60.09
+        "ms": 58.01,
+        "rerank_ms": 49.37
       }
     },
     {
@@ -2629,8 +2629,8 @@
             "heading": "Data Retention and Protection Policy > Data residency"
           }
         ],
-        "ms": 44.99,
-        "rerank_ms": 35.63
+        "ms": 35.05,
+        "rerank_ms": 27.29
       }
     },
     {
@@ -2672,8 +2672,8 @@
             "heading": "Data Retention and Protection Policy"
           }
         ],
-        "ms": 47.08,
-        "rerank_ms": 36.81
+        "ms": 37.58,
+        "rerank_ms": 27.79
       }
     },
     {
@@ -2715,8 +2715,8 @@
             "heading": "Tessera Platform Overview > Support plans"
           }
         ],
-        "ms": 47.77,
-        "rerank_ms": 37.63
+        "ms": 36.28,
+        "rerank_ms": 26.74
       }
     },
     {
@@ -2758,8 +2758,8 @@
             "heading": "Data Retention and Protection Policy"
           }
         ],
-        "ms": 48.54,
-        "rerank_ms": 38.33
+        "ms": 39.34,
+        "rerank_ms": 30.77
       }
     },
     {
@@ -2801,8 +2801,8 @@
             "heading": "Incident Response Policy > Escalation"
           }
         ],
-        "ms": 48.16,
-        "rerank_ms": 38.44
+        "ms": 35.53,
+        "rerank_ms": 27.13
       }
     },
     {
@@ -2844,8 +2844,8 @@
             "heading": "Data Retention and Protection Policy"
           }
         ],
-        "ms": 53.53,
-        "rerank_ms": 42.97
+        "ms": 39.63,
+        "rerank_ms": 31.16
       }
     },
     {
@@ -2887,8 +2887,8 @@
             "heading": "Security Practices > Vulnerability management"
           }
         ],
-        "ms": 80.57,
-        "rerank_ms": 70.5
+        "ms": 48.57,
+        "rerank_ms": 39.7
       }
     },
     {
@@ -2930,8 +2930,8 @@
             "heading": "Engineering Onboarding Guide"
           }
         ],
-        "ms": 132.37,
-        "rerank_ms": 96.64
+        "ms": 37.03,
+        "rerank_ms": 29.51
       }
     },
     {
@@ -2973,8 +2973,8 @@
             "heading": "Tessera Platform Overview > Components"
           }
         ],
-        "ms": 101.48,
-        "rerank_ms": 89.59
+        "ms": 40.98,
+        "rerank_ms": 33.19
       }
     },
     {
@@ -3016,8 +3016,8 @@
             "heading": "Tessera Platform Overview > Regions"
           }
         ],
-        "ms": 91.61,
-        "rerank_ms": 79.13
+        "ms": 47.13,
+        "rerank_ms": 39.01
       }
     },
     {
@@ -3059,8 +3059,8 @@
             "heading": "Incident Response Policy"
           }
         ],
-        "ms": 144.52,
-        "rerank_ms": 114.73
+        "ms": 65.77,
+        "rerank_ms": 57.08
       }
     },
     {
@@ -3102,8 +3102,8 @@
             "heading": "Security Practices > Secrets handling"
           }
         ],
-        "ms": 182.84,
-        "rerank_ms": 146.43
+        "ms": 38.13,
+        "rerank_ms": 29.46
       }
     },
     {
@@ -3145,8 +3145,8 @@
             "heading": "Release Notes > Deprecations"
           }
         ],
-        "ms": 105.14,
-        "rerank_ms": 79.43
+        "ms": 56.31,
+        "rerank_ms": 48.18
       }
     },
     {
@@ -3188,8 +3188,8 @@
             "heading": "Deployment Runbook > Rollback"
           }
         ],
-        "ms": 102.57,
-        "rerank_ms": 91.25
+        "ms": 64.53,
+        "rerank_ms": 56.17
       }
     },
     {
@@ -3231,8 +3231,8 @@
             "heading": "Tessera Platform Overview > Service level objectives"
           }
         ],
-        "ms": 68.82,
-        "rerank_ms": 58.02
+        "ms": 37.05,
+        "rerank_ms": 29.78
       }
     },
     {
@@ -3274,8 +3274,8 @@
             "heading": "Data Retention and Protection Policy > Retention periods"
           }
         ],
-        "ms": 42.6,
-        "rerank_ms": 33.97
+        "ms": 32.02,
+        "rerank_ms": 24.79
       }
     },
     {
@@ -3317,8 +3317,8 @@
             "heading": "Engineering Onboarding Guide > Production access"
           }
         ],
-        "ms": 67.55,
-        "rerank_ms": 57.09
+        "ms": 35.55,
+        "rerank_ms": 26.52
       }
     },
     {
@@ -3360,8 +3360,8 @@
             "heading": "Data Retention and Protection Policy > Data residency"
           }
         ],
-        "ms": 45.15,
-        "rerank_ms": 35.51
+        "ms": 29.88,
+        "rerank_ms": 21.87
       }
     },
     {
@@ -3403,8 +3403,8 @@
             "heading": "Deployment Runbook > Release pipeline"
           }
         ],
-        "ms": 55.26,
-        "rerank_ms": 46.17
+        "ms": 40.21,
+        "rerank_ms": 31.62
       }
     },
     {
@@ -3446,8 +3446,8 @@
             "heading": "Security Practices > Access reviews"
           }
         ],
-        "ms": 77.23,
-        "rerank_ms": 67.2
+        "ms": 35.98,
+        "rerank_ms": 28.94
       }
     },
     {
@@ -3489,8 +3489,8 @@
             "heading": "Release Notes > Relay 2.0 (July 2026)"
           }
         ],
-        "ms": 71.97,
-        "rerank_ms": 52.91
+        "ms": 37.08,
+        "rerank_ms": 28.96
       }
     },
     {
@@ -3532,8 +3532,8 @@
             "heading": "Tessera Platform Overview"
           }
         ],
-        "ms": 81.7,
-        "rerank_ms": 69.05
+        "ms": 41.2,
+        "rerank_ms": 32.98
       }
     },
     {
@@ -3575,8 +3575,8 @@
             "heading": "Deployment Runbook > Canary releases"
           }
         ],
-        "ms": 107.39,
-        "rerank_ms": 95.17
+        "ms": 53.55,
+        "rerank_ms": 45.24
       }
     },
     {
@@ -3618,8 +3618,8 @@
             "heading": "Data Retention and Protection Policy > Encryption"
           }
         ],
-        "ms": 70.15,
-        "rerank_ms": 59.36
+        "ms": 40.92,
+        "rerank_ms": 32.62
       }
     },
     {
@@ -3661,8 +3661,8 @@
             "heading": "Engineering Onboarding Guide > Joining the on-call rotation"
           }
         ],
-        "ms": 109.9,
-        "rerank_ms": 96.08
+        "ms": 62.45,
+        "rerank_ms": 53.77
       }
     },
     {
@@ -3704,8 +3704,8 @@
             "heading": "Public API Usage Limits > Rate limits by plan"
           }
         ],
-        "ms": 71.52,
-        "rerank_ms": 57.14
+        "ms": 38.85,
+        "rerank_ms": 30.54
       }
     },
     {
@@ -3747,8 +3747,8 @@
             "heading": "Public API Usage Limits > Handling 429 responses"
           }
         ],
-        "ms": 78.13,
-        "rerank_ms": 66.79
+        "ms": 54.58,
+        "rerank_ms": 45.25
       }
     },
     {
@@ -3791,8 +3791,8 @@
             "heading": "Public API Usage Limits > Handling 429 responses"
           }
         ],
-        "ms": 54.57,
-        "rerank_ms": 41.82
+        "ms": 42.18,
+        "rerank_ms": 34.05
       }
     },
     {
@@ -3834,8 +3834,8 @@
             "heading": "Engineering Onboarding Guide > Development environment"
           }
         ],
-        "ms": 60.08,
-        "rerank_ms": 45.45
+        "ms": 54.2,
+        "rerank_ms": 46.6
       }
     },
     {
@@ -3877,8 +3877,8 @@
             "heading": "Data Retention and Protection Policy > Data residency"
           }
         ],
-        "ms": 70.43,
-        "rerank_ms": 62.09
+        "ms": 48.05,
+        "rerank_ms": 39.76
       }
     },
     {
@@ -3920,8 +3920,8 @@
             "heading": "Partner Integration FAQ > Notes from the partner forum"
           }
         ],
-        "ms": 57.67,
-        "rerank_ms": 46.93
+        "ms": 41.73,
+        "rerank_ms": 32.41
       }
     },
     {
@@ -3964,8 +3964,8 @@
             "heading": "Partner Integration FAQ"
           }
         ],
-        "ms": 50.8,
-        "rerank_ms": 40.91
+        "ms": 44.54,
+        "rerank_ms": 36.44
       }
     },
     {
@@ -4007,8 +4007,8 @@
             "heading": "Tessera Platform Overview > Service level objectives"
           }
         ],
-        "ms": 46.26,
-        "rerank_ms": 34.3
+        "ms": 42.53,
+        "rerank_ms": 30.75
       }
     },
     {
@@ -4050,8 +4050,8 @@
             "heading": "Engineering Onboarding Guide > Joining the on-call rotation"
           }
         ],
-        "ms": 48.51,
-        "rerank_ms": 37.17
+        "ms": 60.08,
+        "rerank_ms": 49.78
       }
     },
     {
@@ -4093,8 +4093,8 @@
             "heading": "Release Notes > Deprecations"
           }
         ],
-        "ms": 45.94,
-        "rerank_ms": 36.49
+        "ms": 34.71,
+        "rerank_ms": 27.33
       }
     },
     {
@@ -4136,8 +4136,8 @@
             "heading": "Data Retention and Protection Policy > Data residency"
           }
         ],
-        "ms": 43.96,
-        "rerank_ms": 35.17
+        "ms": 33.59,
+        "rerank_ms": 26.69
       }
     },
     {
@@ -4179,8 +4179,8 @@
             "heading": "Partner Integration FAQ > Notes from the partner forum"
           }
         ],
-        "ms": 59.14,
-        "rerank_ms": 48.4
+        "ms": 45.29,
+        "rerank_ms": 37.96
       }
     },
     {
@@ -4222,8 +4222,8 @@
             "heading": "Data Retention and Protection Policy > Retention periods"
           }
         ],
-        "ms": 58.47,
-        "rerank_ms": 48.24
+        "ms": 34.42,
+        "rerank_ms": 26.82
       }
     },
     {
@@ -4265,8 +4265,8 @@
             "heading": "Tessera Platform Overview > Regions"
           }
         ],
-        "ms": 46.01,
-        "rerank_ms": 36.97
+        "ms": 34.46,
+        "rerank_ms": 26.97
       }
     }
   ]
