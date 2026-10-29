@@ -1,7 +1,7 @@
 # Production RAG — Ask My Docs
 
 [![CI](https://github.com/saicharan-nidiganti/production-rag/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/saicharan-nidiganti/production-rag/actions/workflows/ci.yml)
-![Python 3.12 | 3.14](https://img.shields.io/badge/python-3.12%20%7C%203.14-blue)
+![Python 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 A retrieval-augmented question-answering backend that answers from your documents, cites
@@ -212,7 +212,7 @@ make smoke       # start a real server; upload, wait for ingestion, search, ask
 make help        # every target
 ```
 
-CI runs these same targets on Python 3.12 and 3.14. Other jobs build the wheel and run the
+CI runs these same targets on Python 3.12, 3.13 and 3.14. Other jobs build the wheel and run the
 CLI from it, scan for secrets (gitleaks), audit the locked dependencies (pip-audit, also
 weekly) and lint the Markdown. Without make, [CONTRIBUTING.md](CONTRIBUTING.md#checks)
 lists the plain `uv` commands.
