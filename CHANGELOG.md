@@ -46,6 +46,14 @@ Detailed per-session notes and verification results are in
 - Documentation: requirements, architecture, API, configuration, operations,
   security, evaluation, ADRs 0001–0006, roadmap and status.
 
+- **Stable chunk keys** (`chunk_key`): the same for identical content and chunk
+  settings across re-ingestion, unlike row ids (migration 0003).
+- `rag eval` prints a readable summary (`--json` for the previous output), and records a
+  failed generation per case instead of aborting the run.
+- Reference evaluation reports for every compared configuration
+  (`eval/results/2026-10-29/`, written by `scripts/reference_results.py`).
+- ADR-0008 (Proposed): the architecture-style evaluation.
+
 ### Changed
 
 - Reranking scores 5 candidates by default instead of 20: the same held-out
@@ -60,6 +68,12 @@ Detailed per-session notes and verification results are in
 - One-shot CLI commands log warnings only unless `RAG_LOG_LEVEL` is set.
 
 ### Fixed
+
+- Invalid settings printed the rejected value in a traceback, including a too-short API
+  key; errors now name the variable only, and `rag` exits with code 2.
+- The deployment smoke test crashed with a traceback on malformed responses instead of
+  failing cleanly.
+- A made-up API key in a test tripped the secret scan in CI.
 
 - Two architecture diagrams didn't render on GitHub (a `;` inside a Mermaid
   message); a docs test now catches it.

@@ -25,7 +25,9 @@ Run against the exact commit to be tagged.
 
 ## v0.1.0: status
 
-Checked on 2026-10-29 against commit `00623f9`.
+Checked on 2026-10-29 against commit `00623f9`. Later commits (Session 8: chunk keys,
+migration 0003, configuration errors, evaluation and smoke-test changes) mean every item must
+be re-run on the commit that is finally tagged.
 
 | # | Result |
 | --- | --- |

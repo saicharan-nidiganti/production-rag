@@ -39,6 +39,51 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 
 ## Session log
 
+### Session 8 — Closing the evidence gaps in the issue review (2026-10-29)
+
+Real changes for the acceptance criteria the review found unmet. Each test was
+checked to fail without its fix:
+
+- **#7, stable chunk ids:** chunks get `chunk_key`, a hash of the content hash
+  and the character span, with a unique index (migration 0003, backfilled).
+  Re-ingesting identical bytes reproduces every key even after another
+  document took the next row ids, which SQLite may reuse. Changed content
+  gets new keys; nothing promises otherwise.
+- **#22, evaluation:**
+  - One failed generation no longer aborts a run: it's recorded per case and
+    counted, and the Claude gate requires 0 failures.
+  - `rag eval` prints a readable summary (`--json` for the old output).
+  - Both generation paths are tested without spending: offline, and the real
+    Claude generator over a scripted fake client. Claude's answers stay
+    unverified.
+- **#39, smoke test:** the script was split into a testable `check()`, and
+  malformed responses and timeouts now fail cleanly with exit code 1. 14 tests
+  cover them.
+- **#4 and #27, configuration:**
+  - **Defect fixed:** a rejected setting printed its value, so a too-short API
+    key appeared in full in the traceback. Errors now name the variable, never
+    the value: `rag` exits 2, and the API refuses to start.
+  - `rag serve` on a public address without `RAG_API_KEY` warns.
+  - The environment strategy is documented (no profiles; per environment what
+    is enforced and what is only recommended) and tested.
+- **#1, requirements:** measurable reliability and regression targets, each
+  tied to the test or gate that checks it. A test keeps the quoted gate values
+  equal to `eval/thresholds.json`.
+- **#3, compatibility:** a technology compatibility assessment
+  (architecture.md §11) and checks on every CI Python version (Python minimum
+  consistent everywhere; SQLite ≥ 3.35 with WAL, FTS5 and foreign keys; the
+  model extra installs). Open: Proposed ADR-0001 says Python 3.11+.
+- **#20, evidence:** 11 reference reports, one per compared configuration, from
+  `scripts/reference_results.py` at `f1d0d5c`, with a generated index. Tests tie
+  the index and the README's results table to the reports. Quality numbers
+  reproduced exactly; latencies now quote this run.
+- **#2, architecture style:** ADR-0008 evaluates six styles against the issue's
+  13 criteria. It is **Proposed**: the owner decides.
+- **CI:** the gitleaks job failed on `1716311`, because a made-up test API key
+  matched the generic key rule. Fixed in `16464ab`: an obviously fake value,
+  plus one fingerprinted `.gitleaksignore` entry for the commit already on
+  `main`. History wasn't rewritten.
+
 ### Session 7 — Portfolio readiness and isolated parsing (2026-10-29)
 
 - **CI:** `6c11f0d` passed all six jobs. The CI watcher had used up GitHub's
