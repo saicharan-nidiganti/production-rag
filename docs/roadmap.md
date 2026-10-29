@@ -22,7 +22,7 @@ the item notes the proposed decision.
 
 - [x] Python project with pinned dependencies (uv), Ruff, mypy, pytest
 - [x] FastAPI application with settings, structured logging and health checks
-- [ ] PostgreSQL + pgvector via Docker Compose — v0 uses SQLite instead ([ADR-0002](decisions/0002-v0-storage-and-scope.md), proposed)
+- [ ] PostgreSQL + pgvector via Docker Compose — v0 uses SQLite by owner decision ([ADR-0002](decisions/0002-v0-storage-and-scope.md)); moves to Phase 5
 - [x] Initial database schema and migrations (Alembic)
 - [x] `.env.example` and reproducible local setup instructions
 - [x] GitHub Actions CI (lint, type-check, tests, secret scan, dependency audit) — plus the eval gate and Markdown lint; the audit also runs weekly
@@ -55,7 +55,7 @@ the item notes the proposed decision.
 
 ## Phase 4 — Generation
 
-- [x] Integrate generation model — Claude ([ADR-0003](decisions/0003-generation-provider-claude.md), pending D-2)
+- [x] Integrate generation model — Claude, configurable, with an offline mode ([ADR-0003](decisions/0003-generation-provider-claude.md))
 - [x] Design context assembly — one `search_result` block per chunk
 - [x] Implement grounded generation
 - [x] Implement citation generation

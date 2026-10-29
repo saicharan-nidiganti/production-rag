@@ -1,7 +1,7 @@
 # ADR-0002: v0 storage and scope — SQLite, single tenant, synchronous ingestion
 
-- **Status:** Proposed, 2026-10-29. Implemented in v0; awaiting the project
-  owner's decision (status.md, decision D-3).
+- **Status:** Accepted by the project owner, 2026-10-29 (decision D-3: keep
+  SQLite for v0). Proposed and implemented earlier the same day.
 - **Date:** 2026-10-29
 - **Deciders:** Project owner, with engineering analysis
 - **Supersedes:** for v0 only, parts of [ADR-0001](0001-technology-stack.md):

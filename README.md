@@ -4,7 +4,7 @@ A production-oriented Retrieval-Augmented Generation system designed around reli
 
 Upload your documents, ask questions in plain language, and get answers grounded in those documents. Every answer cites the exact passages it came from, and the system says so when the documents don't contain the answer.
 
-> **Status:** the **v0 backend** is implemented: ingestion, hybrid retrieval with optional reranking, grounded generation with citations, an HTTP API, a CLI and an evaluation suite (94 questions with a held-out test split) gated in CI. Accounts, background ingestion, streaming and the web app are next. Two decisions are open: storage for v0 (SQLite as built, or PostgreSQL now) and the generation provider. See [docs/status.md](docs/status.md) and the [roadmap](docs/roadmap.md).
+> **Status:** the **v0 backend** is implemented: ingestion, hybrid retrieval with optional reranking, grounded generation with citations, an HTTP API, a CLI and an evaluation suite (94 questions with a held-out test split) gated in CI. Accounts, background ingestion, streaming and the web app are next. SQLite is the v0 store, and Anthropic is the configurable hosted answer provider, with an offline mode. Claude's live answer quality hasn't been measured yet. See [docs/status.md](docs/status.md) and the [roadmap](docs/roadmap.md).
 
 ---
 
@@ -94,11 +94,11 @@ Components, request flows and the path to the v1 target are described in [docs/a
 | Layer | v0 (implemented) | v1 target ([ADR-0001](docs/decisions/0001-technology-stack.md)) |
 | --- | --- | --- |
 | API | Python 3.12+, FastAPI, Pydantic v2, SQLAlchemy 2.0, Alembic, uv | Same, plus a worker process |
-| Storage and search | SQLite: FTS5 (BM25) + exact vector search, fused with RRF ([ADR-0002](docs/decisions/0002-v0-storage-and-scope.md), proposed) | PostgreSQL + pgvector + full-text search |
+| Storage and search | SQLite: FTS5 (BM25) + exact vector search, fused with RRF ([ADR-0002](docs/decisions/0002-v0-storage-and-scope.md)) | PostgreSQL + pgvector + full-text search, with accounts (Phase 5) |
 | Reranking | Optional local cross-encoder, `ms-marco-MiniLM-L-6-v2` ([ADR-0005](docs/decisions/0005-reranking-and-abstention.md)) | Same |
 | Parsing | pypdf, Markdown and plain text | Also python-docx and HTML; Tesseract OCR later |
 | Embeddings | `BAAI/bge-small-en-v1.5` via fastembed (recommended), or a hashing baseline | Same |
-| Generation | Claude `claude-opus-5-5` with search-result citations, or an offline extractive baseline ([ADR-0003](docs/decisions/0003-generation-provider-claude.md), proposed) | Provider pending decision D-2 |
+| Generation | Claude `claude-opus-5-5` with search-result citations, or an offline extractive baseline ([ADR-0003](docs/decisions/0003-generation-provider-claude.md)) | Same, plus streaming |
 | Frontend | None yet | React, TypeScript, Vite, Tailwind CSS |
 | Quality | Ruff, mypy (strict), pytest, GitHub Actions, evaluation gate | Also ESLint, Playwright, gitleaks |
 

@@ -135,5 +135,5 @@ computed on the current golden dataset (see [methodology.md](methodology.md)).
 | ID | Decision | Needed by | Owner |
 | --- | --- | --- | --- |
 | D-1 | How changes reach GitHub (session push access, or push from the developer PC) | Resolved 2026-10-29: sessions on the developer PC push verified changes to `main` | Project owner |
-| D-2 | Generation model provider: paid API, or local via Ollama | Before production use; [ADR-0003](decisions/0003-generation-provider-claude.md) proposes Claude | Project owner |
-| D-3 | Storage for v0: SQLite as built, or PostgreSQL now (Docker Desktop or a native install on Windows) | Before Phase 5; [ADR-0002](decisions/0002-v0-storage-and-scope.md) proposes SQLite for v0 | Project owner |
+| D-2 | Generation model provider: paid API, or local via Ollama | Resolved 2026-10-29: Anthropic as the configurable hosted provider, offline extractive mode kept ([ADR-0003](decisions/0003-generation-provider-claude.md)) | Project owner |
+| D-3 | Storage for v0: SQLite as built, or PostgreSQL now (Docker Desktop or a native install on Windows) | Resolved 2026-10-29: SQLite for v0 ([ADR-0002](decisions/0002-v0-storage-and-scope.md)); PostgreSQL arrives with Phase 5 accounts | Project owner |

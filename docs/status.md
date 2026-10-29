@@ -14,9 +14,10 @@ test split, gated in CI. See [architecture.md](architecture.md) and the
 **Next milestone: measured grounded answers.** Run the first Claude evaluation
 on golden v2. That measures answered rate, citation precision, prompt-injection
 resistance and, most importantly, whether Claude declines the on-topic
-unanswerable questions that no retrieval signal catches. The result informs
-decision D-2. It is a paid run and waits for the owner's explicit authorization
-(D-4).
+unanswerable questions that no retrieval signal catches. Those behaviors of
+[ADR-0003](decisions/0003-generation-provider-claude.md) count as verified only
+once that run passes its acceptance gate. It is a paid run and waits for the
+owner's explicit authorization (D-4).
 
 ## Requirements snapshot
 
@@ -109,8 +110,8 @@ Checks at the end of the session:
 | ID | Decision | Recommendation | Needed by |
 | --- | --- | --- | --- |
 | D-1 | How changes reach GitHub | **Resolved 2026-10-29:** sessions on the developer PC commit and push verified changes directly to `main` | — |
-| D-2 | Generation model provider | Accept [ADR-0003](decisions/0003-generation-provider-claude.md) (Claude, implemented) after the D-4 measurement | Before production use |
-| D-3 | Storage for v0: SQLite as built, or PostgreSQL now (needs Docker Desktop or a native install on Windows) | Accept [ADR-0002](decisions/0002-v0-storage-and-scope.md) for v0; move to PostgreSQL + pgvector together with accounts in Phase 5 | Before Phase 5 |
+| D-2 | Generation model provider | **Resolved 2026-10-29:** Anthropic as the configurable hosted provider, offline mode kept ([ADR-0003](decisions/0003-generation-provider-claude.md), accepted). Live behavior is verified only once D-4's run passes | — |
+| D-3 | Storage for v0 | **Resolved 2026-10-29:** SQLite for v0 ([ADR-0002](decisions/0002-v0-storage-and-scope.md), accepted); PostgreSQL + pgvector arrives with accounts in Phase 5 | — |
 | D-4 | Authorize the first paid Claude evaluation: golden v2 with `--generation --allow-paid`, about 86 Claude calls after abstention, an estimated $2–4 at `claude-opus-5-5` medium effort | Authorize one run with the recommended configuration | Next milestone |
 
 ## Blockers and risks
@@ -119,13 +120,13 @@ Checks at the end of the session:
 | --- | --- | --- |
 | Paid evaluation not yet authorized | On-topic abstention, citation precision and injection resistance with Claude are unmeasured, and the abstention target can't be confirmed | D-4 |
 | On-topic unanswerable questions get past every retrieval signal | If Claude doesn't decline them reliably, the abstention target needs an answerability model | Measure first (D-4); [ADR-0005](decisions/0005-reranking-and-abstention.md) lists the next option |
-| No Docker on the PC | PostgreSQL can't run locally | D-3 |
+| No Docker on the PC | PostgreSQL can't run locally; not needed until Phase 5 (D-3) | Install Docker Desktop or PostgreSQL before Phase 5 |
 | The dataset is small and author-written | Results are optimistic and coarse | Add questions from real usage when available |
 | `Desktop\production-rag` is an older clone that contains this repository as an untracked folder | `git add .` in the outer folder would embed this repository | Work only in `Desktop\production-rag\production-rag`; move it out of the outer clone when convenient |
 
 ## Next priorities
 
-1. Owner: authorize D-4, then decide D-2 and D-3.
+1. Owner: authorize D-4.
 2. Run the paid evaluation and record it in [evaluation.md](evaluation.md). If
    on-topic declines fall short, evaluate an answerability check.
 3. Background ingestion with status reporting (FR-3), then DOCX and HTML (FR-2).

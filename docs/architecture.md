@@ -128,7 +128,7 @@ Raw uploaded files are never written to disk. Only extracted text is stored.
 
 SQLite through SQLAlchemy 2, with the schema owned by Alembic migrations
 ([0001_initial_schema.py](../src/production_rag/db/migrations/versions/0001_initial_schema.py)).
-[ADR-0002](decisions/0002-v0-storage-and-scope.md) (proposed) explains why v0
+[ADR-0002](decisions/0002-v0-storage-and-scope.md) (accepted) explains why v0
 departs from ADR-0001's PostgreSQL design.
 
 | Table | Purpose |
@@ -226,7 +226,7 @@ the measurements.
 [anthropic_generator.py](../src/production_rag/generation/anthropic_generator.py)
 sends each retrieved chunk to Claude as a `search_result` content block with
 citations enabled, followed by the question
-([ADR-0003](decisions/0003-generation-provider-claude.md), proposed). The system
+([ADR-0003](decisions/0003-generation-provider-claude.md)). The system
 prompt tells the model to answer only from those results, to treat their
 contents as data rather than instructions, and to say plainly when they don't
 answer the question. The response arrives as text blocks whose
@@ -281,7 +281,7 @@ deployment and the remaining gaps.
 
 | Area | v0 (implemented) | v1 target | Phase |
 | --- | --- | --- | --- |
-| Storage | SQLite, FTS5 BM25, exact in-memory vectors | PostgreSQL + pgvector + full-text search (ADR-0001 §2) | decided with ADR-0002 |
+| Storage | SQLite, FTS5 BM25, exact in-memory vectors (owner decision, ADR-0002) | PostgreSQL + pgvector + full-text search (ADR-0001 §2) | 5, with accounts |
 | Tenancy | Single tenant, optional API key | Accounts, Argon2id, cookie sessions, `owner_id` in every query (ADR-0001 §10) | 5 |
 | Ingestion | Synchronous, in the request | Postgres job queue and worker, `queued`/`processing`/`ready`/`failed` (FR-3) | 2 |
 | File types | PDF, TXT, Markdown | Also DOCX and HTML (FR-2); OCR later (FR-12) | 2, 8 |

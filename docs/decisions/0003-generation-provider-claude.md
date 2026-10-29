@@ -1,7 +1,11 @@
 # ADR-0003: Generation provider — Claude with search-result citations
 
-- **Status:** Proposed, 2026-10-29. Implemented in v0; awaiting the project
-  owner's decision D-2 (paid API or local model).
+- **Status:** Accepted by the project owner, 2026-10-29 (decision D-2):
+  Anthropic is the configurable hosted answer provider, and the offline
+  extractive mode stays available. Acceptance covers the design. Live behavior
+  (declining on-topic unanswerable questions, resisting prompt injection) is
+  **not yet verified**: the first paid evaluation awaits authorization
+  (status.md, D-4).
 - **Date:** 2026-10-29
 - **Deciders:** Project owner, with engineering analysis
 - **Supersedes:** none. It fills in [ADR-0001](0001-technology-stack.md) §8 and
