@@ -57,7 +57,7 @@ branch = true
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
-fail_under = 85
+fail_under = 90
 exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError", "\\.\\.\\."]
 
 [tool.ruff]
@@ -73,6 +73,8 @@ ignore = ["S101"]  # assert is fine in tests and for invariants
 "tests/**" = ["S", "PTH"]
 # Migrations build DDL from constant fragments; nothing user-controlled is interpolated.
 "src/production_rag/db/migrations/**" = ["E501", "S608"]
+# Starts fixed commands only: this project's own CLI, and taskkill on Windows.
+"scripts/smoke_test.py" = ["S603", "S607"]
 
 [tool.mypy]
 python_version = "3.12"

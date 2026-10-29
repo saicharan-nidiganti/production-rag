@@ -14,9 +14,7 @@
 
 # --- Private document data (see data/README.md) ------------------------------
 /data/raw/*
-/data/processed/*
 !/data/raw/.gitkeep
-!/data/processed/.gitkeep
 /uploads/
 /storage/
 

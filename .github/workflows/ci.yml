@@ -31,25 +31,27 @@ jobs:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
 
+      # Each step is a Makefile target, so developers run exactly what CI runs.
       - name: Check that uv.lock matches pyproject.toml
-        run: uv lock --check
+        run: make lock-check
 
       - name: Install
-        run: uv sync --frozen --all-extras
+        run: make install
 
       - name: Lint
-        run: |
-          uv run ruff check .
-          uv run ruff format --check .
+        run: make lint
 
       - name: Type check
-        run: uv run mypy
+        run: make typecheck
 
-      - name: Tests
-        run: uv run python -m pytest --cov --cov-report=term
+      - name: Tests (offline; live and paid tests are skipped)
+        run: make test
 
       - name: Retrieval regression gate
-        run: uv run rag eval --thresholds eval/thresholds.json --output eval/reports
+        run: make eval-gate
+
+      - name: Smoke test (real server over HTTP)
+        run: make smoke
 
       - name: Upload evaluation report
         if: always()
@@ -58,6 +60,20 @@ jobs:
           name: eval-report-py${{ matrix.python-version }}
           path: eval/reports/
           if-no-files-found: ignore
+
+  package:
+    name: Build and install the package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12" # the oldest supported version
+          enable-cache: true
+
+      - name: Build sdist and wheel; run the CLI from the installed wheel alone
+        run: make package
 
   security:
     name: Secret scan and dependency audit

@@ -1,10 +1,11 @@
+import dataclasses
 import json
 from pathlib import Path
 
 import pytest
 
 from production_rag.evaluation import RelevantSource, check_gate, load_dataset
-from production_rag.evaluation.dataset import DatasetError
+from production_rag.evaluation.dataset import DatasetError, EvalCase
 from production_rag.evaluation.metrics import (
     citation_precision,
     fact_recall,
@@ -14,6 +15,7 @@ from production_rag.evaluation.metrics import (
     score_retrieval,
 )
 from production_rag.generation import Citation, GeneratedAnswer
+from production_rag.text import tokenize
 from tests.conftest import make_chunk
 
 CANARY = RelevantSource("deployment-runbook.md", "Canary releases")
@@ -183,6 +185,49 @@ def test_golden_v2_extends_v1_unchanged() -> None:
         )
         assert new.split == "dev"
     assert all(c.split == "test" for cid, c in v2.items() if cid not in v1)
+
+
+def _leaks(cases: list[EvalCase]) -> list[tuple[str, str]]:
+    """Dev/test pairs that repeat a question, or reword one with the same expected answer.
+
+    Templated pairs are fine when the answer differs ("rate limit on the Standard plan"
+    against "... on the Free plan"). A reworded copy with the same evidence and facts would
+    let calibration on dev inflate the held-out results.
+    """
+
+    def answer(case: EvalCase) -> tuple[bool, frozenset[RelevantSource], frozenset[str]]:
+        return case.answerable, frozenset(case.relevant), frozenset(case.must_include)
+
+    dev = [c for c in cases if c.split == "dev"]
+    test = [c for c in cases if c.split == "test"]
+    found = []
+    for d in dev:
+        for t in test:
+            a, b = set(tokenize(d.question)), set(tokenize(t.question))
+            similar = len(a & b) / len(a | b) >= 0.5
+            same_text = d.question.strip().lower() == t.question.strip().lower()
+            if same_text or (similar and answer(d) == answer(t)):
+                found.append((d.id, t.id))
+    return found
+
+
+def test_held_out_questions_do_not_leak_from_the_calibration_split() -> None:
+    from tests.conftest import DATASET
+
+    cases = load_dataset(DATASET)
+    assert len({c.id for c in cases}) == len(cases)
+    assert _leaks(cases) == []
+
+
+def test_the_leak_check_catches_a_reworded_copy() -> None:
+    from tests.conftest import DATASET
+
+    cases = load_dataset(DATASET)
+    original = next(c for c in cases if c.id == "ret-01")  # application logs: 30 days
+    copy = dataclasses.replace(
+        original, id="t-copy", split="test", question="For how long are application logs retained?"
+    )
+    assert _leaks([*cases, copy]) == [("ret-01", "t-copy")]
 
 
 def test_load_dataset_reads_splits_tags_and_forbidden_strings(tmp_path: Path) -> None:

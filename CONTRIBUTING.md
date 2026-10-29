@@ -41,7 +41,7 @@ Run these before pushing. CI runs the same commands.
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
-uv run python -m pytest --cov                       # coverage floor: 85%
+uv run python -m pytest --cov                       # coverage floor: 90%
 RAG_EMBEDDING_PROVIDER=hashing uv run rag eval --thresholds eval/thresholds.json   # retrieval gate
 ```
 
