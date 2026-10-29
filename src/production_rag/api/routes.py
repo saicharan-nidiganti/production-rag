@@ -98,7 +98,9 @@ def upload_document(
     limit = container.settings.max_upload_bytes
     data = file.file.read(limit + 1)
     if len(data) > limit:
-        raise DocumentTooLargeError(f"document exceeds the {limit}-byte limit")
+        raise DocumentTooLargeError(
+            f"document exceeds the {limit}-byte limit (RAG_MAX_UPLOAD_BYTES)"
+        )
     result = container.ingestion.submit(file.filename or "untitled.txt", data)
     if result.document.status == "ready":
         response.status_code = status.HTTP_200_OK

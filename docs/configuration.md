@@ -123,8 +123,9 @@ Changing the provider, model or dimensions requires `rag reindex`
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `RAG_API_KEY` | unset | When set, `/v1/*` requires `Authorization: Bearer <key>` or `X-API-Key: <key>`. At least 16 characters. `/health` and `/ready` stay open. |
-| `RAG_LOG_LEVEL` | `INFO` | Root log level for the JSON logs on stderr |
+| `RAG_API_KEY` | unset | When set, every route except `/health`, `/ready` and the API docs (`/docs`, `/redoc`, `/openapi.json`) requires `Authorization: Bearer <key>` or `X-API-Key: <key>`, checked before the request body is read. At least 16 characters. |
+| `RAG_MAX_REQUEST_BYTES` | `65536` (64 KiB) | Largest request body outside uploads (search and question JSON; minimum 1024). Uploads are limited by `RAG_MAX_UPLOAD_BYTES` plus 64 KiB for multipart framing. Both are enforced while the body arrives: a larger declared `Content-Length` gets 413 before anything is read. |
+| `RAG_LOG_LEVEL` | `INFO` | Root log level for the JSON logs on stderr. The configured secrets are replaced by `[REDACTED]` wherever they would appear in a log line. |
 
 ## Variables read by other components
 

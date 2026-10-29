@@ -10,7 +10,28 @@ record. Detailed per-session notes and verification results are in
 
 ## [Unreleased]
 
-Nothing yet.
+### Security
+
+- **Checks before the body is read** (#30). The API key is now checked before
+  a request's body is received, so an unauthenticated upload is refused
+  without being read or spooled to disk; before, FastAPI parsed the whole
+  upload first. Request bodies are limited as they arrive: a `Content-Length`
+  over the limit gets 413 at once, and a chunked body is cut off at the limit.
+  New setting `RAG_MAX_REQUEST_BYTES` (64 KiB) for bodies other than uploads.
+- **Security events in the logs**: `security.auth_failed` and
+  `security.request_too_large`, with the client address but never the key or
+  the body.
+- Database errors no longer quote their bound values (document text,
+  questions) in their messages, which reached the log for unexpected errors.
+- The log formatter redacts the configured secrets wherever they would
+  appear, as a backstop.
+- Validation errors no longer echo the rejected input back in `details`.
+
+### Changed
+
+- With `RAG_API_KEY` set, every path except `/health`, `/ready` and the API
+  docs requires the key, including unknown ones (401 instead of 404).
+- `rag ingest` checks a file's size before reading it.
 
 ## [0.1.0] - 2026-10-29
 

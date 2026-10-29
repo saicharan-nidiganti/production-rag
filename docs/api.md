@@ -8,9 +8,15 @@ machine-readable schema at `/openapi.json` and interactive documentation at
 
 ## Conventions
 
-- **Authentication:** when `RAG_API_KEY` is set, every `/v1/*` request needs
-  `Authorization: Bearer <key>` or `X-API-Key: <key>`. `/health` and `/ready`
-  are always open, for probes.
+- **Authentication:** when `RAG_API_KEY` is set, every request needs
+  `Authorization: Bearer <key>` or `X-API-Key: <key>`, except `/health` and
+  `/ready` (for probes) and the API docs (`/docs`, `/redoc`, `/openapi.json`).
+  The key is checked before the request body is read, so an unauthenticated
+  upload is refused without being received.
+- **Request size:** uploads may be up to `RAG_MAX_UPLOAD_BYTES` (plus 64 KiB of
+  multipart framing), other bodies up to `RAG_MAX_REQUEST_BYTES` (64 KiB). A
+  larger `Content-Length` is refused with 413 before the body is read; a body
+  sent without one is refused when it reaches the limit.
 - **Versioning:** endpoints live under `/v1`; `/health` and `/ready` are
   unversioned. Within a version, changes are additive only: new endpoints,
   new optional request fields and new response fields, so clients should
@@ -31,7 +37,8 @@ machine-readable schema at `/openapi.json` and interactive documentation at
   {"error": {"code": "not_found", "message": "document … not found", "request_id": "…"}}
   ```
 
-  Validation errors add `details`, the list of field-level problems.
+  Validation errors add `details`, the list of field-level problems (`loc`,
+  `msg`, `type`; the rejected input itself is not echoed back).
 
 | Status | `code` | When |
 | --- | --- | --- |
@@ -39,6 +46,7 @@ machine-readable schema at `/openapi.json` and interactive documentation at
 | 404 | `not_found` | Unknown document or route |
 | 409 | `invalid_document_state` | Retrying a document that hasn't failed |
 | 413 | `document_too_large` | Upload over `RAG_MAX_UPLOAD_BYTES` |
+| 413 | `request_too_large` | Any other request body over `RAG_MAX_REQUEST_BYTES` |
 | 415 | `unsupported_document_type` | Extension not supported, or a `.pdf` whose content isn't a PDF |
 | 422 | `extraction_failed` | Upload is empty or not UTF-8 text. Problems found while parsing are reported on the document instead ([processing status](#processing-status)) |
 | 422 | `validation_error` | Request body or parameters invalid (see `details`) |

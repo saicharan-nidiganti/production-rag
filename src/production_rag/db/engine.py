@@ -21,7 +21,9 @@ def create_db_engine(database_url: str) -> Engine:
     if url.database and url.database != ":memory:":
         Path(url.database).parent.mkdir(parents=True, exist_ok=True)
 
-    engine = create_engine(url, connect_args={"check_same_thread": False})
+    # hide_parameters: a failed statement's error message would otherwise quote its bound
+    # values (document text, questions), and unexpected errors are logged in full (NFR-4).
+    engine = create_engine(url, connect_args={"check_same_thread": False}, hide_parameters=True)
 
     @event.listens_for(engine, "connect")
     def _sqlite_pragmas(dbapi_conn: sqlite3.Connection, _record: Any) -> None:

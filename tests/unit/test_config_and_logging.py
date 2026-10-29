@@ -1,12 +1,13 @@
 import json
 import logging
+import sys
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from production_rag.config import Settings, get_settings
-from production_rag.observability import JsonFormatter, Timer, request_id_var
+from production_rag.observability import REDACTED, JsonFormatter, Timer, request_id_var
 
 
 def test_settings_read_prefixed_environment(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -77,6 +78,36 @@ def test_json_formatter_includes_extras_and_request_id() -> None:
     assert payload["status"] == "answered"
     assert payload["request_id"] == "req-123"
     assert payload["level"] == "INFO"
+
+
+def test_log_lines_redact_the_configured_secrets() -> None:
+    secret = 'k3y-with-"quote"-0123456789'
+    formatter = JsonFormatter(redact=[secret, "short"])
+    try:
+        raise RuntimeError(f"upstream rejected {secret}")
+    except RuntimeError:
+        exc_info = sys.exc_info()
+    record = logging.LogRecord(
+        "x", logging.ERROR, __file__, 1, "failed with %s", (secret,), exc_info
+    )
+    record.detail = secret
+    line = formatter.format(record)
+    assert secret not in line and json.dumps(secret)[1:-1] not in line
+    assert line.count(REDACTED) == 3  # message, extra field, traceback
+    payload = json.loads(line)  # still valid JSON
+    assert payload["event"] == f"failed with {REDACTED}"
+    # Values too short to redact safely are left alone, rather than blanking ordinary words.
+    assert "short" in JsonFormatter(redact=["short"]).format(
+        logging.LogRecord("x", logging.INFO, __file__, 1, "a short message", None, None)
+    )
+
+
+def test_secret_values_lists_the_configured_secrets() -> None:
+    settings = Settings(  # type: ignore[call-arg]
+        _env_file=None, api_key="a" * 16, anthropic_api_key="b" * 20
+    )
+    assert settings.secret_values() == ["a" * 16, "b" * 20]
+    assert Settings(_env_file=None).secret_values() == []  # type: ignore[call-arg]
 
 
 def test_timer_records_stages() -> None:

@@ -7,7 +7,7 @@ import json
 import logging
 import sys
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
@@ -20,8 +20,27 @@ request_id_var: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 _RESERVED = set(logging.LogRecord("", 0, "", 0, "", None, None).__dict__) | {"message"}
 
 
+REDACTED = "[REDACTED]"
+_MIN_REDACTED_LENGTH = 8  # shorter values would blank out ordinary words
+
+
 class JsonFormatter(logging.Formatter):
+    """One JSON object per line. ``redact`` values (the configured secrets) are replaced
+    wherever they appear, exception text included: a backstop, since no code logs them."""
+
+    def __init__(self, redact: Sequence[str] = ()) -> None:
+        super().__init__()
+        values = {value for value in redact if len(value) >= _MIN_REDACTED_LENGTH}
+        # Each value as written and as json.dumps escapes it inside a string.
+        self._redact = sorted(values | {json.dumps(v)[1:-1] for v in values}, key=len, reverse=True)
+
     def format(self, record: logging.LogRecord) -> str:
+        line = self._format(record)
+        for value in self._redact:
+            line = line.replace(value, REDACTED)
+        return line
+
+    def _format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
             "ts": datetime.fromtimestamp(record.created, UTC).isoformat(),
             "level": record.levelname,
@@ -38,9 +57,9 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
-def configure_logging(level: str = "INFO") -> None:
+def configure_logging(level: str = "INFO", *, redact: Sequence[str] = ()) -> None:
     handler = logging.StreamHandler(sys.stderr)
-    handler.setFormatter(JsonFormatter())
+    handler.setFormatter(JsonFormatter(redact))
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(level.upper())

@@ -70,21 +70,31 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_: Request, exc: RequestValidationError) -> JSONResponse:
+        # Without the rejected `input`: the client sent it, and echoing it back would
+        # return whatever it was, up to the request size limit.
+        details = [
+            {key: value for key, value in problem.items() if key not in ("input", "url")}
+            for problem in exc.errors()
+        ]
         return error_response(
-            422,
-            "validation_error",
-            "request validation failed",
-            details=jsonable_encoder(exc.errors()),
+            422, "validation_error", "request validation failed", details=jsonable_encoder(details)
         )
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(_: Request, exc: StarletteHTTPException) -> JSONResponse:
-        response = error_response(
-            exc.status_code, _HTTP_CODES.get(exc.status_code, "http_error"), str(exc.detail)
-        )
+        # An exception may carry its own code (guard.RequestTooLargeError does).
+        code = getattr(exc, "code", None) or _HTTP_CODES.get(exc.status_code, "http_error")
+        response = error_response(exc.status_code, code, str(exc.detail))
         for name, value in (exc.headers or {}).items():
             response.headers[name] = value
         return response
 
 
-_HTTP_CODES = {401: "unauthorized", 403: "forbidden", 404: "not_found", 405: "method_not_allowed"}
+_HTTP_CODES = {
+    401: "unauthorized",
+    403: "forbidden",
+    404: "not_found",
+    405: "method_not_allowed",
+    413: "request_too_large",
+    429: "rate_limited",
+}

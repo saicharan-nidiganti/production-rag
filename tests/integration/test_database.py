@@ -1,7 +1,9 @@
+import pytest
 from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import IntegrityError
 
 from production_rag.config import Settings
 from production_rag.db import create_db_engine
@@ -65,6 +67,22 @@ def test_downgrade_removes_everything(migrated_settings: Settings) -> None:
         assert not is_at_head(engine)
     finally:
         engine.dispose()
+
+
+def test_database_errors_never_quote_bound_values(migrated_settings: Settings) -> None:
+    """NFR-4: a failed statement's message would otherwise include its parameters (document
+    text, questions), and unexpected errors are logged with their message."""
+    engine = create_db_engine(migrated_settings.database_url)
+    try:
+        with pytest.raises(IntegrityError) as raised, engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO documents (id, title) VALUES (:id, :title)"),
+                {"id": "doc-1", "title": "bound-value-that-must-not-appear"},
+            )
+    finally:
+        engine.dispose()
+    assert "bound-value-that-must-not-appear" not in str(raised.value)
+    assert "hidden due to hide_parameters" in str(raised.value)
 
 
 def test_unmigrated_database_is_not_at_head(settings: Settings) -> None:

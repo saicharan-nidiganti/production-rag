@@ -40,6 +40,7 @@ def cmd_db(args: argparse.Namespace, settings: Settings) -> int:
 
 def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
     from production_rag.ingestion import (
+        DocumentTooLargeError,
         ExtractionError,
         UnsupportedDocumentError,
         discover_documents,
@@ -51,6 +52,11 @@ def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
     try:
         for path in paths:
             try:
+                # Checked before reading, so an oversized file isn't loaded into memory.
+                if (size := path.stat().st_size) > settings.max_upload_bytes:
+                    raise DocumentTooLargeError(
+                        f"document is {size} bytes; the limit is {settings.max_upload_bytes}"
+                    )
                 result = container.ingestion.ingest(path.name, path.read_bytes())
             except (OSError, ExtractionError, UnsupportedDocumentError, ValueError) as exc:
                 failures += 1
@@ -398,7 +404,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         # One-shot commands print their own results; INFO logs on the terminal are noise.
         # The server, and an explicit RAG_LOG_LEVEL, keep the configured level.
         level = "WARNING"
-    configure_logging(level)
+    configure_logging(level, redact=settings.secret_values())
     code: int = args.func(args, settings)
     return code
 

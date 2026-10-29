@@ -77,6 +77,24 @@ def test_cli_ingest_reports_failures(
     assert "UTF-8" in capsys.readouterr().out.splitlines()[-1]
 
 
+def test_cli_ingest_checks_the_size_before_reading_the_file(
+    cli_env: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("RAG_MAX_UPLOAD_BYTES", "1000")
+    main(["db", "upgrade"])
+    big = tmp_path / "big.txt"
+    big.write_bytes(b"x" * 1001)
+    monkeypatch.setattr(Path, "read_bytes", lambda self: pytest.fail(f"read {self}"))
+    assert main(["ingest", str(big)]) == 1
+    assert json.loads(capsys.readouterr().out.splitlines()[-1]) == {
+        "path": str(big),
+        "error": "document is 1001 bytes; the limit is 1000",
+    }
+
+
 def test_evaluation_report_is_reproducible_and_passes_the_gate() -> None:
     settings = Settings(_env_file=None)  # type: ignore[call-arg]
     first = run_evaluation(settings, corpus_dir=CORPUS_DIR, dataset_path=DATASET)

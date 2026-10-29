@@ -13,6 +13,7 @@ from fastapi import FastAPI, Request, Response
 
 from production_rag import __version__
 from production_rag.api.errors import error_response, register_error_handlers
+from production_rag.api.guard import RequestGuard
 from production_rag.api.routes import api_router, health_router
 from production_rag.config import ConfigurationError, Settings, get_settings
 from production_rag.container import Container, build_container
@@ -69,6 +70,9 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
         description="Retrieval-augmented generation with grounded, cited answers.",
         lifespan=lifespan,
     )
+    # Added before request_context, so it runs inside it: refusals get a request id and are
+    # logged like any other response.
+    app.add_middleware(RequestGuard, settings=settings)
 
     @app.middleware("http")
     async def request_context(
@@ -112,5 +116,5 @@ def app_factory() -> FastAPI:
         settings = get_settings()
     except ConfigurationError as exc:
         raise SystemExit(str(exc)) from None  # a clean message, without the rejected values
-    configure_logging(settings.log_level)
+    configure_logging(settings.log_level, redact=settings.secret_values())
     return create_app(settings)

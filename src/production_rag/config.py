@@ -140,7 +140,17 @@ class Settings(BaseSettings):
     api_key: SecretStr | None = Field(
         default=None, description="When set, every non-health endpoint requires this key."
     )
+    max_request_bytes: int = Field(
+        default=64 * 1024,
+        ge=1024,
+        description="Largest request body outside uploads (search and query JSON).",
+    )
     log_level: str = "INFO"
+
+    def secret_values(self) -> list[str]:
+        """The configured secrets, for redaction from logs."""
+        secrets = (self.api_key, self.anthropic_api_key)
+        return [secret.get_secret_value() for secret in secrets if secret is not None]
 
     @property
     def abstain_threshold(self) -> float:
