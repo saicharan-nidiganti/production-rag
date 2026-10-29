@@ -337,7 +337,11 @@ improves the metrics, raise the thresholds in the same commit.
 and git commit, dataset path, hash and split counts, corpus fingerprint and counts, the
 configuration snapshot, the summary (with per-split summaries), per-tag summaries, and
 per-question raw results (retrieved sources, ranks, scores, answers, citations, latencies).
-Reports are gitignored. Commit one deliberately with `git add -f` when it documents a decision.
+Reports written to `eval/reports/` are gitignored. Reference reports that back published
+numbers are committed under `eval/results/<date>/`: the README's results table comes from
+[eval/results/2026-10-29/](../eval/results/2026-10-29/) (hashing hybrid, bge-small hybrid,
+and bge-small hybrid reranked with 5 candidates; code at commit `5a652c7`). Each records its
+dataset hash and corpus fingerprint, so a later run can be compared like for like.
 
 ## Change log
 

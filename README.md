@@ -104,14 +104,15 @@ flowchart TB
 ## Results
 
 Retrieval on the held-out test split of [golden v2](docs/evaluation.md#golden-dataset)
-(58 of 94 questions; thresholds were calibrated on the other 36). Top 5 chunks; latency is
-over all 94 questions on a laptop CPU.
+(58 of 94 questions; thresholds were calibrated on the other 36). Top 5 chunks. Latency is
+over all 94 questions on a laptop CPU and varies between runs (the reranked p95 measured 70
+to 107 ms on the same machine).
 
 | Configuration | Hit rate | MRR | Unanswerable declined at retrieval | False abstentions | Retrieval p95 |
 | --- | --- | --- | --- | --- | --- |
 | Hashing embeddings, hybrid (offline; the CI gate) | 0.957 | 0.859 | 0 of 12 | 0 | 1 ms |
-| bge-small, hybrid | 1.000 | 0.931 | 4 of 12 | 0 | 7 ms |
-| **bge-small, hybrid, reranked (recommended)** | **1.000** | **0.946** | 4 of 12 | 0 | 70 ms |
+| bge-small, hybrid | 1.000 | 0.931 | 4 of 12 | 0 | 8 ms |
+| **bge-small, hybrid, reranked (recommended)** | **1.000** | **0.946** | 4 of 12 | 0 | 107 ms |
 
 The 4 declined questions are all off-topic. None of the 8 on-topic unanswerable questions
 can be caught at retrieval by any signal tried, so declining them is the generator's job,
@@ -119,7 +120,9 @@ which is unmeasured until the paid run.
 
 These numbers come from 94 questions written alongside a 9-document synthetic corpus. They
 are a regression baseline for this project, not a benchmark. Metrics, calibration and
-limitations: [docs/evaluation.md](docs/evaluation.md). Reproduce them with
+limitations: [docs/evaluation.md](docs/evaluation.md). The raw reports behind this table,
+with every question's retrieved passages, scores and latencies, are in
+[eval/results/2026-10-29/](eval/results/2026-10-29/). Reproduce them with
 `uv run python scripts/compare_configs.py`.
 
 ## Quickstart
