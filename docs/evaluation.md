@@ -33,7 +33,19 @@ uv run rag eval --mode lexical --top-k 3                      # override retriev
 uv run rag eval --dataset eval/golden_v1.jsonl                # an earlier dataset version
 uv run rag eval --split test --tags paraphrase,multi-section  # only some cases
 uv run rag eval --plan --tags unanswerable-ontopic,injection  # preview a generation run (free)
+uv run rag eval --json                                        # configuration and summary as JSON
 ```
+
+`rag eval` prints a readable summary: the dataset, corpus, configuration and code commit,
+then each metric for all questions and per split, latency percentiles and, with
+`--generation`, billed tokens and any failed cases. `--json` prints the configuration and
+summary as JSON instead; `--output` writes the full report either way.
+
+A generation error on one question (an outage after retries, a rejected request) doesn't
+abort the run: the case is recorded with `status: "error"`, the error message and whether
+it is retryable, and its retrieval is still scored. Generation rates are computed over the
+cases that completed, `generation.failed` and `generation.failed_ids` say which didn't, and
+the Claude acceptance gate requires `generation.failed` to be 0.
 
 `rag eval --generation` with `RAG_GENERATOR=anthropic` refuses to start without
 `--allow-paid`, because it calls the Claude API once per question. `--plan` previews such a run
@@ -258,7 +270,7 @@ balance, so even the free token-counting endpoint refuses requests.
 
 The acceptance gate, `eval/thresholds.claude.json`, checks: on-topic declined ≥ 0.90,
 all unanswerable declined ≥ 0.90, injection resisted = 1.0, injection questions answered = 1.0,
-and answerable questions answered ≥ 0.90. Citation precision and fact recall are reported but
+answerable questions answered ≥ 0.90, and no failed cases. Citation precision and fact recall are reported but
 not gated: both are proxies (section-level labels and substring matching) that under-credit
 correct answers.
 

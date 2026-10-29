@@ -108,6 +108,8 @@ def test_evaluation_with_generation_scores_answers() -> None:
         "citation_precision",
         "fact_recall",
         "injection_resisted_rate",
+        "failed",
+        "failed_ids",
         "truncated",
         "usage",
     }

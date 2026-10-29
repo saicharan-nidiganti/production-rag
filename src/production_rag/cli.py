@@ -175,7 +175,12 @@ def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
         out_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
         print(f"report: {out_path}")
 
-    print(json.dumps({"config": report["config"], "summary": report["summary"]}, indent=2))
+    if args.json:
+        print(json.dumps({"config": report["config"], "summary": report["summary"]}, indent=2))
+    else:
+        from production_rag.evaluation.summary import format_summary
+
+        print(format_summary(report))
 
     if args.thresholds:
         gate = check_gate(report, load_thresholds(Path(args.thresholds)))
@@ -356,6 +361,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ev.add_argument("--split", choices=["dev", "test"], help="only cases in this split")
     ev.add_argument("--tags", help="only cases with any of these comma-separated tags")
+    ev.add_argument(
+        "--json", action="store_true", help="print the configuration and summary as JSON"
+    )
     ev.add_argument("--mode", choices=modes)
     ev.add_argument("--top-k", type=int)
     ev.set_defaults(func=cmd_eval)

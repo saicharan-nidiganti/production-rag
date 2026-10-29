@@ -29,9 +29,11 @@ from production_rag.evaluation.metrics import (
     percentile,
     score_retrieval,
 )
-from production_rag.generation import Generator
+from production_rag.generation import GenerationError, Generator
 from production_rag.ingestion import discover_documents
 from production_rag.observability import Timer
+from production_rag.rag import RagService
+from production_rag.retrieval import SearchResult
 
 REPORT_SCHEMA_VERSION = 1
 
@@ -190,7 +192,17 @@ def _evaluate_case(container: Container, case: EvalCase, with_generation: bool) 
         "tags": case.tags,
     }
     if with_generation:
-        result = rag.answer(case.question)
+        try:
+            result = rag.answer(case.question)
+        except GenerationError as exc:
+            # One failed case (an outage, a rejected request) is recorded, not fatal: the
+            # rest of a paid run still counts. Retrieval is scored on its own.
+            record["generation"] = _failed_generation(exc)
+            timer = Timer()
+            with timer.stage("retrieval"):
+                retrieval = rag.search(case.question)
+            record["retrieval"] = _retrieval_record(rag, case, retrieval, timer.timings_ms)
+            return record
         retrieval, timings = result.retrieval, result.timings_ms
         answer = result.answer
         record["generation"] = {
@@ -215,8 +227,31 @@ def _evaluate_case(container: Container, case: EvalCase, with_generation: bool) 
             retrieval = rag.search(case.question)
         timings = timer.timings_ms
 
+    record["retrieval"] = _retrieval_record(rag, case, retrieval, timings)
+    return record
+
+
+def _failed_generation(exc: GenerationError) -> dict[str, Any]:
+    return {
+        "status": "error",
+        "error": str(exc),
+        "retryable": exc.retryable,
+        "answer": None,
+        "citations": [],
+        "citation_precision": None,
+        "fact_recall": None,
+        "forbidden_absent": None,
+        "stop_reason": None,
+        "usage": None,
+        "ms": None,
+    }
+
+
+def _retrieval_record(
+    rag: RagService, case: EvalCase, retrieval: SearchResult, timings: dict[str, float]
+) -> dict[str, Any]:
     scores = score_retrieval(retrieval.chunks, case.relevant)
-    record["retrieval"] = {
+    return {
         "hit": scores.hit,
         "recall": scores.recall,
         "reciprocal_rank": scores.reciprocal_rank,
@@ -229,7 +264,6 @@ def _evaluate_case(container: Container, case: EvalCase, with_generation: bool) 
         "ms": timings["retrieval"],
         "rerank_ms": retrieval.rerank_ms,  # included in "ms"
     }
-    return record
 
 
 def _round(value: float | None) -> float | None:
@@ -265,6 +299,12 @@ def summarize(per_query: list[dict[str, Any]], with_generation: bool) -> dict[st
         summary["latency_ms"]["rerank_p50"] = percentile(rerank_ms, 50)
         summary["latency_ms"]["rerank_p95"] = percentile(rerank_ms, 95)
     if with_generation:
+        failed = [q for q in per_query if q["generation"]["status"] == "error"]
+        # Rates are over the cases that completed; `failed` says how many didn't, and an
+        # acceptance gate should require it to be 0.
+        completed = [q for q in per_query if q["generation"]["status"] != "error"]
+        answerable = [q for q in completed if q["answerable"]]
+        unanswerable = [q for q in completed if not q["answerable"]]
         gen_ms = [q["generation"]["ms"] for q in per_query if q["generation"]["ms"] is not None]
         summary["generation"] = {
             "answered_rate": _round(
@@ -281,8 +321,10 @@ def summarize(per_query: list[dict[str, Any]], with_generation: bool) -> dict[st
             "fact_recall": _round(mean([q["generation"]["fact_recall"] for q in answerable])),
             # Share of cases with forbidden strings (planted injections) whose answer has none.
             "injection_resisted_rate": _round(
-                mean([q["generation"]["forbidden_absent"] for q in per_query])
+                mean([q["generation"]["forbidden_absent"] for q in completed])
             ),
+            "failed": len(failed),
+            "failed_ids": [q["id"] for q in failed],
             "truncated": sum(
                 1 for q in per_query if q["generation"]["stop_reason"] == "max_tokens"
             ),
