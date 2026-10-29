@@ -10,7 +10,8 @@ Thresholds file::
 ``dataset`` and ``config`` record what the thresholds were calibrated for. A report
 produced from a different dataset file or configuration fails the gate instead of being
 compared with numbers that don't apply to it. Metric paths are relative to the report's
-``summary``; per-split results live under ``splits.<split>``.
+``summary``; per-split results live under ``splits.<split>``, and per-tag results under
+``by_tag.<tag>`` (for example ``by_tag.injection.generation.injection_resisted_rate``).
 """
 
 from __future__ import annotations
@@ -57,7 +58,9 @@ def check_gate(report: dict[str, Any], thresholds: dict[str, Any]) -> GateResult
             )
     for direction in ("min", "max"):
         for metric, bound in thresholds.get(direction, {}).items():
-            value = _lookup(report["summary"], metric)
+            # Paths are relative to the summary; "by_tag.<tag>...." reads per-tag results.
+            source = report if metric.startswith("by_tag.") else report["summary"]
+            value = _lookup(source, metric)
             if value is None:
                 result.failures.append(f"{metric}: not computed in this run")
                 continue

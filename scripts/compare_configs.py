@@ -1,8 +1,9 @@
 """Reproduce the comparison tables in docs/evaluation.md and ADR-0004/0005.
 
 Runs golden v2 for each retrieval configuration (embedding provider x mode, with and without
-the cross-encoder reranker), the abstention calibration, and a sweep of the extractive
-generator's minimum-coverage setting, then prints Markdown tables. Thresholds are
+the cross-encoder reranker), the abstention calibration, a sweep of the reranker's candidate
+count, and a sweep of the extractive generator's minimum-coverage setting, then prints
+Markdown tables. Thresholds are
 calibrated on the dev split; the test split is held out, so its numbers show how they
 generalize. Everything here is free: the generator is the offline extractive baseline.
 
@@ -105,6 +106,37 @@ def abstention_table(providers: list[str]) -> None:
             )
 
 
+def rerank_sweep(providers: list[str]) -> None:
+    """Latency and quality of the reranker against the number of candidates it scores."""
+    if "fastembed" not in providers:
+        print("(needs --providers fastembed)")
+        return
+    print(
+        "| Rerank candidates | Test hit rate | Test MRR | Dev hit rate | Dev MRR "
+        "| Unanswerable abstained (all) | False abstention | Rerank p50 | Rerank p95 |"
+    )
+    print("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    baseline = _run(_settings(embedding_provider="fastembed"))["summary"]
+    rows: list[tuple[str, dict[str, Any]]] = [("none (no reranker)", baseline)]
+    for n in (5, 10, 20):
+        settings = _settings(
+            embedding_provider="fastembed", reranker="fastembed", rerank_candidates=n
+        )
+        rows.append((str(n), _run(settings)["summary"]))
+    for label, summary in rows:
+        test, dev, lat = summary["splits"]["test"], summary["splits"]["dev"], summary["latency_ms"]
+        p50, p95 = (
+            "-" if lat.get(k) is None else f"{lat[k]:.0f} ms" for k in ("rerank_p50", "rerank_p95")
+        )
+        print(
+            f"| {label} | {_f(test['retrieval']['hit_rate'])} | {_f(test['retrieval']['mrr'])} "
+            f"| {_f(dev['retrieval']['hit_rate'])} | {_f(dev['retrieval']['mrr'])} "
+            f"| {_f(summary['abstention']['unanswerable_abstention_rate'])} "
+            f"| {_f(summary['abstention']['false_abstention_rate'])} "
+            f"| {p50} | {p95} |"
+        )
+
+
 def extractive_sweep(providers: list[str]) -> None:
     print(
         "| Embeddings | Min coverage | Answered | Unanswerable declined "
@@ -134,6 +166,7 @@ def main() -> None:
     for title, table in (
         ("Retrieval by configuration (golden v2)", retrieval_table),
         ("Retrieval-level abstention signals", abstention_table),
+        ("Reranker: candidates scored against latency and quality", rerank_sweep),
         ("Extractive generator: minimum-coverage sweep (test split)", extractive_sweep),
     ):
         print(f"\n### {title}\n")

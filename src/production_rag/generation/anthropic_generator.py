@@ -9,7 +9,8 @@ point at evidence that was actually retrieved.
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from typing import Any
 
 import anthropic
@@ -65,6 +66,47 @@ def build_search_results(chunks: Sequence[RetrievedChunk]) -> list[dict[str, Any
     ]
 
 
+@contextmanager
+def _mapped_api_errors() -> Iterator[None]:
+    """Translate SDK errors into GenerationError, separating transient from config faults."""
+    try:
+        yield
+    except anthropic.RateLimitError as exc:
+        raise GenerationError("Claude API rate limit reached", retryable=True) from exc
+    except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as exc:
+        raise GenerationError("Claude API credentials were rejected", retryable=False) from exc
+    except anthropic.BadRequestError as exc:
+        if "credit balance" in str(exc).lower():
+            raise GenerationError(
+                "the Claude API account has no credit left; add credits under Plans & "
+                "Billing in the Claude Console",
+                retryable=False,
+            ) from exc
+        # The SDK message can echo request details; it is logged, not returned to clients.
+        raise GenerationError(
+            f"Claude API rejected the request (HTTP {exc.status_code})", retryable=False
+        ) from exc
+    except anthropic.NotFoundError as exc:
+        raise GenerationError(
+            f"Claude API rejected the request (HTTP {exc.status_code})", retryable=False
+        ) from exc
+    except anthropic.APIStatusError as exc:
+        retryable = exc.status_code >= 500
+        raise GenerationError(
+            f"Claude API error (HTTP {exc.status_code})", retryable=retryable
+        ) from exc
+    except anthropic.APIConnectionError as exc:
+        raise GenerationError("could not reach the Claude API", retryable=True) from exc
+    except TypeError as exc:
+        # The SDK resolves credentials lazily and reports a missing one with a plain
+        # TypeError; anything else is a programming error and must propagate.
+        if "Could not resolve authentication method" not in str(exc):
+            raise
+        raise GenerationError(
+            "no Claude API credentials configured (set ANTHROPIC_API_KEY)", retryable=False
+        ) from exc
+
+
 class AnthropicGenerator:
     def __init__(self, settings: Settings, client: anthropic.Anthropic | None = None) -> None:
         self._settings = settings
@@ -80,7 +122,8 @@ class AnthropicGenerator:
     def model_id(self) -> str:
         return self._settings.anthropic_model
 
-    def generate(self, question: str, chunks: Sequence[RetrievedChunk]) -> GeneratedAnswer:
+    def build_request(self, question: str, chunks: Sequence[RetrievedChunk]) -> dict[str, Any]:
+        """The exact Messages API request ``generate`` sends; also used for cost previews."""
         content = [*build_search_results(chunks), {"type": "text", "text": question}]
         request: dict[str, Any] = {
             "model": self._settings.anthropic_model,
@@ -94,33 +137,23 @@ class AnthropicGenerator:
             # Anthropic recommends for that refusal category, instead of returning the refusal.
             request["betas"] = [FALLBACK_BETA]
             request["fallbacks"] = "default"
+        return request
 
-        try:
+    def count_input_tokens(self, question: str, chunks: Sequence[RetrievedChunk]) -> int:
+        """Input tokens of the request ``generate`` would send, from the free token-counting
+        endpoint. Nothing is generated or billed, but the API still validates the model,
+        the credentials and the request shape."""
+        request = self.build_request(question, chunks)
+        # count_tokens takes everything except the generation-only fields.
+        params = {k: v for k, v in request.items() if k not in ("max_tokens", "fallbacks")}
+        with _mapped_api_errors():
+            result = self._client.beta.messages.count_tokens(**params)
+        return result.input_tokens
+
+    def generate(self, question: str, chunks: Sequence[RetrievedChunk]) -> GeneratedAnswer:
+        request = self.build_request(question, chunks)
+        with _mapped_api_errors():
             response = self._client.beta.messages.create(**request)
-        except anthropic.RateLimitError as exc:
-            raise GenerationError("Claude API rate limit reached", retryable=True) from exc
-        except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as exc:
-            raise GenerationError("Claude API credentials were rejected", retryable=False) from exc
-        except (anthropic.BadRequestError, anthropic.NotFoundError) as exc:
-            # The SDK message can echo request details; it is logged, not returned to clients.
-            raise GenerationError(
-                f"Claude API rejected the request (HTTP {exc.status_code})", retryable=False
-            ) from exc
-        except anthropic.APIStatusError as exc:
-            retryable = exc.status_code >= 500
-            raise GenerationError(
-                f"Claude API error (HTTP {exc.status_code})", retryable=retryable
-            ) from exc
-        except anthropic.APIConnectionError as exc:
-            raise GenerationError("could not reach the Claude API", retryable=True) from exc
-        except TypeError as exc:
-            # The SDK resolves credentials lazily and reports a missing one with a plain
-            # TypeError; anything else is a programming error and must propagate.
-            if "Could not resolve authentication method" not in str(exc):
-                raise
-            raise GenerationError(
-                "no Claude API credentials configured (set ANTHROPIC_API_KEY)", retryable=False
-            ) from exc
 
         usage = {
             "input_tokens": response.usage.input_tokens,

@@ -88,6 +88,19 @@ def cmd_search(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def _upstream_detail(exc: BaseException) -> str:
+    """The API's own error message, for operators at the CLI. The HTTP API never returns it,
+    because it can echo request content."""
+    import anthropic
+
+    cause = exc.__cause__
+    if isinstance(cause, anthropic.APIStatusError) and isinstance(cause.body, dict):
+        message = (cause.body.get("error") or {}).get("message")
+        if message:
+            return f" (API said: {message})"
+    return ""
+
+
 def cmd_ask(args: argparse.Namespace, settings: Settings) -> int:
     from production_rag.generation import GenerationError
 
@@ -95,7 +108,7 @@ def cmd_ask(args: argparse.Namespace, settings: Settings) -> int:
     try:
         result = container.rag.answer(args.question, top_k=args.top_k, mode=args.mode)
     except GenerationError as exc:
-        print(f"generation failed: {exc}", file=sys.stderr)
+        print(f"generation failed: {exc}{_upstream_detail(exc)}", file=sys.stderr)
         return 1
     finally:
         container.close()
@@ -130,6 +143,9 @@ def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
     if args.top_k:
         overrides["top_k"] = args.top_k
     settings = settings.model_copy(update=overrides)
+    tags = [t.strip() for t in args.tags.split(",") if t.strip()] if args.tags else None
+    if args.plan:
+        return _print_plan(args, settings, tags)
     if args.generation and settings.generator == "anthropic" and not args.allow_paid:
         # .env.example selects the Claude generator, so a plain `rag eval --generation`
         # would otherwise spend money on every question without anyone deciding to.
@@ -145,6 +161,8 @@ def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
         corpus_dir=Path(args.corpus),
         dataset_path=Path(args.dataset),
         with_generation=args.generation,
+        split=args.split,
+        tags=tags,
     )
 
     if args.output:
@@ -165,6 +183,90 @@ def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
             print(f"FAIL {line}")
         print("gate: passed" if gate.passed else "gate: FAILED")
         return 0 if gate.passed else 1
+    return 0
+
+
+def _run_command(args: argparse.Namespace, settings: Settings) -> str:
+    """The command that runs exactly the planned evaluation, independent of .env."""
+    env = [
+        f"RAG_EMBEDDING_PROVIDER={settings.embedding_provider}",
+        f"RAG_RERANKER={settings.reranker}",
+        f"RAG_GENERATOR={settings.generator}",
+        f"RAG_ANTHROPIC_MODEL={settings.anthropic_model}",
+        f"RAG_ANTHROPIC_EFFORT={settings.anthropic_effort}",
+        f"RAG_ANTHROPIC_MAX_TOKENS={settings.anthropic_max_tokens}",
+    ]
+    cmd = ["uv run rag eval --generation"]
+    if settings.generator == "anthropic":
+        cmd.append("--allow-paid")
+    cmd.append(f"--dataset {args.dataset}")
+    if args.split:
+        cmd.append(f"--split {args.split}")
+    if args.tags:
+        cmd.append(f"--tags {args.tags}")
+    if args.mode:
+        cmd.append(f"--mode {args.mode}")
+    if args.top_k:
+        cmd.append(f"--top-k {args.top_k}")
+    cmd.append("--thresholds eval/thresholds.claude.json --output eval/reports")
+    return " ".join(env + cmd)
+
+
+def _print_plan(args: argparse.Namespace, settings: Settings, tags: list[str] | None) -> int:
+    from production_rag.evaluation.plan import TYPICAL_OUTPUT_TOKENS, plan_generation
+    from production_rag.generation import GenerationError
+
+    try:
+        plan = plan_generation(
+            settings,
+            corpus_dir=Path(args.corpus),
+            dataset_path=Path(args.dataset),
+            split=args.split,
+            tags=tags,
+            count_tokens=args.count_tokens,
+        )
+    except GenerationError as exc:  # only token counting talks to the API, and it's free
+        print(f"token counting failed: {exc}{_upstream_detail(exc)}", file=sys.stderr)
+        return 1
+    summary = plan.to_dict()
+    print("Generation evaluation plan (nothing was generated)")
+    print(
+        f"  generator:        {plan.generator}"
+        + (f" ({plan.model}, effort {plan.effort})" if plan.paid else "")
+    )
+    print(f"  questions:        {summary['cases']}")
+    abstained = summary["abstained_at_retrieval"]
+    print(
+        f"  generator calls:  {summary['generator_calls']} "
+        f"({abstained} abstain at retrieval and cost nothing)"
+    )
+    if plan.paid:
+        exact = plan.token_source == "count_tokens"  # noqa: S105 - a mode name, not a secret
+        how = "exact, from the free token-counting API" if exact else "conservative estimate"
+        print(f"  input tokens:     {plan.input_tokens:,} ({how})")
+        cost = plan.cost_usd()
+        if cost is None:
+            print(f"  cost:             unknown (no price on file for {plan.model})")
+        else:
+            low, high = TYPICAL_OUTPUT_TOKENS
+            print(
+                f"  estimated cost:   ${cost['typical_low']:.2f} to ${cost['typical_high']:.2f} "
+                f"(input ${cost['input_only']:.2f} + {low}-{high} output tokens per answer)"
+            )
+            print(
+                f"  worst case:       ${cost['worst_case']:.2f} "
+                f"(every answer runs to max_tokens={plan.max_tokens})"
+            )
+    else:
+        print("  cost:             $0 (offline generator)")
+    print(f"  command:          {_run_command(args, settings)}")
+    print()
+    print("| id | split | calls | input tokens | tests |")
+    print("| --- | --- | --- | --- | --- |")
+    for case in plan.cases:
+        tokens = "-" if case.input_tokens is None else str(case.input_tokens)
+        calls = "yes" if case.calls_generator else "no (abstains)"
+        print(f"| {case.id} | {case.split or '-'} | {calls} | {tokens} | {case.measures} |")
     return 0
 
 
@@ -218,6 +320,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="allow --generation to call the paid Claude API (RAG_GENERATOR=anthropic)",
     )
+    ev.add_argument(
+        "--plan",
+        action="store_true",
+        help="preview a generation evaluation: questions, calls, cost; generates nothing",
+    )
+    ev.add_argument(
+        "--count-tokens",
+        action="store_true",
+        help="with --plan: exact input tokens from the free token-counting API",
+    )
+    ev.add_argument("--split", choices=["dev", "test"], help="only cases in this split")
+    ev.add_argument("--tags", help="only cases with any of these comma-separated tags")
     ev.add_argument("--mode", choices=modes)
     ev.add_argument("--top-k", type=int)
     ev.set_defaults(func=cmd_eval)

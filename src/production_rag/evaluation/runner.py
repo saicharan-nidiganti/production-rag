@@ -9,6 +9,9 @@ from __future__ import annotations
 import hashlib
 import subprocess
 import tempfile
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -76,21 +79,23 @@ def config_snapshot(container: Container) -> dict[str, Any]:
     }
 
 
-def run_evaluation(
-    settings: Settings,
-    *,
-    corpus_dir: Path,
-    dataset_path: Path,
-    with_generation: bool = False,
-    generator: Generator | None = None,
-) -> dict[str, Any]:
-    cases = load_dataset(dataset_path)
+@dataclass
+class IndexedCorpus:
+    container: Container
+    files: list[Path]
+    stats: dict[str, int]
+
+
+@contextmanager
+def evaluation_index(
+    settings: Settings, corpus_dir: Path, *, generator: Generator | None = None
+) -> Iterator[IndexedCorpus]:
+    """A fresh temporary index of the corpus, built with ``settings``."""
     if not corpus_dir.is_dir():
         raise ValueError(f"corpus directory not found: {corpus_dir}")
     files = discover_documents(corpus_dir)
     if not files:
         raise ValueError(f"no supported documents found in {corpus_dir}")
-
     # ignore_cleanup_errors: on Windows a lingering SQLite handle would otherwise fail the run.
     with tempfile.TemporaryDirectory(prefix="rag-eval-", ignore_cleanup_errors=True) as tmp:
         db_url = f"sqlite:///{Path(tmp, 'eval.db').as_posix()}"
@@ -101,11 +106,41 @@ def run_evaluation(
         try:
             for path in files:
                 container.ingestion.ingest(path.name, path.read_bytes())
-            stats = container.ingestion.index_stats()
-            per_query = [_evaluate_case(container, case, with_generation) for case in cases]
-            config = config_snapshot(container)
+            yield IndexedCorpus(container, files, container.ingestion.index_stats())
         finally:
             container.close()
+
+
+def select_cases(
+    cases: list[EvalCase], *, split: str | None = None, tags: Sequence[str] | None = None
+) -> list[EvalCase]:
+    """Cases in ``split`` (all when None) that carry any of ``tags`` (all when empty)."""
+    wanted = set(tags or ())
+    selected = [
+        c
+        for c in cases
+        if (split is None or c.split == split) and (not wanted or wanted & set(c.tags))
+    ]
+    if not selected:
+        raise ValueError(f"no cases match split={split!r} tags={sorted(wanted)}")
+    return selected
+
+
+def run_evaluation(
+    settings: Settings,
+    *,
+    corpus_dir: Path,
+    dataset_path: Path,
+    with_generation: bool = False,
+    generator: Generator | None = None,
+    split: str | None = None,
+    tags: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    cases = select_cases(load_dataset(dataset_path), split=split, tags=tags)
+    with evaluation_index(settings, corpus_dir, generator=generator) as index:
+        per_query = [_evaluate_case(index.container, case, with_generation) for case in cases]
+        config = config_snapshot(index.container)
+        files, stats = index.files, index.stats
 
     summary = summarize(per_query, with_generation)
     splits = sorted({c.split for c in cases if c.split is not None})
@@ -114,7 +149,7 @@ def run_evaluation(
             split: summarize([q for q in per_query if q["split"] == split], with_generation)
             for split in splits
         }
-    tags = sorted({t for c in cases for t in c.tags})
+    present_tags = sorted({t for c in cases for t in c.tags})
 
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -126,6 +161,7 @@ def run_evaluation(
             "cases": len(cases),
             "answerable": sum(1 for c in cases if c.answerable),
             "splits": {s: sum(1 for c in cases if c.split == s) for s in splits},
+            "selection": {"split": split, "tags": sorted(tags or [])},
         },
         "corpus": {
             "path": corpus_dir.as_posix(),
@@ -138,7 +174,7 @@ def run_evaluation(
         "summary": summary,
         "by_tag": {
             tag: summarize([q for q in per_query if tag in q["tags"]], with_generation)
-            for tag in tags
+            for tag in present_tags
         },
         "per_query": per_query,
     }
@@ -169,6 +205,8 @@ def _evaluate_case(container: Container, case: EvalCase, with_generation: bool) 
             else None,
             "fact_recall": fact_recall(answer.text, case.must_include),
             "forbidden_absent": forbidden_absent(answer.text, case.must_not_include),
+            "stop_reason": answer.stop_reason,  # "max_tokens" means the answer was cut off
+            "usage": answer.usage,  # billed tokens, when a hosted model answered
             "ms": timings.get("generation"),
         }
     else:
@@ -245,6 +283,13 @@ def summarize(per_query: list[dict[str, Any]], with_generation: bool) -> dict[st
             "injection_resisted_rate": _round(
                 mean([q["generation"]["forbidden_absent"] for q in per_query])
             ),
+            "truncated": sum(
+                1 for q in per_query if q["generation"]["stop_reason"] == "max_tokens"
+            ),
+            "usage": {
+                kind: sum((q["generation"]["usage"] or {}).get(kind, 0) for q in per_query)
+                for kind in ("input_tokens", "output_tokens")
+            },
         }
         summary["latency_ms"]["generation_p50"] = percentile(gen_ms, 50)
         summary["latency_ms"]["generation_p95"] = percentile(gen_ms, 95)

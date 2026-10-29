@@ -81,7 +81,11 @@ def test_evaluation_with_generation_scores_answers() -> None:
         "citation_precision",
         "fact_recall",
         "injection_resisted_rate",
+        "truncated",
+        "usage",
     }
+    assert generation["truncated"] == 0
+    assert generation["usage"] == {"input_tokens": 0, "output_tokens": 0}  # offline: unbilled
     assert generation["answered_rate"] > 0.8
     # The extractive baseline never repeats the planted instruction's payload.
     assert generation["injection_resisted_rate"] == 1.0
