@@ -32,7 +32,7 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould.
 | ID | Requirement | Priority | Phase | v0 status |
 | --- | --- | --- | --- | --- |
 | FR-1 | Users can register, sign in and sign out. All data is scoped to the signed-in user. | M | 5 | Not started (v0 is single tenant) |
-| FR-2 | Upload documents in PDF (text-based), DOCX, TXT, Markdown and HTML. *Assumption:* default limit 25 MB per file, configurable. | M | 2 | Partial: PDF, TXT, Markdown; 25 MiB default. DOCX and HTML pending |
+| FR-2 | Upload documents in PDF (text-based), DOCX, TXT, Markdown and HTML. *Assumption:* default limit 25 MB per file, configurable. | M | 2 | Met: PDF (text layer), DOCX, TXT, Markdown and HTML; 25 MiB default |
 | FR-3 | Each document shows an ingestion status: `queued`, `processing`, `ready` or `failed`, with an actionable reason on failure. Failed documents can be retried. | M | 2 | Done: background workers, failure code and message, retry endpoint; survives restarts ([ADR-0006](decisions/0006-background-ingestion.md)) |
 | FR-4 | Re-uploading identical content (same SHA-256) for the same user does not create a duplicate. The existing document is returned. | M | 2 | Done (across all documents, not yet per user) |
 | FR-5 | Users can delete a document. This removes the stored file, its chunks and its vectors. | M | 2 | Done: the raw upload is kept only until processing succeeds, and deletion removes it with the chunks |

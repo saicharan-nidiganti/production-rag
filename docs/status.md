@@ -1,11 +1,11 @@
 # Project Status
 
-Last updated: 2026-11-09
+Last updated: 2026-11-10
 
 ## Current state
 
-**v0 backend: implemented and on `main`.** Background ingestion (PDF, TXT,
-Markdown) with a status per document, hybrid retrieval (BM25 + vectors with
+**v0 backend: implemented and on `main`.** Background ingestion (PDF, DOCX,
+HTML, TXT, Markdown) with a status per document, hybrid retrieval (BM25 + vectors with
 RRF) with optional cross-encoder reranking, grounded generation with Claude
 search-result citations, an HTTP API, the `rag` CLI, and an evaluation suite of
 94 questions with a held-out test split, gated in CI. See [architecture.md](architecture.md) and the
@@ -36,9 +36,36 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 | Accounts and isolation (FR-1, NFR-1) | Not started; v0 is single tenant ([ADR-0002](decisions/0002-v0-storage-and-scope.md)) |
 | Ingestion status (FR-3) | Met: `queued` → `processing` → `ready` or `failed` with a code and message, retry, recovery after crashes and restarts ([ADR-0006](decisions/0006-background-ingestion.md)) |
 | Rate limits (NFR-2) | Met within one process: per client for authentication failures, uploads, questions, searches and other requests; across processes, at the reverse proxy ([operations.md](operations.md#rate-limits)) |
-| Streaming (FR-9), DOCX/HTML (FR-2) | Not started |
+| File types (FR-2) | Met: PDF (text layer), DOCX, TXT, Markdown and HTML, parsed in the isolated process ([ADR-0009](decisions/0009-docx-and-html-extraction.md)) |
+| Streaming (FR-9) | Not started |
 
 ## Session log
+
+### Session 12 — DOCX and HTML (2026-11-10)
+
+- **FR-2, issue #6:** `.docx`, `.html` and `.htm` uploads, parsed with the standard
+  library in the isolated parser process ([ADR-0009](decisions/0009-docx-and-html-extraction.md)). Both get one section per heading
+  with the heading path, as Markdown does, through heading code now shared by all three
+  (`parsing/structure.py`).
+- **DOCX:** heading styles (by outline level or built-in name, following `basedOn`, so
+  localized ids work) and outline levels; titles from document properties, the Title
+  style or the first heading; list markers; table rows with ` | ` between cells (nested
+  tables joined into their cell); text boxes read once; deletions and field codes
+  dropped. Refused: legacy and password-protected files (at upload, by signature),
+  macro-enabled files, parts with a DTD, oversized parts and archives with too many
+  entries. The document part is streamed with `iterparse`.
+- **HTML:** encoding from a BOM, then UTF-8, then a `<meta>` declaration; the head,
+  scripts, styles, `noscript`, templates, SVG, MathML, frames and `hidden` elements
+  dropped; lists, tables and `pre` keep their shape; optional and unclosed tags read as
+  browsers do.
+- **Unchanged:** the 32 Markdown files in the repository extract identically before and
+  after (275 sections), and the retrieval gate's numbers are the same.
+- **Tests:** unit tests per format, hostile DOCX files, the isolated parser's parity for
+  both formats, ingestion and API uploads cited by heading. Each protection was checked
+  by removing it, and the extraction tests also pass on Python 3.12.
+- **Housekeeping:** issue #30 closed after CI passed on the rate-limit work, with a
+  gitleaks false positive in a made-up test key fixed in `ec6e103`; the Foundation,
+  Retrieval and Advanced Retrieval milestones closed.
 
 ### Session 11 — Rate limits (2026-11-09)
 

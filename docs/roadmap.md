@@ -30,7 +30,7 @@ the item notes the proposed decision.
 ## Phase 2 — Document Ingestion
 
 - [x] Define supported document types — PDF, TXT, Markdown
-- [ ] DOCX and HTML support (FR-2)
+- [x] DOCX and HTML support (FR-2), with standard-library parsers ([ADR-0009](decisions/0009-docx-and-html-extraction.md))
 - [x] Design ingestion pipeline
 - [x] Implement document loading
 - [x] Implement text extraction

@@ -15,7 +15,7 @@ ADRs document important technical decisions, including:
 
 | ADR | Title | Status |
 | --- | --- | --- |
-| [0001](0001-technology-stack.md) | Technology stack for v1 | Proposed (v1 target; §2, §8–§10 settled for v0 by 0002 and 0003; Python floor amended to 3.12) |
+| [0001](0001-technology-stack.md) | Technology stack for v1 | Proposed (v1 target; §2, §8–§10 settled for v0 by 0002 and 0003; Python floor amended to 3.12; DOCX and HTML parsers superseded by 0009) |
 | [0002](0002-v0-storage-and-scope.md) | v0 storage and scope: SQLite, single tenant, synchronous ingestion | Accepted (owner, D-3); synchronous ingestion superseded by 0006 |
 | [0003](0003-generation-provider-claude.md) | Generation provider: Claude with search-result citations | Accepted (owner, D-2); live behavior not yet verified |
 | [0004](0004-embeddings-hybrid-retrieval-and-abstention.md) | Embedding providers, hybrid retrieval and calibrated abstention | Accepted |
@@ -23,6 +23,7 @@ ADRs document important technical decisions, including:
 | [0006](0006-background-ingestion.md) | Background ingestion on a SQLite-backed queue | Accepted |
 | [0007](0007-isolated-document-parsing.md) | Parse documents in a separate, resource-limited process | Accepted |
 | [0008](0008-architecture-style.md) | Architecture style: a local-first modular monolith behind an API and a CLI | Accepted (owner, issue #2) |
+| [0009](0009-docx-and-html-extraction.md) | Extract DOCX and HTML with the standard library | Accepted |
 
 Open decisions that these ADRs depend on are tracked in
 [status.md](../status.md#open-decisions).

@@ -10,6 +10,19 @@ record. Detailed per-session notes and verification results are in
 
 ## [Unreleased]
 
+### Added
+
+- **DOCX and HTML uploads** (FR-2, #6). `.docx`, `.html` and `.htm` are
+  ingested like Markdown: one section per heading, so citations carry the
+  heading path. DOCX headings come from heading styles or outline levels;
+  lists and table rows keep their shape; text boxes are read once; deleted
+  text of tracked changes and field codes are dropped. HTML drops the head,
+  scripts, styles and hidden elements, and may declare a non-UTF-8 encoding.
+  Both are parsed with the standard library in the isolated parser process
+  ([ADR-0009](docs/decisions/0009-docx-and-html-extraction.md)). Refused:
+  legacy `.doc`, password-protected and macro-enabled Word files, DOCX parts
+  with a DTD or over the size limits, and archives with too many entries.
+
 ### Security
 
 - **Rate limits per client** (#30, NFR-2). Each client address gets a token

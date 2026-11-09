@@ -12,8 +12,10 @@ from production_rag.ingestion import (
     ExtractionError,
     UnsupportedDocumentError,
 )
+from production_rag.parsing.docx_text import CONTENT_TYPE as DOCX_TYPE
 from production_rag.rag import RagService
 from production_rag.retrieval import Retriever, lexical_search
+from tests.unit.test_extract_docx import docx, p
 
 GUIDE = b"""# Guide
 
@@ -71,10 +73,52 @@ def test_deleting_a_document_cascades_to_chunks_and_fts(container: Container) ->
     assert generation_after == (generation_before or 0) + 2  # one bump per deleted chunk
 
 
+GUIDE_DOCX = docx(
+    p("Guide", "Heading1")
+    + p("Install", "Heading2")
+    + p("Run the installer and accept the defaults.")
+    + p("Rollback", "Heading2")
+    + p("Use the zebracorn command to undo a broken release.")
+)
+GUIDE_HTML = b"""<!DOCTYPE html><html><head><title>Guide</title></head><body>
+<h1>Guide</h1>
+<h2>Install</h2><p>Run the installer and accept the defaults.</p>
+<h2>Rollback</h2><p>Use the <code>zebracorn</code> command to undo a broken release.</p>
+</body></html>"""
+
+
+@pytest.mark.parametrize(
+    ("name", "data", "content_type"),
+    [
+        ("guide.docx", GUIDE_DOCX, DOCX_TYPE),
+        ("guide.html", GUIDE_HTML, "text/html"),
+    ],
+)
+def test_docx_and_html_are_ingested_with_heading_paths(
+    container: Container, name: str, data: bytes, content_type: str
+) -> None:
+    doc = container.ingestion.ingest(name, data).document
+    assert (doc.title, doc.content_type, doc.num_chunks) == ("Guide", content_type, 2)
+    with container.sessions() as session:
+        stored = session.get(Document, doc.id)
+        assert stored is not None
+        chunks = session.scalars(
+            select(Chunk).where(Chunk.document_id == doc.id).order_by(Chunk.ordinal)
+        ).all()
+        assert [c.heading for c in chunks] == ["Guide > Install", "Guide > Rollback"]
+        for chunk in chunks:
+            assert stored.text[chunk.start_char : chunk.end_char] == chunk.text
+    hit = container.rag.search("zebracorn undo release", top_k=1, mode="lexical").chunks[0]
+    assert (hit.source_name, hit.heading) == (name, "Guide > Rollback")
+
+
 @pytest.mark.parametrize(
     ("name", "data", "error"),
     [
         ("x.exe", b"MZ", UnsupportedDocumentError),
+        ("x.doc", b"\xd0\xcf\x11\xe0", UnsupportedDocumentError),
+        ("renamed.docx", b"plain text", UnsupportedDocumentError),
+        ("blank.html", b" \n ", ExtractionError),
         ("empty.md", b"   \n\n", ExtractionError),
         ("big.txt", b"a" * 2048, DocumentTooLargeError),
     ],

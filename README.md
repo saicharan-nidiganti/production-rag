@@ -36,13 +36,13 @@ documents, and as a worked example of taking RAG from prototype to an engineered
 
 | Capability | State |
 | --- | --- |
-| Ingestion of `.txt`, Markdown and PDF, in the background, with a status per document, retry and crash recovery | **Implemented and verified**: tests, a real-server smoke test in CI, and manual checks with killed and restarted servers |
+| Ingestion of `.txt`, Markdown, PDF, DOCX and HTML, in the background, with a status per document, retry and crash recovery | **Implemented and verified**: tests, a real-server smoke test in CI, and manual checks with killed and restarted servers |
 | Hybrid retrieval (BM25 + vectors, fused) with optional cross-encoder reranking | **Implemented and verified**: CI gate for the offline configuration; free gates for the recommended models, run locally |
 | Abstention on off-topic questions before any model call | **Implemented and verified**: 4 of 4 held-out off-topic questions, with no false abstentions |
 | Per-client rate limits on uploads, questions, searches and failed API keys, with 429 and `Retry-After` | **Implemented and verified**: tests; the limits are kept per process |
 | Grounded answers from Claude with native citations | **Implemented, not verified live**: tested offline against a fake client; the paid evaluation hasn't run |
 | Declining on-topic questions the documents can't answer; resisting a planted prompt injection | **Not verified**: both depend on Claude and are what the pending paid evaluation measures |
-| Accounts and per-user isolation, answer streaming, DOCX and HTML, web UI | **Planned** ([roadmap](docs/roadmap.md)) |
+| Accounts and per-user isolation, answer streaming, web UI | **Planned** ([roadmap](docs/roadmap.md)) |
 
 ## Architecture
 
@@ -87,9 +87,12 @@ flowchart TB
     cite -- "nothing cited" --> abstain
 ```
 
-- **Ingestion.** An upload is checked (type, size, PDF signature, UTF-8), deduplicated by
-  SHA-256, stored and queued, and the request returns `202`. A worker extracts sections
-  (Markdown headings, PDF pages), chunks them without crossing section boundaries, embeds
+- **Ingestion.** An upload is checked (type, size, PDF and DOCX signatures, text encoding),
+  deduplicated by SHA-256, stored and queued, and the request returns `202`. A worker extracts
+  sections (Markdown, HTML and DOCX headings, PDF pages) in an isolated parser process
+  ([ADR-0007](docs/decisions/0007-isolated-document-parsing.md),
+  [ADR-0009](docs/decisions/0009-docx-and-html-extraction.md)), chunks them without crossing
+  section boundaries, embeds
   each chunk with its heading path, and writes the chunks in the transaction that marks the
   document `ready`. A crashed worker's document is taken over once its lease lapses.
 - **Retrieval.** BM25 and exact cosine search each return 30 candidates; Reciprocal Rank
@@ -246,7 +249,7 @@ vulnerabilities privately: [SECURITY.md](SECURITY.md).
 
 1. The first paid Claude evaluation, focused on on-topic unanswerable questions and the
    planted injection (prepared, with a cost preview; awaiting approval and credit).
-2. DOCX and HTML ingestion; streaming answers.
+2. Streaming answers.
 3. Accounts and per-user isolation on PostgreSQL with pgvector.
 4. A web interface.
 

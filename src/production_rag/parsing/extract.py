@@ -1,50 +1,53 @@
 """Text extraction for supported document types.
 
 Each document becomes full text plus *sections*: spans that chunks must not cross, carrying
-the metadata a citation needs (Markdown heading path, PDF page number).
+the metadata a citation needs (heading path for Markdown, HTML and DOCX; page number for PDF).
 """
 
 from __future__ import annotations
 
 import io
 import re
-from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any
+
+from production_rag.parsing import docx_text, html_text
+from production_rag.parsing.model import (
+    ExtractedDocument,
+    ExtractionError,
+    Section,
+    UnsupportedDocumentError,
+)
+from production_rag.parsing.structure import (
+    Heading,
+    HeadingPath,
+    first_top_level,
+    heading_sections,
+)
+
+__all__ = [
+    "SUPPORTED_TYPES",
+    "ExtractedDocument",
+    "ExtractionError",
+    "Section",
+    "UnsupportedDocumentError",
+    "content_type_for",
+    "discover_documents",
+    "extract",
+    "safe_filename",
+    "validate_upload",
+]
 
 SUPPORTED_TYPES: dict[str, str] = {
     ".txt": "text/plain",
     ".md": "text/markdown",
     ".markdown": "text/markdown",
     ".pdf": "application/pdf",
+    ".docx": docx_text.CONTENT_TYPE,
+    ".html": html_text.CONTENT_TYPE,
+    ".htm": html_text.CONTENT_TYPE,
 }
 
 PDF_SIGNATURE = b"%PDF-"
-
-
-class UnsupportedDocumentError(ValueError):
-    pass
-
-
-class ExtractionError(ValueError):
-    pass
-
-
-@dataclass(frozen=True)
-class Section:
-    start: int  # offset of the section in the document's full text
-    end: int
-    heading: str | None = None
-    page: int | None = None
-
-
-@dataclass(frozen=True)
-class ExtractedDocument:
-    text: str
-    title: str
-    content_type: str
-    sections: list[Section]
-    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def safe_filename(filename: str) -> str:
@@ -71,6 +74,11 @@ def validate_upload(filename: str, data: bytes) -> str:
     content_type = content_type_for(filename)
     if content_type == "application/pdf":
         _check_pdf_signature(data)
+    elif content_type == docx_text.CONTENT_TYPE:
+        docx_text.check_signature(data)
+    elif content_type == html_text.CONTENT_TYPE:
+        if not html_text.decode_html(data).strip():
+            raise ExtractionError("document contains no extractable text")
     elif not _decode(data).strip():
         raise ExtractionError("document contains no extractable text")
     return content_type
@@ -92,6 +100,10 @@ def extract(filename: str, data: bytes, *, max_pdf_pages: int = 500) -> Extracte
     stem = PurePosixPath(filename).stem
     if content_type == "application/pdf":
         return _extract_pdf(data, stem, max_pdf_pages)
+    if content_type == docx_text.CONTENT_TYPE:
+        return docx_text.extract_docx(data, stem)
+    if content_type == html_text.CONTENT_TYPE:
+        return html_text.extract_html(data, stem)
     text = _decode(data)
     if content_type == "text/markdown":
         return _extract_markdown(text, stem)
@@ -121,8 +133,8 @@ _FENCE = re.compile(r"^[ \t]*(```|~~~)")
 
 
 def _extract_markdown(text: str, stem: str) -> ExtractedDocument:
-    headings: list[tuple[int, int, str, int]] = []  # (line start, line end, path, level)
-    stack: list[tuple[int, str]] = []
+    headings: list[Heading] = []  # (line start, line end, path, level)
+    paths = HeadingPath()
     in_fence = False
     offset = 0
     for line in text.splitlines(keepends=True):
@@ -130,21 +142,10 @@ def _extract_markdown(text: str, stem: str) -> ExtractedDocument:
             in_fence = not in_fence
         elif not in_fence and (match := _HEADING.match(line.rstrip("\n"))):
             level, title = len(match.group(1)), match.group(2).strip()
-            stack = [(lvl, t) for lvl, t in stack if lvl < level] + [(level, title)]
-            headings.append((offset, offset + len(line), " > ".join(t for _, t in stack), level))
+            headings.append((offset, offset + len(line), paths.push(level, title), level))
         offset += len(line)
-
-    sections: list[Section] = []
-    first_heading_start = headings[0][0] if headings else len(text)
-    if text[:first_heading_start].strip():
-        sections.append(Section(0, first_heading_start))
-    for i, (start, line_end, path, _level) in enumerate(headings):
-        end = headings[i + 1][0] if i + 1 < len(headings) else len(text)
-        if text[line_end:end].strip():  # skip headings with no body of their own
-            sections.append(Section(start, end, heading=path))
-
-    h1 = next((path for _, _, path, level in headings if level == 1), None)
-    return ExtractedDocument(text, h1 or stem, "text/markdown", sections)
+    title = first_top_level(headings) or stem
+    return ExtractedDocument(text, title, "text/markdown", heading_sections(text, headings))
 
 
 def _extract_pdf(data: bytes, stem: str, max_pages: int) -> ExtractedDocument:

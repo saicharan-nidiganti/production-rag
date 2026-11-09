@@ -144,10 +144,11 @@ stateDiagram-v2
 ```
 
 1. **Validate** (at upload). The filename is reduced to a bare name. The type
-   must be `.txt`, `.md`/`.markdown` or `.pdf`, and the size within
-   `RAG_MAX_UPLOAD_BYTES`. Checks that need no parsing run here too: a `.pdf`
-   must start like a PDF, and text must be non-blank UTF-8. These fail the
-   request; nothing is stored.
+   must be `.txt`, `.md`/`.markdown`, `.pdf`, `.docx` or `.html`/`.htm`, and
+   the size within `RAG_MAX_UPLOAD_BYTES`. Checks that need no parsing run here
+   too: a `.pdf` must start like a PDF, a `.docx` like a ZIP file (not a legacy
+   or password-protected Word file), and text and HTML must be non-blank and
+   decodable. These fail the request; nothing is stored.
 2. **Deduplicate** by SHA-256 of the raw bytes (FR-4). A unique index also
    covers concurrent uploads of the same file. A duplicate returns the existing
    document in whatever state it is; a failed one is queued again.
@@ -175,6 +176,11 @@ stateDiagram-v2
    - PDF: one section per page (pypdf), carrying the page number. Encrypted
      PDFs, PDFs over `RAG_MAX_PDF_PAGES`, and PDFs without a text layer (scanned)
      are rejected with a clear error.
+   - HTML and DOCX ([ADR-0009](decisions/0009-docx-and-html-extraction.md)): one section per heading, carrying the
+     heading path, as for Markdown. HTML headings are `h1` to `h6`; the head,
+     scripts, styles and hidden elements are dropped. DOCX headings come from
+     heading styles and outline levels; lists and table rows keep their shape,
+     and macro-enabled files, DTDs and oversized parts are refused.
    - Text: UTF-8 (BOM tolerated), newlines normalized. Other encodings are
      rejected rather than guessed.
 6. **Chunk** ([chunking.py](../src/production_rag/ingestion/chunking.py)).
@@ -363,7 +369,7 @@ deployment and the remaining gaps.
 | Storage | SQLite, FTS5 BM25, exact in-memory vectors (owner decision, ADR-0002) | PostgreSQL + pgvector + full-text search (ADR-0001 §2) | 5, with accounts |
 | Tenancy | Single tenant, optional API key | Accounts, Argon2id, cookie sessions, `owner_id` in every query (ADR-0001 §10) | 5 |
 | Ingestion | Synchronous, in the request | Postgres job queue and worker, `queued`/`processing`/`ready`/`failed` (FR-3) | 2 |
-| File types | PDF, TXT, Markdown | Also DOCX and HTML (FR-2); OCR later (FR-12) | 2, 8 |
+| File types | PDF, TXT, Markdown, DOCX, HTML (FR-2) | OCR for scanned PDFs (FR-12) | 8 |
 | Answers | Single request/response | Streaming (FR-9), conversations (FR-11) | 4 |
 | Interface | HTTP API and CLI | React + Vite web app (ADR-0001 §11) | 6 |
 

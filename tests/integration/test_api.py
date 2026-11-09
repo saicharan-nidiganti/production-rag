@@ -17,6 +17,9 @@ from production_rag.generation import GeneratedAnswer, GenerationError
 from production_rag.observability import JsonFormatter
 from production_rag.retrieval import RetrievedChunk
 from tests.conftest import CORPUS_DIR
+from tests.unit.test_extract_docx import GUIDE as DOCX_GUIDE
+from tests.unit.test_extract_docx import MACRO_DOCUMENT, docx, p
+from tests.unit.test_extract_html import GUIDE as HTML_GUIDE
 
 RUNBOOK = (CORPUS_DIR / "deployment-runbook.md").read_bytes()
 
@@ -119,6 +122,14 @@ def test_document_lifecycle(client: TestClient) -> None:
         ("empty.md", b"\n\n", 422, "extraction_failed"),
         ("latin1.txt", "café".encode("latin-1"), 422, "extraction_failed"),
         ("fake.pdf", b"plain text", 415, "unsupported_document_type"),
+        ("fake.docx", b"plain text", 415, "unsupported_document_type"),
+        (
+            "legacy.docx",
+            b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 32,
+            415,
+            "unsupported_document_type",
+        ),
+        ("latin1.html", b"<p>caf\xe9</p>", 422, "extraction_failed"),
     ],
 )
 def test_upload_errors(client: TestClient, name: str, data: bytes, status: int, code: str) -> None:
@@ -127,6 +138,27 @@ def test_upload_errors(client: TestClient, name: str, data: bytes, status: int, 
     body = response.json()["error"]
     assert body["code"] == code
     assert body["request_id"] == response.headers["X-Request-ID"]
+
+
+def test_docx_and_html_uploads_are_processed_and_cited_by_heading(client: TestClient) -> None:
+    for name, data, title in (
+        ("guide.docx", DOCX_GUIDE, "Guide"),
+        ("guide.html", HTML_GUIDE, "Guide & Handbook"),  # from <title>
+    ):
+        doc = _upload_and_wait(client, name=name, data=data)
+        assert (doc["status"], doc["title"]) == ("ready", title), doc
+    search = client.post("/v1/search", json={"query": "run the installer", "mode": "lexical"})
+    hits = {(hit["source_name"], hit["heading"]) for hit in search.json()["hits"]}
+    assert {("guide.docx", "Guide > Install"), ("guide.html", "Guide > Install")} <= hits
+
+
+def test_a_macro_enabled_docx_fails_with_a_reason(client: TestClient) -> None:
+    upload = _upload(client, name="macros.docx", data=docx(p("Text."), main_type=MACRO_DOCUMENT))
+    assert upload.status_code == 202  # only the signature is checked before the parser runs
+    doc = _wait_for_final_status(client, upload.json()["document"]["id"])
+    assert doc["status"] == "failed"
+    assert doc["error"]["code"] == "unsupported_document_type"
+    assert "macro-enabled" in doc["error"]["message"]
 
 
 def test_failed_processing_is_reported_and_can_be_retried(client: TestClient) -> None:

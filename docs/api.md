@@ -97,8 +97,10 @@ doesn't affect readiness.
 ### `POST /v1/documents`
 
 Multipart upload with one `file` field. Supported: `.txt`, `.md`, `.markdown`,
-`.pdf` (with a text layer). The upload is checked and stored, then processed in
-the background (FR-3):
+`.pdf` (with a text layer), `.docx`, `.html` and `.htm`. Text and HTML must be
+UTF-8; HTML may instead declare its encoding in a `<meta>` tag. Legacy `.doc`,
+password-protected and macro-enabled Word files are refused. The upload is
+checked and stored, then processed in the background (FR-3):
 
 - **202** with `created: true`: new content, queued. `Location` points at the
   document; poll it until `status` is `ready` or `failed`.
@@ -183,7 +185,7 @@ A failure carries a code and a message written for the person who uploaded it:
 | `error.code` | Cause | What to do |
 | --- | --- | --- |
 | `extraction_failed` | No text after parsing, encrypted or corrupt PDF, too many pages | Fix the file and upload it again |
-| `unsupported_document_type` | The content doesn't match its type | Upload the right file |
+| `unsupported_document_type` | The content doesn't match its type, or a `.docx` is macro-enabled | Upload the right file |
 | `interrupted` | The worker stopped mid-way `RAG_INGEST_MAX_ATTEMPTS` times (crash, restart, out of memory) | Retry; if it recurs, check the server log for this document |
 | `internal_error` | Unexpected failure, for example the embedding model couldn't load. The message names only the error type | Fix the cause (server log), then retry |
 | `upload_missing` | The stored upload is gone | Upload the document again |

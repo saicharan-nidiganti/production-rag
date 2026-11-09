@@ -14,6 +14,9 @@ from production_rag.parsing import ExtractionError, UnsupportedDocumentError, ex
 from production_rag.parsing.isolation import ParseFailedError, ParseTimeoutError, parse
 from tests.conftest import CORPUS_DIR
 from tests.unit.test_extract import _pdf
+from tests.unit.test_extract_docx import GUIDE as DOCX_GUIDE
+from tests.unit.test_extract_docx import MACRO_DOCUMENT, docx, p
+from tests.unit.test_extract_html import GUIDE as HTML_GUIDE
 
 RUNBOOK = (CORPUS_DIR / "deployment-runbook.md").read_bytes()
 
@@ -29,7 +32,12 @@ def _fake_parser(monkeypatch: pytest.MonkeyPatch, code: str) -> None:
 
 @pytest.mark.parametrize(
     ("name", "data"),
-    [("deployment-runbook.md", RUNBOOK), ("two-pages.pdf", _pdf(["First page.", "Second page."]))],
+    [
+        ("deployment-runbook.md", RUNBOOK),
+        ("two-pages.pdf", _pdf(["First page.", "Second page."])),
+        ("guide.docx", DOCX_GUIDE),
+        ("guide.html", HTML_GUIDE),
+    ],
 )
 def test_isolated_parsing_gives_the_same_result_as_inline(name: str, data: bytes) -> None:
     assert parse(name, data, _isolated()) == extract(name, data)
@@ -38,6 +46,10 @@ def test_isolated_parsing_gives_the_same_result_as_inline(name: str, data: bytes
 def test_expected_errors_keep_their_type_and_message() -> None:
     with pytest.raises(ExtractionError, match=r"^could not read PDF"):
         parse("broken.pdf", b"%PDF-1.7\nnot really a pdf", _isolated())
+    with pytest.raises(UnsupportedDocumentError, match=r"^macro-enabled"):
+        parse("macros.docx", docx(p("Text."), main_type=MACRO_DOCUMENT), _isolated())
+    with pytest.raises(ExtractionError, match=r"^HTML documents must be UTF-8"):
+        parse("latin1.html", b"<p>caf\xe9</p>", _isolated())
     with pytest.raises(UnsupportedDocumentError, match="not a PDF"):
         parse("fake.pdf", b"plain text", _isolated())
 

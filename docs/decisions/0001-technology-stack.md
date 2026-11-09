@@ -81,6 +81,11 @@ values, tuned by evaluation.
 parser with sanitization for HTML, and plain readers for TXT and Markdown.
 Tesseract OCR for scanned PDFs in Phase 8.
 
+> **Amended by [ADR-0009](0009-docx-and-html-extraction.md):** DOCX and HTML
+> are extracted with the standard library (`zipfile`, `ElementTree`,
+> `html.parser`) instead of python-docx, to keep the isolated parser process of
+> [ADR-0007](0007-isolated-document-parsing.md) free of new dependencies.
+
 ### 5. Chunking
 
 **Decision:** structure-aware chunking. Split on headings, then paragraphs, then
