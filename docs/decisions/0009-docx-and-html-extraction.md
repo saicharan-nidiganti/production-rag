@@ -48,7 +48,7 @@ a readable shape for lists and tables. It doesn't need styling, layout or round-
    - Headings come from paragraph styles (following each style's `basedOn` chain, by
      outline level or by the built-in name, so localized style ids work) or from an
      outline level set on the paragraph.
-   - List items get a `- ` marker on their own line; table rows become lines with cells
+   - List items get a `-` marker on their own line; table rows become lines with cells
      joined by ` | `; text boxes are read once, skipping the fallback copy Word writes
      for old readers; deleted text of tracked changes and field codes are dropped.
 2. **HTML** ([html_text.py](../../src/production_rag/parsing/html_text.py)):
@@ -95,7 +95,7 @@ Verified by tests:
 ### Negative and risks
 
 - Not extracted from DOCX: headers and footers, footnotes and endnotes, comments, images,
-  equations and embedded objects. List numbering isn't reproduced (every item gets `- `).
+  equations and embedded objects. List numbering isn't reproduced (every item gets `-`).
 - HTML text hidden only by CSS is kept, and text that a script would add is missing.
 - The extraction rules are ours to maintain, and real-world documents will find cases the
   tests don't cover.
