@@ -320,8 +320,8 @@ def test_every_v1_route_requires_the_api_key(secured_client: TestClient) -> None
     paths: dict[str, dict[str, object]] = secured_client.get("/openapi.json").json()["paths"]
     operations = [(method.upper(), path) for path, ops in paths.items() for method in ops]
     protected = [(m, p) for m, p in operations if p.startswith("/v1/")]
-    # documents: upload, list, get, retry, delete; search; query
-    assert len(protected) == 7, protected
+    # documents: upload, list, get, retry, delete; search; query; query/stream
+    assert len(protected) == 8, protected
     for method, path in protected:
         response = secured_client.request(method, path.replace("{document_id}", "some-id"))
         assert response.status_code == 401, f"{method} {path} answered without the API key"

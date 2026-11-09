@@ -12,6 +12,17 @@ record. Detailed per-session notes and verification results are in
 
 ### Added
 
+- **Streamed answers** (FR-9). `POST /v1/query/stream` answers with Server-Sent
+  Events: `retrieval` first, then `text` and `citation` as the answer is
+  written, then `done` with exactly the `/v1/query` response, or `error` if
+  generation fails after the stream started. `done` is authoritative: a
+  refused answer replaces the streamed text. `rag ask --stream` prints the
+  answer as it is written. With Claude, the final answer is built from the
+  accumulated message with the same code as `/v1/query`, and a client that
+  disconnects closes the stream to the Claude API. The stream counts against
+  the question rate limit
+  ([ADR-0010](docs/decisions/0010-streaming-answers-over-sse.md)).
+
 - **DOCX and HTML uploads** (FR-2, #6). `.docx`, `.html` and `.htm` are
   ingested like Markdown: one section per heading, so citations carry the
   heading path. DOCX headings come from heading styles or outline levels;

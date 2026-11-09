@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from production_rag.config import RetrievalMode
 from production_rag.db.models import Document, DocumentStatus
-from production_rag.generation import AnswerStatus
+from production_rag.generation import AnswerStatus, Citation
 from production_rag.rag import QueryResult
 from production_rag.retrieval import RetrievedChunk, SearchResult
 
@@ -160,6 +160,22 @@ class CitationOut(BaseModel):
     end_char: int
     cited_text: str
 
+    @classmethod
+    def from_citation(cls, citation: Citation) -> CitationOut:
+        chunk = citation.chunk
+        return cls(
+            chunk_id=chunk.chunk_id,
+            chunk_key=chunk.chunk_key,
+            document_id=chunk.document_id,
+            document_title=chunk.document_title,
+            source_name=chunk.source_name,
+            heading=chunk.heading,
+            page=chunk.page,
+            start_char=chunk.start_char,
+            end_char=chunk.end_char,
+            cited_text=citation.cited_text,
+        )
+
 
 class SegmentOut(BaseModel):
     text: str
@@ -184,27 +200,41 @@ class QueryResponse(BaseModel):
             status=answer.status,
             answer=answer.text,
             segments=[SegmentOut(text=s.text, citations=s.citations) for s in answer.segments],
-            citations=[
-                CitationOut(
-                    chunk_id=c.chunk.chunk_id,
-                    chunk_key=c.chunk.chunk_key,
-                    document_id=c.chunk.document_id,
-                    document_title=c.chunk.document_title,
-                    source_name=c.chunk.source_name,
-                    heading=c.chunk.heading,
-                    page=c.chunk.page,
-                    start_char=c.chunk.start_char,
-                    end_char=c.chunk.end_char,
-                    cited_text=c.cited_text,
-                )
-                for c in answer.citations
-            ],
+            citations=[CitationOut.from_citation(c) for c in answer.citations],
             retrieved=[SearchHit.from_chunk(c) for c in result.retrieval.chunks],
             model=answer.model,
             stop_reason=answer.stop_reason,
             usage=answer.usage,
             timings_ms=result.timings_ms,
         )
+
+
+# --- Events of POST /v1/query/stream (Server-Sent Events) ---
+
+
+class StreamRetrieval(BaseModel):
+    """``event: retrieval``, first: the passages the answer will draw on."""
+
+    retrieved: list[SearchHit]
+    abstained_before_generation: bool = Field(
+        description="True when retrieval found no usable evidence: no model is called, and "
+        "`done` follows with status `insufficient_evidence`."
+    )
+
+
+class StreamText(BaseModel):
+    """``event: text``: more answer text, to append to what came before."""
+
+    text: str
+
+
+class StreamCitation(BaseModel):
+    """``event: citation``: a citation seen for the first time."""
+
+    index: int = Field(
+        description="Its position in `done`'s `citations`, unless the answer is refused."
+    )
+    citation: CitationOut
 
 
 class ErrorBody(BaseModel):

@@ -44,7 +44,7 @@ def operation_for(method: str, path: str) -> Operation:
             path.startswith("/v1/documents/") and path.endswith("/retry")
         ):
             return "upload"
-        if path == "/v1/query":
+        if path in ("/v1/query", "/v1/query/stream"):
             return "query"
         if path == "/v1/search":
             return "search"

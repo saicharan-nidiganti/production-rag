@@ -40,9 +40,10 @@ documents, and as a worked example of taking RAG from prototype to an engineered
 | Hybrid retrieval (BM25 + vectors, fused) with optional cross-encoder reranking | **Implemented and verified**: CI gate for the offline configuration; free gates for the recommended models, run locally |
 | Abstention on off-topic questions before any model call | **Implemented and verified**: 4 of 4 held-out off-topic questions, with no false abstentions |
 | Per-client rate limits on uploads, questions, searches and failed API keys, with 429 and `Retry-After` | **Implemented and verified**: tests; the limits are kept per process |
+| Answers streamed as they are written (`POST /v1/query/stream`, Server-Sent Events; `rag ask --stream`), ending with the same response as `/v1/query` | **Implemented and verified**: tests through the Claude SDK's stream parser with recorded events, and a real-server smoke test in CI; not yet run live against Claude |
 | Grounded answers from Claude with native citations | **Implemented, not verified live**: tested offline against a fake client; the paid evaluation hasn't run |
 | Declining on-topic questions the documents can't answer; resisting a planted prompt injection | **Not verified**: both depend on Claude and are what the pending paid evaluation measures |
-| Accounts and per-user isolation, answer streaming, web UI | **Planned** ([roadmap](docs/roadmap.md)) |
+| Accounts and per-user isolation, web UI | **Planned** ([roadmap](docs/roadmap.md)) |
 
 ## Architecture
 
@@ -161,6 +162,10 @@ curl -s "$RAG_URL/v1/documents/<document-id>" -H "Authorization: Bearer $RAG_API
 # Ask.
 curl -s "$RAG_URL/v1/query" -H "Authorization: Bearer $RAG_API_KEY" \
   -H "Content-Type: application/json" -d '{"question": "How long does the canary run?"}'
+
+# Ask, and stream the answer as it is written (Server-Sent Events).
+curl -sN "$RAG_URL/v1/query/stream" -H "Authorization: Bearer $RAG_API_KEY" \
+  -H "Content-Type: application/json" -d '{"question": "How long does the canary run?"}'
 ```
 
 A real response from the offline configuration, abridged (`retrieved`, ids and timings
@@ -249,9 +254,8 @@ vulnerabilities privately: [SECURITY.md](SECURITY.md).
 
 1. The first paid Claude evaluation, focused on on-topic unanswerable questions and the
    planted injection (prepared, with a cost preview; awaiting approval and credit).
-2. Streaming answers.
-3. Accounts and per-user isolation on PostgreSQL with pgvector.
-4. A web interface.
+2. Accounts and per-user isolation on PostgreSQL with pgvector.
+3. A web interface.
 
 The phase-by-phase plan is in [docs/roadmap.md](docs/roadmap.md); decisions and their
 trade-offs are in the [ADRs](docs/decisions/README.md).

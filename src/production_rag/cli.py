@@ -15,6 +15,7 @@ from production_rag.observability import configure_logging
 
 if TYPE_CHECKING:
     from production_rag.container import Container
+    from production_rag.rag import QueryResult
 
 
 def _container(settings: Settings) -> Container:
@@ -112,24 +113,58 @@ def cmd_ask(args: argparse.Namespace, settings: Settings) -> int:
     from production_rag.generation import GenerationError
 
     container = _container(settings)
+    streamed: str | None = None
     try:
-        result = container.rag.answer(args.question, top_k=args.top_k, mode=args.mode)
+        if args.stream:
+            result, streamed = _ask_streaming(container, args)
+        else:
+            result = container.rag.answer(args.question, top_k=args.top_k, mode=args.mode)
     except GenerationError as exc:
+        if args.stream:
+            print()  # end the partial answer's line
         print(f"generation failed: {exc}{_upstream_detail(exc)}", file=sys.stderr)
         return 1
     finally:
         container.close()
     answer = result.answer
-    print(f"[{answer.status} | {answer.model}]\n")
-    for segment in answer.segments:
-        marks = "".join(f"[{i + 1}]" for i in segment.citations)
-        text = segment.text.rstrip()  # markers go after the sentence, before its spacing
-        print(f"{text}{marks}{segment.text[len(text) :]}", end="")
-    print("\n")
+    if streamed is not None:
+        # The text is already on screen; the final answer only differs when the service
+        # abstained (nothing was streamed) or the model refused (the partial is withdrawn).
+        print(f"[{answer.status} | {answer.model}]")
+        if answer.text != streamed:
+            withdrawn = "The text above is withdrawn. " if streamed else ""
+            print(f"{withdrawn}{answer.text}")
+    else:
+        print(f"[{answer.status} | {answer.model}]\n")
+        for segment in answer.segments:
+            marks = "".join(f"[{i + 1}]" for i in segment.citations)
+            text = segment.text.rstrip()  # markers go after the sentence, before its spacing
+            print(f"{text}{marks}{segment.text[len(text) :]}", end="")
+        print("\n")
     for i, citation in enumerate(answer.citations, start=1):
         chunk = citation.chunk
         print(f"[{i}] {chunk.source_name} - {chunk.heading or '(no heading)'}")
     return 0
+
+
+def _ask_streaming(container: Container, args: argparse.Namespace) -> tuple[QueryResult, str]:
+    """Print the answer as it is written; return the final result and the text printed."""
+    from production_rag.generation import TextDelta
+    from production_rag.rag import QueryDone
+
+    printed: list[str] = []
+    result: QueryResult | None = None
+    for event in container.rag.stream_answer(args.question, top_k=args.top_k, mode=args.mode):
+        if isinstance(event, TextDelta):
+            print(event.text, end="", flush=True)
+            printed.append(event.text)
+        elif isinstance(event, QueryDone):
+            result = event.result
+    if printed:
+        print("\n")
+    if result is None:
+        raise RuntimeError("the answer stream ended without a result")
+    return result, "".join(printed)
 
 
 def cmd_reindex(_: argparse.Namespace, settings: Settings) -> int:
@@ -349,6 +384,10 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument(arg)
         p.add_argument("--top-k", type=int)
         p.add_argument("--mode", choices=modes)
+        if name == "ask":
+            p.add_argument(
+                "--stream", action="store_true", help="print the answer as it is written"
+            )
         p.set_defaults(func=func)
 
     reindex = sub.add_parser("reindex", help="re-embed chunks after changing the embedding model")

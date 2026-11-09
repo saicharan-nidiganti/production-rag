@@ -39,7 +39,7 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould.
 | FR-6 | Users can ask a question across all of their documents or a selected subset. | M | 3–4 | Partial: all documents; subset selection pending |
 | FR-7 | Answers are generated only from retrieved evidence and carry inline citations that identify the document, the page (where the format has pages) and the passage. | M | 4 | Done: document, heading path, page, passage |
 | FR-8 | When the evidence is insufficient, the system states that the documents do not contain the answer. Partially supported answers identify which parts are unsupported. | M | 4 | Partial: retrieval-level abstention catches off-topic questions; on-topic unanswerable ones rely on the generator; partial-support marking relies on the model prompt |
-| FR-9 | Answers stream to the client as they are generated. | S | 4 | Not started |
+| FR-9 | Answers stream to the client as they are generated. | S | 4 | Met: `POST /v1/query/stream` (Server-Sent Events) and `rag ask --stream` ([ADR-0010](decisions/0010-streaming-answers-over-sse.md)); not yet run live against Claude |
 | FR-10 | Selecting a citation shows the cited passage and its location in the source document. | M | 6 | Partial: the API returns cited text and offsets; UI in Phase 6 |
 | FR-11 | Follow-up questions can use the earlier turns of the same conversation. | S | 4 | Not started |
 | FR-12 | Scanned (image-only) PDFs are processed with OCR. Until then they fail with a clear "no extractable text" message. | S | 8 | Interim behavior done (clear error); OCR not started |

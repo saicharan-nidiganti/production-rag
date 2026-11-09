@@ -42,6 +42,18 @@ don't share the database file across machines or over network filesystems
 Put a reverse proxy in front for TLS and to cap request bodies at `RAG_MAX_UPLOAD_BYTES`. The
 app enforces the limit too, but only after the body has been received.
 
+## Streaming
+
+`POST /v1/query/stream` answers with Server-Sent Events
+([ADR-0010](decisions/0010-streaming-answers-over-sse.md)). Behind a reverse proxy:
+
+- Don't buffer it. The response sends `X-Accel-Buffering: no`, which nginx honours; for
+  other proxies, turn response buffering off for that path.
+- Allow quiet periods. Before the first text, Claude may think for a while and nothing is
+  sent; the proxy's read or idle timeout must be longer than `RAG_ANTHROPIC_TIMEOUT_S`.
+- A client that disconnects stops the generation within one event, so abandoned answers
+  aren't billed to the end.
+
 ## Rate limits
 
 The API limits each client address per minute: by default 30 uploads and retries, 60
@@ -122,7 +134,7 @@ Logs are JSON lines on stderr. Useful fields and signals:
 | Request rate, latency and errors by path | `event = http.request` (`status`, `duration_ms`, `path`) |
 | Answer outcomes | `event = query.completed`: count by `status`; watch the `insufficient_evidence` share |
 | Pre-generation abstentions | `query.completed` with `abstained_before_generation = true` |
-| Stage latency | `query.completed.timings_ms.retrieval` / `.generation` |
+| Stage latency | `query.completed.timings_ms.retrieval` / `.generation`; for streamed answers (`streamed = true`) also `.first_token`, the time to the first text |
 | Model usage and cost | `event = generation.completed`: `input_tokens`, `output_tokens`, `model` |
 | Ingestion throughput and failures | `ingest.queued`, `ingest.completed` (`chunks`, `duration_ms`), `ingest.failed` (`error_code`, `attempt`) |
 | Ingestion recovery | `ingest.recovered` (a lapsed lease was taken over), `ingest.claim_lost` (a late worker's result was discarded), `ingest.released` (handed back at shutdown) |

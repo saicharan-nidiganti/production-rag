@@ -4,6 +4,10 @@ Each retrieved chunk is sent as one ``search_result`` block with citations enabl
 returns text blocks whose ``search_result_location`` citations name the block they rely on
 by ``search_result_index``, which maps straight back to the chunk, so a citation can only
 point at evidence that was actually retrieved.
+
+``generate`` sends one request; ``stream`` sends the same request with streaming, forwards
+text and citations as they arrive, and ends with the answer built from the accumulated
+message exactly as ``generate`` builds it.
 """
 
 from __future__ import annotations
@@ -14,15 +18,20 @@ from contextlib import contextmanager
 from typing import Any
 
 import anthropic
+from anthropic.types.beta import BetaCitationSearchResultLocation, BetaMessage
 
 from production_rag.config import Settings
 from production_rag.generation.base import (
+    AnswerComplete,
     AnswerSegment,
     AnswerStatus,
     Citation,
+    CitationAdded,
     CitationCollector,
     GeneratedAnswer,
     GenerationError,
+    GenerationEvent,
+    TextDelta,
 )
 from production_rag.retrieval import RetrievedChunk
 
@@ -53,6 +62,15 @@ def chunk_title(chunk: RetrievedChunk) -> str:
     return title
 
 
+def _cited_chunk(citation: object, chunks: Sequence[RetrievedChunk]) -> Citation | None:
+    """The retrieved chunk a citation points at, or None for any other kind of citation."""
+    if not isinstance(citation, BetaCitationSearchResultLocation):
+        return None
+    if not 0 <= citation.search_result_index < len(chunks):
+        return None
+    return Citation(chunk=chunks[citation.search_result_index], cited_text=citation.cited_text)
+
+
 def build_search_results(chunks: Sequence[RetrievedChunk]) -> list[dict[str, Any]]:
     return [
         {
@@ -64,6 +82,19 @@ def build_search_results(chunks: Sequence[RetrievedChunk]) -> list[dict[str, Any
         }
         for chunk in chunks
     ]
+
+
+# Error types worth retrying. A stream reports a failure after it started as an error event,
+# which the SDK raises as a plain APIStatusError with the stream's HTTP status, 200, so the
+# type in its body is the only sign of whether it was transient.
+_TRANSIENT_ERROR_TYPES = frozenset({"api_error", "overloaded_error", "rate_limit_error"})
+
+
+def _error_type(exc: anthropic.APIStatusError) -> str | None:
+    body = exc.body
+    error = body.get("error") if isinstance(body, dict) else None
+    kind = error.get("type") if isinstance(error, dict) else None
+    return kind if isinstance(kind, str) else None
 
 
 @contextmanager
@@ -91,10 +122,13 @@ def _mapped_api_errors() -> Iterator[None]:
             f"Claude API rejected the request (HTTP {exc.status_code})", retryable=False
         ) from exc
     except anthropic.APIStatusError as exc:
-        retryable = exc.status_code >= 500
-        raise GenerationError(
-            f"Claude API error (HTTP {exc.status_code})", retryable=retryable
-        ) from exc
+        error_type = _error_type(exc)
+        retryable = exc.status_code >= 500 or error_type in _TRANSIENT_ERROR_TYPES
+        if exc.status_code == 200:  # an error event in a stream that had already started
+            what = f"{error_type or 'an error'} during the stream"
+        else:
+            what = f"HTTP {exc.status_code}"
+        raise GenerationError(f"Claude API error ({what})", retryable=retryable) from exc
     except anthropic.APIConnectionError as exc:
         raise GenerationError("could not reach the Claude API", retryable=True) from exc
     except TypeError as exc:
@@ -154,7 +188,37 @@ class AnthropicGenerator:
         request = self.build_request(question, chunks)
         with _mapped_api_errors():
             response = self._client.beta.messages.create(**request)
+        return self._answer(response, chunks, streamed=False)
 
+    def stream(self, question: str, chunks: Sequence[RetrievedChunk]) -> Iterator[GenerationEvent]:
+        """Text and citations as Claude writes them, then the complete answer.
+
+        The final ``AnswerComplete`` is authoritative. With server-side fallbacks, a refusal
+        partway through doesn't take back what was streamed: the fallback model continues
+        from it on the same stream, after a ``fallback`` block. If the answer still ends in a
+        refusal, the text streamed before it must be discarded, and the final answer says so.
+        Closing the iterator early (a client that went away) closes the stream to the API.
+        """
+        request = self.build_request(question, chunks)
+        announced: dict[tuple[int, str], int] = {}  # same de-duplication as CitationCollector
+        with _mapped_api_errors(), self._client.beta.messages.stream(**request) as stream:
+            for event in stream:
+                if event.type == "text":
+                    yield TextDelta(event.text)
+                elif event.type == "citation":
+                    citation = _cited_chunk(event.citation, chunks)
+                    if citation is None:
+                        continue
+                    key = (citation.chunk.chunk_id, citation.cited_text)
+                    if key not in announced:
+                        announced[key] = len(announced)
+                        yield CitationAdded(announced[key], citation)
+            response = stream.get_final_message()
+        yield AnswerComplete(self._answer(response, chunks, streamed=True))
+
+    def _answer(
+        self, response: BetaMessage, chunks: Sequence[RetrievedChunk], *, streamed: bool
+    ) -> GeneratedAnswer:
         usage = {
             "input_tokens": response.usage.input_tokens,
             "output_tokens": response.usage.output_tokens,
@@ -165,6 +229,7 @@ class AnthropicGenerator:
                 "model": response.model,
                 "stop_reason": response.stop_reason,
                 "anthropic_request_id": getattr(response, "_request_id", None),
+                "streamed": streamed,
                 **usage,
             },
         )
@@ -185,11 +250,7 @@ class AnthropicGenerator:
         for block in response.content:
             if block.type != "text":
                 continue  # thinking, fallback markers, etc.
-            cited = [
-                Citation(chunk=chunks[c.search_result_index], cited_text=c.cited_text)
-                for c in block.citations or []
-                if c.type == "search_result_location" and 0 <= c.search_result_index < len(chunks)
-            ]
+            cited = [c for c in (_cited_chunk(c, chunks) for c in block.citations or []) if c]
             collector.add(block.text, cited)
 
         # An answer that cites nothing isn't grounded in the retrieved evidence, so it isn't

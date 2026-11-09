@@ -57,7 +57,8 @@ Proposed for v0:
    A failed ingestion leaves nothing behind (NFR-5). There is no job queue and
    no `queued`/`processing`/`failed` status (FR-3 is not met).
 4. **API:** synchronous FastAPI handlers, which run in the threadpool. No
-   streaming (FR-9 is not met).
+   streaming (FR-9 is not met). *Since met by
+   [ADR-0010](0010-streaming-answers-over-sse.md).*
 
 The data model already follows ADR-0001 where that's cheap: each chunk records
 its `embedding_model`, character offsets, section path and page; duplicates are

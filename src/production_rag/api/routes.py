@@ -6,9 +6,10 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import text
 
+from production_rag.api import streaming
 from production_rag.api.errors import NotFoundError
 from production_rag.api.schemas import (
     DocumentList,
@@ -26,7 +27,7 @@ from production_rag.container import Container
 from production_rag.db.migrate import current_revision, head_revision
 from production_rag.db.models import DocumentStatus
 from production_rag.ingestion import DocumentTooLargeError, IngestionWorker
-from production_rag.observability import Timer
+from production_rag.observability import Timer, request_id_var
 
 
 def get_container(request: Request) -> Container:
@@ -165,3 +166,27 @@ def search(container: ContainerDep, body: SearchRequest) -> SearchResponse:
 def query(container: ContainerDep, body: QueryRequest) -> QueryResponse:
     result = container.rag.answer(body.question, top_k=body.top_k, mode=body.mode)
     return QueryResponse.from_result(result)
+
+
+@api_router.post(
+    "/query/stream",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "description": "Server-Sent Events: `retrieval`, then `text` and `citation` as the "
+            "answer is written, then `done` (the `/v1/query` response) or `error`.",
+            "content": {streaming.MEDIA_TYPE: {"schema": {"type": "string"}}},
+        },
+        **_ERRORS,
+    },
+)
+def query_stream(container: ContainerDep, body: QueryRequest) -> StreamingResponse:
+    """`/v1/query`, streamed as the answer is written (FR-9). See docs/api.md."""
+    events = container.rag.stream_answer(body.question, top_k=body.top_k, mode=body.mode)
+    first = next(events)  # retrieval runs here, so its errors are ordinary HTTP errors
+    stream = streaming.sse_events(first, events, request_id_var.get())
+    return StreamingResponse(
+        streaming.iterate_closing(stream),
+        media_type=streaming.MEDIA_TYPE,
+        headers=streaming.HEADERS,
+    )

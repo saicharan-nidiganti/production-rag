@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
@@ -44,6 +44,33 @@ class GeneratedAnswer:
         return "".join(segment.text for segment in self.segments)
 
 
+@dataclass(frozen=True)
+class TextDelta:
+    """More answer text, as it is generated."""
+
+    text: str
+
+
+@dataclass(frozen=True)
+class CitationAdded:
+    """A citation seen for the first time while streaming. ``index`` is its position in the
+    final answer's ``citations``, unless the answer ends up refused."""
+
+    index: int
+    citation: Citation
+
+
+@dataclass(frozen=True)
+class AnswerComplete:
+    """The complete answer, always the last event of a stream and the authoritative one: a
+    refused answer replaces any text streamed before it."""
+
+    answer: GeneratedAnswer
+
+
+GenerationEvent = TextDelta | CitationAdded | AnswerComplete
+
+
 class GenerationError(RuntimeError):
     """The generation backend failed. ``retryable`` separates transient faults (rate limits,
     overload, network) from configuration problems (bad credentials, unknown model)."""
@@ -58,6 +85,24 @@ class Generator(Protocol):
     def model_id(self) -> str: ...
 
     def generate(self, question: str, chunks: Sequence[RetrievedChunk]) -> GeneratedAnswer: ...
+
+    def stream(self, question: str, chunks: Sequence[RetrievedChunk]) -> Iterator[GenerationEvent]:
+        """``generate``, as it happens: text and citations as they are produced, then one
+        ``AnswerComplete`` with the answer ``generate`` would have returned."""
+        ...
+
+
+def replay(answer: GeneratedAnswer) -> Iterator[GenerationEvent]:
+    """Stream an answer that is already complete: each citation before the first text it
+    supports, the text segment by segment, then the answer itself."""
+    announced: set[int] = set()
+    for segment in answer.segments:
+        for index in segment.citations:
+            if index not in announced:
+                announced.add(index)
+                yield CitationAdded(index, answer.citations[index])
+        yield TextDelta(segment.text)
+    yield AnswerComplete(answer)
 
 
 class CitationCollector:

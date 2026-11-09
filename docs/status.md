@@ -37,9 +37,33 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 | Ingestion status (FR-3) | Met: `queued` → `processing` → `ready` or `failed` with a code and message, retry, recovery after crashes and restarts ([ADR-0006](decisions/0006-background-ingestion.md)) |
 | Rate limits (NFR-2) | Met within one process: per client for authentication failures, uploads, questions, searches and other requests; across processes, at the reverse proxy ([operations.md](operations.md#rate-limits)) |
 | File types (FR-2) | Met: PDF (text layer), DOCX, TXT, Markdown and HTML, parsed in the isolated process ([ADR-0009](decisions/0009-docx-and-html-extraction.md)) |
-| Streaming (FR-9) | Not started |
+| Streaming (FR-9) | Met: `POST /v1/query/stream` (Server-Sent Events) and `rag ask --stream` ([ADR-0010](decisions/0010-streaming-answers-over-sse.md)); verified through the Claude SDK's stream parser with recorded events and a real-server smoke test, not yet live against Claude |
 
 ## Session log
+
+### Session 13 — Streamed answers (2026-11-10)
+
+- **FR-9:** `POST /v1/query/stream` answers with Server-Sent Events: `retrieval`, then
+  `text` and `citation` as the answer is written, then `done`, which is exactly the
+  `/v1/query` response, or `error` ([ADR-0010](decisions/0010-streaming-answers-over-sse.md)). Retrieval, validation, authentication and rate
+  limits happen before the stream, so their errors stay ordinary HTTP errors; the stream
+  shares the question rate limit. `rag ask --stream` prints the answer as it is written.
+- **Generators** gained `stream()`. The Claude generator uses the SDK's `messages.stream`
+  and builds the final answer from `get_final_message()` with the code `generate()` uses
+  (`_answer`), so both give identical answers; citations are announced as they arrive,
+  de-duplicated like `CitationCollector`. With server-side fallbacks a mid-stream refusal
+  keeps the streamed text; a refusal that stands withdraws it in `done`.
+- **Disconnects:** closing the stream closes the iterator chain down to the SDK stream and
+  the HTTP connection to the API. Starlette doesn't close a synchronous body iterator on
+  disconnect, so the endpoint wraps it (`api/streaming.iterate_closing`).
+- **Fix found on the way:** an `error` event inside Claude's stream reaches the SDK caller as
+  an `APIStatusError` with HTTP status 200, which the old mapping called non-retryable.
+  Errors are now classified by their type too (`overloaded_error`, `api_error` retryable).
+- **Tests:** the Claude stream runs through the real SDK with a mock HTTP transport replaying
+  Messages API events (text, citations, thinking, a mid-stream fallback, a refusal, errors
+  before and during the stream, early close); the service, the endpoint and the CLI end to
+  end; the smoke test reads a streamed answer from a real server. Each protection was
+  checked by removing it. Not run live against Claude (D-4).
 
 ### Session 12 — DOCX and HTML (2026-11-10)
 

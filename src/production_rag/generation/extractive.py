@@ -8,7 +8,7 @@ synthesise, paraphrase or reason across passages.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 
 from production_rag.generation.base import (
     INSUFFICIENT_EVIDENCE_MESSAGE,
@@ -16,6 +16,8 @@ from production_rag.generation.base import (
     Citation,
     CitationCollector,
     GeneratedAnswer,
+    GenerationEvent,
+    replay,
 )
 from production_rag.retrieval import RetrievedChunk
 from production_rag.text import content_tokens
@@ -46,6 +48,10 @@ class ExtractiveGenerator:
     @property
     def model_id(self) -> str:
         return "extractive-v1"
+
+    def stream(self, question: str, chunks: Sequence[RetrievedChunk]) -> Iterator[GenerationEvent]:
+        """The answer is computed at once, then streamed sentence by sentence."""
+        return replay(self.generate(question, chunks))
 
     def generate(self, question: str, chunks: Sequence[RetrievedChunk]) -> GeneratedAnswer:
         terms = set(content_tokens(question))

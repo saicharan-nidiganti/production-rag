@@ -63,7 +63,7 @@ the item notes the proposed decision.
 - [x] Implement unsupported-answer handling — pre-generation abstention and the uncited-answer rule
 - [ ] Defend against prompt injection in document content — system-prompt mitigation in place; injection cases in golden v2 (`t-par-*`), to be measured with Claude
 - [x] Add generation tests
-- [ ] Stream answers to the client (FR-9)
+- [x] Stream answers to the client (FR-9), over Server-Sent Events ([ADR-0010](decisions/0010-streaming-answers-over-sse.md))
 - [ ] Measure Claude answers: prepared (`rag eval --plan`, acceptance gate `eval/thresholds.claude.json`); blocked on API credit and the owner's authorization
 
 ## Phase 5 — Security and Multi-User Isolation

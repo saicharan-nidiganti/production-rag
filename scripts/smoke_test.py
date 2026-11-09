@@ -2,14 +2,16 @@
 
 Starts ``rag serve`` against a temporary database with the offline configuration (hashing
 embeddings, extractive generator, no API key), then checks readiness, background ingestion,
-search and a cited answer. CI runs it after the test suite (``make smoke``). It exits
-non-zero at the first failed check and prints the server's log.
+search, a cited answer and the same answer streamed over Server-Sent Events. CI runs it after
+the test suite (``make smoke``). It exits non-zero at the first failed check and prints the
+server's log.
 
     uv run python scripts/smoke_test.py
 """
 
 from __future__ import annotations
 
+import json
 import os
 import signal
 import socket
@@ -135,6 +137,26 @@ def check(
         raise SmokeTestError(f"request failed: {exc}") from exc
 
 
+def _stream(
+    client: httpx.Client, path: str, body: dict[str, Any]
+) -> list[tuple[str, dict[str, Any]]]:
+    """The Server-Sent Events a POST to ``path`` sends, read as they arrive."""
+    events: list[tuple[str, dict[str, Any]]] = []
+    with client.stream("POST", path, json=body) as response:
+        content_type = response.headers.get("content-type", "")
+        _check(
+            response.status_code == 200 and content_type.startswith("text/event-stream"),
+            f"POST {path} answers with Server-Sent Events",
+        )
+        name: str | None = None
+        for line in response.iter_lines():
+            if line.startswith("event: "):
+                name = line.removeprefix("event: ")
+            elif line.startswith("data: ") and name is not None:
+                events.append((name, json.loads(line.removeprefix("data: "))))
+    return events
+
+
 def _exercise(
     client: httpx.Client,
     server: subprocess.Popen[bytes] | None,
@@ -173,6 +195,19 @@ def _exercise(
         and bool(answer["citations"]),
         "POST /v1/query answers with a citation",
     )
+
+    events = _stream(client, "/v1/query/stream", {"question": "How long does the canary run?"})
+    names = [name for name, _ in events]
+    _check(
+        bool(names) and names[0] == "retrieval" and names[-1] == "done" and "citation" in names,
+        "POST /v1/query/stream sends retrieval, citations and done",
+    )
+    streamed = "".join(data["text"] for name, data in events if name == "text")
+    _check(
+        streamed == events[-1][1]["answer"] == answer["answer"],
+        "the streamed text adds up to the /v1/query answer",
+    )
+
     ingestion = client.get("/ready").json()["checks"]["ingestion"]
     _check(ingestion["ready"] == 1 and ingestion["workers"] == 1, "GET /ready reports ingestion")
 

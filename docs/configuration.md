@@ -126,7 +126,7 @@ Changing the provider, model or dimensions requires `rag reindex`
 | `RAG_API_KEY` | unset | When set, every route except `/health`, `/ready` and the API docs (`/docs`, `/redoc`, `/openapi.json`) requires `Authorization: Bearer <key>` or `X-API-Key: <key>`, checked before the request body is read. At least 16 characters. |
 | `RAG_MAX_REQUEST_BYTES` | `65536` (64 KiB) | Largest request body outside uploads (search and question JSON; minimum 1024). Uploads are limited by `RAG_MAX_UPLOAD_BYTES` plus 64 KiB for multipart framing. Both are enforced while the body arrives: a larger declared `Content-Length` gets 413 before anything is read. |
 | `RAG_RATE_LIMIT_UPLOAD_PER_MINUTE` | `30` | Uploads and retries (`POST /v1/documents`, `POST /v1/documents/{id}/retry`) per client per minute. |
-| `RAG_RATE_LIMIT_QUERY_PER_MINUTE` | `60` | Questions (`POST /v1/query`, which can call a paid model) per client per minute. |
+| `RAG_RATE_LIMIT_QUERY_PER_MINUTE` | `60` | Questions (`POST /v1/query` and `/v1/query/stream`, which can call a paid model) per client per minute. |
 | `RAG_RATE_LIMIT_SEARCH_PER_MINUTE` | `120` | Searches (`POST /v1/search`) per client per minute. |
 | `RAG_RATE_LIMIT_READ_PER_MINUTE` | `600` | Every other `/v1` request per client per minute. |
 | `RAG_RATE_LIMIT_AUTH_FAILURES_PER_MINUTE` | `10` | Missing or wrong API keys per client per minute, when `RAG_API_KEY` is set. Past it, the client gets 429 without its key being checked, even a correct one, until an attempt refills. |

@@ -82,7 +82,8 @@ Proposed:
 - The extractive baseline answers some unanswerable questions (3 of 6 declined
   on golden v1), because word overlap is a weak relevance signal. It is a
   floor, not a candidate for production.
-- No streaming yet (FR-9).
+- No streaming yet (FR-9). *Since added by
+  [ADR-0010](0010-streaming-answers-over-sse.md), with the same citations.*
 
 ## Revisit when
 

@@ -370,7 +370,7 @@ deployment and the remaining gaps.
 | Tenancy | Single tenant, optional API key | Accounts, Argon2id, cookie sessions, `owner_id` in every query (ADR-0001 §10) | 5 |
 | Ingestion | Synchronous, in the request | Postgres job queue and worker, `queued`/`processing`/`ready`/`failed` (FR-3) | 2 |
 | File types | PDF, TXT, Markdown, DOCX, HTML (FR-2) | OCR for scanned PDFs (FR-12) | 8 |
-| Answers | Single request/response | Streaming (FR-9), conversations (FR-11) | 4 |
+| Answers | One response, or streamed over Server-Sent Events (FR-9, [ADR-0010](decisions/0010-streaming-answers-over-sse.md)) | Conversations (FR-11) | 4 |
 | Interface | HTTP API and CLI | React + Vite web app (ADR-0001 §11) | 6 |
 
 The v1 data model planned in Session 0:

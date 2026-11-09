@@ -325,3 +325,66 @@ chunk settings changes the keys of every chunk whose span moves.
 With `RAG_GENERATOR=anthropic`, `model` is the Claude model that answered, and
 citations come from Claude's search-result citations
 ([ADR-0003](decisions/0003-generation-provider-claude.md)).
+
+### `POST /v1/query/stream`
+
+The same request as `POST /v1/query`, answered as [Server-Sent
+Events](https://html.spec.whatwg.org/multipage/server-sent-events.html) while
+the answer is written (FR-9, [ADR-0010](decisions/0010-streaming-answers-over-sse.md)).
+Each event is an `event:` line naming it and one `data:` line of JSON:
+
+| Event | When | `data` |
+| --- | --- | --- |
+| `retrieval` | Once, first | `retrieved` (search hits) and `abstained_before_generation` |
+| `text` | Any number | `text`: more answer text, to append |
+| `citation` | Any number | `index` (its position in `done`'s `citations`) and `citation` |
+| `done` | Once, last | The `POST /v1/query` response, exactly |
+| `error` | Instead of `done` | The error envelope: generation failed after the stream started |
+
+```bash
+curl -sN "$RAG_URL/v1/query/stream" -H "Authorization: Bearer $RAG_API_KEY" \
+  -H "Content-Type: application/json" -d '{"question": "How long does the canary run?"}'
+```
+
+A real stream from the offline configuration, abridged:
+
+```text
+event: retrieval
+data: {"retrieved": ["..."], "abstained_before_generation": false}
+
+event: citation
+data: {"index": 0, "citation": {"chunk_id": 3, "source_name": "deployment-runbook.md", "heading": "Deployment Runbook > Canary releases", "...": "..."}}
+
+event: text
+data: {"text": "Production rollouts start with a canary. "}
+
+event: citation
+data: {"index": 1, "citation": {"chunk_id": 3, "...": "..."}}
+
+event: text
+data: {"text": "The canary receives 5% of production traffic for 30 minutes. "}
+
+event: done
+data: {"status": "answered", "answer": "Production rollouts start with a canary. The canary receives...", "...": "...", "timings_ms": {"retrieval": 3.79, "first_token": 5.73, "generation": 2.61, "total": 7.66}}
+```
+
+- **`done` is authoritative.** When its `status` is `refused`, discard the
+  streamed text and show `done.answer` instead: the model declined partway and
+  no fallback model completed the answer. When the model declines and a
+  fallback model takes over (`RAG_ANTHROPIC_FALLBACKS`), the streamed text is
+  kept and the fallback continues it, so no special handling is needed.
+- `done.segments` and `done.citations` give the inline citation markers, as for
+  `/v1/query`. `done.timings_ms.first_token` is the time from the request to
+  the first text.
+- **Errors.** Validation, authentication, rate limits and retrieval failures
+  are ordinary HTTP errors, before the stream starts. Once it has started, a
+  generation failure is an `error` event with `generation_unavailable`
+  (retryable) or `generation_failed`, and an unexpected one with
+  `internal_error`, each with the request id. Nothing follows an `error`.
+- The stream counts against the question rate limit
+  (`RAG_RATE_LIMIT_QUERY_PER_MINUTE`), like `/v1/query`.
+- Closing the connection stops the generation, so an abandoned answer isn't
+  generated, or billed, to the end.
+- Responses carry `Cache-Control: no-cache` and `X-Accel-Buffering: no`; a
+  reverse proxy must pass the stream through unbuffered
+  ([operations.md](operations.md#streaming)).

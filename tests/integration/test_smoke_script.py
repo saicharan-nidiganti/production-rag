@@ -56,9 +56,20 @@ def _healthy(request: httpx.Request) -> httpx.Response:
     if path == "/v1/search":
         return httpx.Response(200, json={"hits": [{"source_name": smoke.DOCUMENT.name}]})
     if path == "/v1/query":
-        body = {"status": "answered", "answer": "It runs for 30 minutes.", "citations": [{}]}
+        body = {"status": "answered", "answer": ANSWER, "citations": [{}]}
         return httpx.Response(200, json=body)
+    if path == "/v1/query/stream":
+        return _sse(("retrieval", {}), ("citation", {}), ("text", {"text": ANSWER}),
+                    ("done", {"answer": ANSWER}))  # fmt: skip
     return httpx.Response(404)
+
+
+ANSWER = "It runs for 30 minutes."
+
+
+def _sse(*events: tuple[str, dict[str, object]]) -> httpx.Response:
+    body = "".join(f"event: {name}\ndata: {json.dumps(data)}\n\n" for name, data in events)
+    return httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
 
 
 def _client(handler: Handler) -> httpx.Client:
@@ -183,4 +194,22 @@ def test_mock_responses_match_the_real_api_shape(client: TestClient) -> None:
         json.loads(_healthy(httpx.Request("GET", "http://x/health")).text)
         == {"status": "ok"}
         == client.get("/health").json()
+    )
+
+
+def test_fails_when_the_stream_disagrees_with_the_answer() -> None:
+    other = "Something else."
+    events = (
+        ("retrieval", {}),
+        ("citation", {}),
+        ("text", {"text": other}),
+        ("done", {"answer": other}),
+    )
+    _fails(_with("/v1/query/stream", lambda _: _sse(*events)), "adds up to the /v1/query answer")
+
+
+def test_fails_when_the_stream_is_not_server_sent_events() -> None:
+    _fails(
+        _with("/v1/query/stream", lambda _: httpx.Response(200, json={})),
+        "answers with Server-Sent Events",
     )

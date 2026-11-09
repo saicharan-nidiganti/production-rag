@@ -133,6 +133,7 @@ def test_client_keys(address: str | None, key: str) -> None:
         ("POST", "/v1/documents", "upload"),
         ("POST", "/v1/documents/42/retry", "upload"),
         ("POST", "/v1/query", "query"),
+        ("POST", "/v1/query/stream", "query"),  # it can call the paid model too
         ("POST", "/v1/search", "search"),
         ("GET", "/v1/documents", "read"),
         ("GET", "/v1/documents/42", "read"),
