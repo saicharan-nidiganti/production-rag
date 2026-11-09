@@ -222,7 +222,7 @@ class _Clock:
         return self.now
 
 
-WRONG_KEY = "wrong-key-0123456789"
+WRONG_KEY = "w" * 20  # long enough to be checked; obviously fake
 
 
 def test_a_client_over_its_limit_is_refused_until_its_allowance_refills(

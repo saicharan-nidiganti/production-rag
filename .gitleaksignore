@@ -3,3 +3,6 @@
 # f7e27a2: a made-up RAG_API_KEY value in a test, replaced in the next
 # commit by "x" * 24. The commit is on main and isn't rewritten.
 f7e27a20e756d108b475dcfb74899663dd3758ef:tests/unit/test_config_and_logging.py:generic-api-key:202
+# 0159e22: a made-up wrong API key (WRONG_KEY) in the rate-limit tests, replaced in the next
+# commit by "w" * 20. The commit is on main and isn't rewritten.
+0159e226a5ec1d917e96783698064aceb052743b:tests/integration/test_request_guard.py:generic-api-key:225
