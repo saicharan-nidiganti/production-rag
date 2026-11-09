@@ -57,6 +57,15 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
                 "embedding_model": app.state.container.embedder.model_id,
                 "auth_enabled": settings.api_key is not None,
                 "ingest_workers": settings.ingest_workers,
+                # Per client and per process: with N workers a client gets up to N times.
+                "rate_limits_per_minute": {
+                    "scope": "process",
+                    "upload": settings.rate_limit_upload_per_minute,
+                    "query": settings.rate_limit_query_per_minute,
+                    "search": settings.rate_limit_search_per_minute,
+                    "read": settings.rate_limit_read_per_minute,
+                    "auth_failures": settings.rate_limit_auth_failures_per_minute,
+                },
             },
         )
         yield

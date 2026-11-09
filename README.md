@@ -39,6 +39,7 @@ documents, and as a worked example of taking RAG from prototype to an engineered
 | Ingestion of `.txt`, Markdown and PDF, in the background, with a status per document, retry and crash recovery | **Implemented and verified**: tests, a real-server smoke test in CI, and manual checks with killed and restarted servers |
 | Hybrid retrieval (BM25 + vectors, fused) with optional cross-encoder reranking | **Implemented and verified**: CI gate for the offline configuration; free gates for the recommended models, run locally |
 | Abstention on off-topic questions before any model call | **Implemented and verified**: 4 of 4 held-out off-topic questions, with no false abstentions |
+| Per-client rate limits on uploads, questions, searches and failed API keys, with 429 and `Retry-After` | **Implemented and verified**: tests; the limits are kept per process |
 | Grounded answers from Claude with native citations | **Implemented, not verified live**: tested offline against a fake client; the paid evaluation hasn't run |
 | Declining on-topic questions the documents can't answer; resisting a planted prompt injection | **Not verified**: both depend on Claude and are what the pending paid evaluation measures |
 | Accounts and per-user isolation, answer streaming, DOCX and HTML, web UI | **Planned** ([roadmap](docs/roadmap.md)) |

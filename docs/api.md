@@ -17,6 +17,12 @@ machine-readable schema at `/openapi.json` and interactive documentation at
   multipart framing), other bodies up to `RAG_MAX_REQUEST_BYTES` (64 KiB). A
   larger `Content-Length` is refused with 413 before the body is read; a body
   sent without one is refused when it reaches the limit.
+- **Rate limits:** each client address has a per-minute allowance for uploads
+  and retries, questions, searches, other `/v1` requests and failed API-key
+  attempts (`RAG_RATE_LIMIT_*` in [configuration.md](configuration.md#api-and-logging)).
+  Over one, the request is refused with 429 `rate_limited` before its body is
+  read, and `Retry-After` gives the seconds to wait. `/health`, `/ready` and
+  the API docs are never limited.
 - **Versioning:** endpoints live under `/v1`; `/health` and `/ready` are
   unversioned. Within a version, changes are additive only: new endpoints,
   new optional request fields and new response fields, so clients should
@@ -50,6 +56,7 @@ machine-readable schema at `/openapi.json` and interactive documentation at
 | 415 | `unsupported_document_type` | Extension not supported, or a `.pdf` whose content isn't a PDF |
 | 422 | `extraction_failed` | Upload is empty or not UTF-8 text. Problems found while parsing are reported on the document instead ([processing status](#processing-status)) |
 | 422 | `validation_error` | Request body or parameters invalid (see `details`) |
+| 429 | `rate_limited` | Over a rate limit for this client; wait `Retry-After` seconds |
 | 502 | `generation_failed` | The model provider rejected the request: bad or missing credentials, unknown model |
 | 503 | `generation_unavailable` | Rate limit, overload or network failure after retries; retry later |
 | 500 | `internal_error` | Unexpected failure. The message is generic; use the request id to find the log line. |

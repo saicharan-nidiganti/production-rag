@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-10-29
+Last updated: 2026-11-09
 
 ## Current state
 
@@ -35,9 +35,28 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 | Prompt-injection suite (0 successful injections) | Cases exist (`t-par-*`); only informative with Claude, so **unverified** |
 | Accounts and isolation (FR-1, NFR-1) | Not started; v0 is single tenant ([ADR-0002](decisions/0002-v0-storage-and-scope.md)) |
 | Ingestion status (FR-3) | Met: `queued` → `processing` → `ready` or `failed` with a code and message, retry, recovery after crashes and restarts ([ADR-0006](decisions/0006-background-ingestion.md)) |
+| Rate limits (NFR-2) | Met within one process: per client for authentication failures, uploads, questions, searches and other requests; across processes, at the reverse proxy ([operations.md](operations.md#rate-limits)) |
 | Streaming (FR-9), DOCX/HTML (FR-2) | Not started |
 
 ## Session log
+
+### Session 11 — Rate limits (2026-11-09)
+
+- **Issue #30, rate limiting:** per-client token buckets in `api/ratelimit.py`, applied by
+  the request guard after the key check and before the body is read: uploads and retries
+  (30 a minute), questions (60), searches (120), other `/v1` requests (600) and failed
+  API-key attempts (10). Over a limit: 429 `rate_limited` with `Retry-After`, logged as
+  `security.rate_limited`. A client out of key attempts gets 429 without its key being
+  compared, so it can't keep guessing. `0` turns a limit off. The buckets are per process
+  and in memory; operations.md says what that means for several workers and proxies.
+- **Tests:** unit tests for refill, bursts, the memory bound, concurrent requests, client
+  keys (IPv6 grouped by /64) and the operation of each route; guard tests for 429s,
+  separate allowances per client and operation, the key-attempt lockout, open probes,
+  `Retry-After` with the error envelope and request id, and logging without credentials.
+  They were checked to fail with the limiter disabled, with the operation limits skipped,
+  and with the key compared while a client is locked out.
+- **Docs:** configuration, `.env.example`, API conventions and errors, a "Rate limits"
+  section in operations.md, security controls and gaps, NFR-2 and the roadmap.
 
 ### Session 10 — The v0.1.0 release commit (2026-10-29)
 

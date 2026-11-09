@@ -145,6 +145,24 @@ class Settings(BaseSettings):
         ge=1024,
         description="Largest request body outside uploads (search and query JSON).",
     )
+    # Per client address and per API process (api/ratelimit.py); 0 turns a limit off.
+    rate_limit_upload_per_minute: int = Field(
+        default=30, ge=0, description="Uploads and retries per client per minute."
+    )
+    rate_limit_query_per_minute: int = Field(
+        default=60, ge=0, description="Questions (POST /v1/query) per client per minute."
+    )
+    rate_limit_search_per_minute: int = Field(
+        default=120, ge=0, description="Searches (POST /v1/search) per client per minute."
+    )
+    rate_limit_read_per_minute: int = Field(
+        default=600, ge=0, description="Other /v1 requests per client per minute."
+    )
+    rate_limit_auth_failures_per_minute: int = Field(
+        default=10,
+        ge=0,
+        description="Wrong or missing API keys per client per minute before 429.",
+    )
     log_level: str = "INFO"
 
     def secret_values(self) -> list[str]:

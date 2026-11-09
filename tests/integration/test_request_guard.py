@@ -1,4 +1,5 @@
-"""Checks made before a request's body is read: authentication and body size (issue #30)."""
+"""Checks made before a request's body is read: authentication, rate limits and body size
+(issue #30)."""
 
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ from pydantic import SecretStr
 
 from production_rag.api import create_app
 from production_rag.api.guard import MULTIPART_ALLOWANCE, RequestGuard, RequestTooLargeError
+from production_rag.api.ratelimit import RateLimiter
 from production_rag.api.security import require_api_key
 from production_rag.config import Settings
 from production_rag.container import Container
@@ -25,13 +27,15 @@ API_KEY = "guard-test-key-0123456789"
 CLIENT = ("203.0.113.7", 50000)
 
 
-def _scope(method: str, path: str, headers: dict[str, str]) -> dict[str, Any]:
+def _scope(
+    method: str, path: str, headers: dict[str, str], client: tuple[str, int] = CLIENT
+) -> dict[str, Any]:
     return {
         "type": "http",
         "method": method,
         "path": path,
         "headers": [(k.lower().encode(), v.encode()) for k, v in headers.items()],
-        "client": CLIENT,
+        "client": client,
         "query_string": b"",
         "http_version": "1.1",
         "scheme": "http",
@@ -55,9 +59,15 @@ class _Downstream:
 
 
 def _run(
-    settings: Settings, scope: dict[str, Any], chunks: list[bytes] | None = None
+    settings: Settings,
+    scope: dict[str, Any],
+    chunks: list[bytes] | None = None,
+    limiter: RateLimiter | None = None,
 ) -> tuple[int, dict[str, Any], int, bool]:
-    """(status, JSON body, body messages read, whether the application ran)."""
+    """(status, JSON body, body messages read, whether the application ran).
+
+    Pass the same ``limiter`` to several calls to share rate-limit state between them.
+    """
     pending = list(chunks or [b""])
     reads = 0
     sent: list[dict[str, Any]] = []
@@ -72,7 +82,7 @@ def _run(
         sent.append(message)
 
     downstream = _Downstream()
-    asyncio.run(RequestGuard(downstream, settings)(scope, receive, send))
+    asyncio.run(RequestGuard(downstream, settings, limiter)(scope, receive, send))
     status = next(m["status"] for m in sent if m["type"] == "http.response.start")
     raw = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
     body = json.loads(raw) if raw != b"ok" else {}
@@ -199,6 +209,146 @@ def test_security_events_are_logged_without_credentials_or_bodies(
     assert all(getattr(r, "client", None) == "testclient" for r in events)
     logged = "\n".join(JsonFormatter().format(r) for r in caplog.records)
     for secret in (wrong_key, API_KEY, "body-text-that-must-not-be-logged"):
+        assert secret not in logged
+
+
+class _Clock:
+    """A monotonic clock that moves only when a test moves it."""
+
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+WRONG_KEY = "wrong-key-0123456789"
+
+
+def test_a_client_over_its_limit_is_refused_until_its_allowance_refills(
+    secured: Settings,
+) -> None:
+    secured.rate_limit_query_per_minute = 2
+    clock = _Clock()
+    limiter = RateLimiter(clock=clock)
+
+    def ask() -> tuple[int, dict[str, Any], int, bool]:
+        return _run(secured, _scope("POST", "/v1/query", {"X-API-Key": API_KEY}), limiter=limiter)
+
+    assert [ask()[0] for _ in range(2)] == [200, 200]
+    status, body, reads, called = ask()
+    assert (status, body["error"]["code"]) == (429, "rate_limited")
+    assert reads == 0 and not called  # refused before the body is read
+    other_client = _scope("POST", "/v1/query", {"X-API-Key": API_KEY}, ("198.51.100.9", 1))
+    assert _run(secured, other_client, limiter=limiter)[0] == 200
+    search = _scope("POST", "/v1/search", {"X-API-Key": API_KEY})
+    assert _run(secured, search, limiter=limiter)[0] == 200  # another operation's allowance
+    clock.now += 30.0  # one token back at 2 a minute
+    assert ask()[0] == 200
+
+
+def test_refused_keys_do_not_use_up_an_operations_allowance(secured: Settings) -> None:
+    secured.rate_limit_read_per_minute = 1
+    limiter = RateLimiter(clock=_Clock())
+    for _ in range(3):
+        wrong = _scope("GET", "/v1/documents", {"X-API-Key": WRONG_KEY})
+        assert _run(secured, wrong, limiter=limiter)[0] == 401
+    right = _scope("GET", "/v1/documents", {"X-API-Key": API_KEY})
+    assert _run(secured, right, limiter=limiter)[0] == 200
+
+
+def test_repeated_wrong_keys_lock_the_client_out_even_with_the_right_key(
+    secured: Settings,
+) -> None:
+    secured.rate_limit_auth_failures_per_minute = 2
+    clock = _Clock()
+    limiter = RateLimiter(clock=clock)
+
+    def attempt(key: str, client: tuple[str, int] = CLIENT) -> tuple[int, dict[str, Any]]:
+        status, body, _, _ = _run(
+            secured, _scope("GET", "/v1/documents", {"X-API-Key": key}, client), limiter=limiter
+        )
+        return status, body
+
+    assert [attempt(WRONG_KEY)[0] for _ in range(3)] == [401, 401, 429]
+    # Out of attempts, the client isn't told whether a key would have worked.
+    status, body = attempt(API_KEY)
+    assert (status, body["error"]["code"]) == (429, "rate_limited")
+    assert attempt(API_KEY, ("198.51.100.9", 1))[0] == 200  # other clients are unaffected
+    clock.now += 30.0  # one attempt back at 2 a minute
+    assert attempt(API_KEY)[0] == 200
+
+
+def test_the_right_key_never_counts_as_a_failed_attempt(secured: Settings) -> None:
+    secured.rate_limit_auth_failures_per_minute = 1
+    limiter = RateLimiter(clock=_Clock())
+    for _ in range(5):
+        right = _scope("GET", "/v1/documents", {"X-API-Key": API_KEY})
+        assert _run(secured, right, limiter=limiter)[0] == 200
+    wrong = _scope("GET", "/v1/documents", {"X-API-Key": WRONG_KEY})
+    assert _run(secured, wrong, limiter=limiter)[0] == 401
+
+
+def test_limits_apply_without_an_api_key_and_zero_turns_one_off(settings: Settings) -> None:
+    settings.rate_limit_search_per_minute = 1
+    limiter = RateLimiter(clock=_Clock())
+    statuses = [
+        _run(settings, _scope("POST", "/v1/search", {}), limiter=limiter)[0] for _ in range(2)
+    ]
+    assert statuses == [200, 429]
+    settings.rate_limit_search_per_minute = 0
+    assert all(
+        _run(settings, _scope("POST", "/v1/search", {}), limiter=limiter)[0] == 200
+        for _ in range(20)
+    )
+
+
+def test_probes_and_api_docs_are_never_rate_limited(secured: Settings) -> None:
+    secured.rate_limit_read_per_minute = 1
+    limiter = RateLimiter(clock=_Clock())
+    for path in ("/health", "/ready", "/openapi.json") * 3:
+        assert _run(secured, _scope("GET", path, {}), limiter=limiter)[0] == 200, path
+    assert limiter.tracked == 0
+
+
+def test_a_rate_limit_refusal_has_retry_after_and_the_error_envelope(
+    container: Container,
+) -> None:
+    container.settings.rate_limit_read_per_minute = 2
+    with TestClient(create_app(container=container)) as client:
+        responses = [client.get("/v1/documents") for _ in range(3)]
+    assert [r.status_code for r in responses] == [200, 200, 429]
+    refused = responses[-1]
+    error = refused.json()["error"]
+    assert error["code"] == "rate_limited" and "retry after" in error["message"]
+    assert error["request_id"] == refused.headers["X-Request-ID"]
+    assert 1 <= int(refused.headers["Retry-After"]) <= 30  # 2 a minute: one every 30 s
+
+
+def test_rate_limit_refusals_are_logged_without_credentials(
+    container: Container, secured_client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    container.settings.rate_limit_auth_failures_per_minute = 1
+    wrong_key = "wrong-key-that-must-not-be-logged-43"
+    with caplog.at_level(logging.WARNING):
+        secured_client.get("/v1/documents", headers={"X-API-Key": wrong_key})
+        secured_client.get("/v1/documents", headers={"X-API-Key": wrong_key})
+        secured_client.get("/v1/documents", headers={"X-API-Key": API_KEY})
+    events = [
+        (r.getMessage(), getattr(r, "operation", None))
+        for r in caplog.records
+        if r.getMessage().startswith("security.")
+    ]
+    assert events == [
+        ("security.auth_failed", None),
+        ("security.rate_limited", "auth_failure"),
+        ("security.rate_limited", "auth_failure"),
+    ]
+    limited = [r for r in caplog.records if r.getMessage() == "security.rate_limited"]
+    assert all(getattr(r, "client", None) == "testclient" for r in limited)
+    assert all(getattr(r, "retry_after_s", 0) >= 1 for r in limited)
+    logged = "\n".join(JsonFormatter().format(r) for r in caplog.records)
+    for secret in (wrong_key, API_KEY):
         assert secret not in logged
 
 

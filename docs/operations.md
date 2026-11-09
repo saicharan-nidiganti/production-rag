@@ -42,6 +42,26 @@ don't share the database file across machines or over network filesystems
 Put a reverse proxy in front for TLS and to cap request bodies at `RAG_MAX_UPLOAD_BYTES`. The
 app enforces the limit too, but only after the body has been received.
 
+## Rate limits
+
+The API limits each client address per minute: by default 30 uploads and retries, 60
+questions, 120 searches, 600 other `/v1` requests and 10 failed API-key attempts
+([configuration.md](configuration.md#api-and-logging)). A client over a limit gets 429
+`rate_limited` with `Retry-After`, and the API logs `security.rate_limited` with the operation
+and the client address.
+
+The limits are kept in each process's memory:
+
+- With `--workers N`, each process keeps its own allowance, so a client can make up to N times
+  a limit. Set each limit to about the total you want divided by N if the total must hold.
+- A restart resets them.
+- The client is the address uvicorn reports. Behind a reverse proxy, list the proxy in
+  uvicorn's `--forwarded-allow-ips` so it uses `X-Forwarded-For`; otherwise every client
+  shares the proxy's address and one allowance. IPv6 clients are grouped by /64.
+
+For a limit that holds across processes or machines, rate-limit at the reverse proxy too; the
+built-in limits are then a backstop in each process.
+
 ## Background ingestion
 
 Uploads return `202` and are processed by worker threads inside each API process
@@ -108,6 +128,7 @@ Logs are JSON lines on stderr. Useful fields and signals:
 | Ingestion recovery | `ingest.recovered` (a lapsed lease was taken over), `ingest.claim_lost` (a late worker's result was discarded), `ingest.released` (handed back at shutdown) |
 | Ingestion worker health | `ingest.worker_error` (database unavailable or not migrated; retried with a backoff up to 30 s), `ingest.lease_renewal_failed` |
 | Refusals | `event = generation.refused` (`category`) |
+| Security refusals | `security.auth_failed` (`reason`), `security.rate_limited` (`operation`, `retry_after_s`), `security.request_too_large`; each with the client address |
 | Upstream failures | `event = generation.failed` (`retryable`); HTTP 502/503 |
 
 Every log line within a request carries `request_id`, which is also returned as `X-Request-ID`.

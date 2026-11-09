@@ -28,6 +28,7 @@ policy before enabling the Claude generator.
 | Threat | Control | Where |
 | --- | --- | --- |
 | Unauthenticated access | Optional static API key (at least 16 characters), compared in constant time. It is checked before the request body is read, and every path needs it except `/health`, `/ready` and the API docs. Failures are logged as `security.auth_failed` (missing or invalid, with the client address, never the key) | [guard.py](../src/production_rag/api/guard.py), [security.py](../src/production_rag/api/security.py), [config.py](../src/production_rag/config.py) |
+| Excessive use and key guessing | Per-client rate limits (token buckets) for uploads and retries, questions, searches and other `/v1` requests, checked after the key and before the body is read; over one, 429 with `Retry-After`. Failed API-key attempts have their own limit: a client out of attempts gets 429 without its key being compared. Logged as `security.rate_limited` (operation and client address). The limits are per process ([operations.md](operations.md#rate-limits)) | [ratelimit.py](../src/production_rag/api/ratelimit.py), [guard.py](../src/production_rag/api/guard.py) |
 | Oversized requests | Bodies are limited as they arrive: a declared `Content-Length` over the limit gets 413 before anything is read, and a body without one is counted and cut off at the limit. Uploads may be `RAG_MAX_UPLOAD_BYTES` plus 64 KiB of framing, other bodies `RAG_MAX_REQUEST_BYTES` (64 KiB). Logged as `security.request_too_large` | [guard.py](../src/production_rag/api/guard.py) |
 | Malicious or disguised files | Extension allow-list, PDF signature check (content, not extension), strict UTF-8 for text, size and PDF page limits, encrypted PDFs rejected | [extract.py](../src/production_rag/parsing/extract.py) |
 | Parser exploits and resource exhaustion | Parsing runs in a separate process: killed after `RAG_PARSE_TIMEOUT_S`, address-space and CPU limits on Linux and macOS, no secrets in its environment, results returned as JSON (never unpickled). A bad file fails only its own document | [isolation.py](../src/production_rag/parsing/isolation.py), [ADR-0007](decisions/0007-isolated-document-parsing.md) |
@@ -65,7 +66,7 @@ policy before enabling the Claude generator.
 | Gap | Requirement | Plan |
 | --- | --- | --- |
 | No accounts or per-user isolation | FR-1, NFR-1 | Phase 5, with PostgreSQL ([ADR-0001](decisions/0001-technology-stack.md) §10) |
-| No rate limiting | NFR-2 | Phase 5; until then, rate-limit at the reverse proxy |
+| Rate limits are per process and in memory: `--workers N` allows a client N times a limit, a restart resets them, and clients behind a proxy that isn't in `--forwarded-allow-ips` share one allowance | NFR-2 | Rate-limit at the reverse proxy for a limit across processes; a shared store comes with PostgreSQL in Phase 5 |
 | Uploads over 1 MB pass through a temporary file while they are received | — | Keep the temp directory private to the service user (for example systemd `PrivateTmp=true`) |
 | Prompt-injection cases exist (`partner-integrations.md` in the corpus, `t-par-*` in golden v2) but are only informative with an LLM generator | NFR-3, requirements §7 | Run them with Claude once the owner authorizes a paid evaluation |
 | The parser process is isolated from the service but not sandboxed: it can reach the network and the filesystem, and on Windows has no memory limit | NFR-2 | Add a sandbox (no network, read-only filesystem) before accepting anonymous uploads ([ADR-0007](decisions/0007-isolated-document-parsing.md)) |
@@ -76,7 +77,8 @@ policy before enabling the Claude generator.
 1. Set `RAG_API_KEY` to a random value:
    `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
 2. Put a TLS-terminating reverse proxy in front, with a request-body limit and
-   rate limits.
+   rate limits that hold across processes, and list it in uvicorn's
+   `--forwarded-allow-ips` so the built-in limits apply per client.
 3. Run the service as an unprivileged user, with write access only to the
    database directory and the model cache.
 4. Keep `.env` readable only by that user.

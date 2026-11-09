@@ -12,6 +12,15 @@ record. Detailed per-session notes and verification results are in
 
 ### Security
 
+- **Rate limits per client** (#30, NFR-2). Each client address gets a token
+  bucket per kind of request: uploads and retries (30 a minute), questions
+  (60), searches (120), other `/v1` requests (600) and failed API-key attempts
+  (10). Over a limit the API answers 429 `rate_limited` with `Retry-After`,
+  before the body is read, and logs `security.rate_limited`. A client out of
+  key attempts gets 429 without its key being compared. The limits live in
+  each process's memory; [operations.md](docs/operations.md#rate-limits)
+  explains what that means with several workers or behind a proxy. New
+  settings `RAG_RATE_LIMIT_*_PER_MINUTE`; `0` turns a limit off.
 - **Checks before the body is read** (#30). The API key is now checked before
   a request's body is received, so an unauthenticated upload is refused
   without being read or spooled to disk; before, FastAPI parsed the whole
