@@ -23,6 +23,74 @@ Run against the exact commit to be tagged.
 | 10 | CHANGELOG: `[Unreleased]` becomes `[X.Y.Z] - date`, with a new empty `[Unreleased]` above it | Edit, commit, wait for CI |
 | 11 | Tag and release | `git tag -a vX.Y.Z -m "..." <commit> && git push origin vX.Y.Z`, then create the GitHub release from the tag with the notes; attach the wheel and sdist from `uv build` |
 
+## v0.2.0: status
+
+The release commit adds the `[0.2.0]` section to the changelog and these notes. As for
+v0.1.0, a commit can't record its own CI results, so the checklist results for it go in the
+report to the owner and in the GitHub release.
+
+- Item 9: the paid Claude evaluation hasn't run (no API credit, decision D-4), so the notes
+  state what is unverified live, as for v0.1.0.
+- Items 10 and 11: the changelog is ready; the tag and the GitHub release wait for the
+  owner's approval of the final verification.
+
+## v0.2.0 release notes
+
+To be published with the `v0.2.0` tag.
+
+> **Production RAG v0.2.0: streamed answers, DOCX and HTML, and rate limits.**
+>
+> **What's new**
+>
+> - **Streamed answers** (FR-9). `POST /v1/query/stream` sends Server-Sent
+>   Events: the retrieved passages first, then the answer's text and citations
+>   as they are written, then exactly the response `POST /v1/query` would have
+>   given. `rag ask --stream` does the same in a terminal. A client that
+>   disconnects stops the generation, so an abandoned answer isn't billed to the
+>   end ([ADR-0010](decisions/0010-streaming-answers-over-sse.md)).
+> - **DOCX and HTML uploads** (FR-2). One section per heading, so citations name
+>   the section. Parsed with the standard library in the isolated parser
+>   process. Legacy `.doc`, password-protected and macro-enabled Word files are
+>   refused, as are DOCX files built to exhaust the parser
+>   ([ADR-0009](decisions/0009-docx-and-html-extraction.md)).
+> - **Rate limits per client** (NFR-2): 30 uploads, 60 questions, 120 searches,
+>   600 other requests and 10 failed API-key attempts a minute, answered with
+>   429 and `Retry-After`. They are kept in each process's memory; see
+>   [operations.md](operations.md#rate-limits) for several workers and proxies.
+> - **Checks before the body is read.** The API key and the size are checked
+>   before an upload is received, and bodies other than uploads are limited to
+>   64 KiB (`RAG_MAX_REQUEST_BYTES`).
+> - **Less in the logs.** Security events are logged with the client address but
+>   never the key or the body; database errors, validation errors and log lines
+>   no longer carry document text, rejected input or configured secrets.
+>
+> **Upgrading from 0.1.0**: no migration (the schema is still at revision
+> 0003). New settings, all optional: `RAG_RATE_LIMIT_*_PER_MINUTE` and
+> `RAG_MAX_REQUEST_BYTES`. Clients may now get 429 (rate limits) and 413
+> (request bodies over 64 KiB other than uploads), and with `RAG_API_KEY` set,
+> unknown paths answer 401 instead of 404.
+>
+> **Measured**: Markdown extraction is identical to 0.1.0 and the offline
+> retrieval gate's numbers are unchanged, so 0.1.0's results stand (held-out
+> split, raw reports in `eval/results/2026-10-29/`): hit rate 1.000 and MRR
+> 0.946 with reranking; all 4 off-topic questions declined before generation;
+> no false abstentions. The dataset is small and was written for this project:
+> a regression baseline, not a benchmark.
+>
+> **Not verified live**: Claude's answer quality and citation precision, its
+> declining of on-topic questions the documents can't answer, its resistance to
+> the planted prompt injection, and streaming with Claude. All are tested
+> offline, streaming through the Claude SDK's own parser with recorded stream
+> events; the paid evaluation hasn't run.
+>
+> **Known limitations**: single tenant (one API key, no accounts); SQLite on
+> one machine; parsing is isolated but not sandboxed, so restrict uploads to
+> trusted users; rate limits are per process; DOCX headers, footers, footnotes
+> and comments aren't extracted; no conversations or web UI; macOS is
+> untested.
+>
+> Full list of changes: CHANGELOG.md.
+
 ## v0.1.0: status
 
 The release commit is the one that adds the `[0.1.0]` section to the changelog and

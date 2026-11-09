@@ -41,6 +41,15 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 
 ## Session log
 
+### Session 14 — The v0.2.0 release commit (2026-11-10)
+
+- The version is 0.2.0 in `pyproject.toml`, `production_rag.__version__` and `uv.lock`'s
+  entry for the project; `SECURITY.md` supports 0.2.x.
+- The changelog's `[Unreleased]` entries moved to `[0.2.0] - 2026-11-10`, grouped as Added,
+  Changed and Security, with a new empty `[Unreleased]` above.
+- [release.md](release.md) has the v0.2.0 status and draft release notes, which state what
+  isn't verified live. Nothing is tagged: that waits for the owner's approval.
+
 ### Session 13 — Streamed answers (2026-11-10)
 
 - **FR-9:** `POST /v1/query/stream` answers with Server-Sent Events: `retrieval`, then

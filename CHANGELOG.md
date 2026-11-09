@@ -10,6 +10,8 @@ record. Detailed per-session notes and verification results are in
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-10
+
 ### Added
 
 - **Streamed answers** (FR-9). `POST /v1/query/stream` answers with Server-Sent
@@ -22,7 +24,6 @@ record. Detailed per-session notes and verification results are in
   disconnects closes the stream to the Claude API. The stream counts against
   the question rate limit
   ([ADR-0010](docs/decisions/0010-streaming-answers-over-sse.md)).
-
 - **DOCX and HTML uploads** (FR-2, #6). `.docx`, `.html` and `.htm` are
   ingested like Markdown: one section per heading, so citations carry the
   heading path. DOCX headings come from heading styles or outline levels;
@@ -33,6 +34,12 @@ record. Detailed per-session notes and verification results are in
   ([ADR-0009](docs/decisions/0009-docx-and-html-extraction.md)). Refused:
   legacy `.doc`, password-protected and macro-enabled Word files, DOCX parts
   with a DTD or over the size limits, and archives with too many entries.
+
+### Changed
+
+- With `RAG_API_KEY` set, every path except `/health`, `/ready` and the API
+  docs requires the key, including unknown ones (401 instead of 404).
+- `rag ingest` checks a file's size before reading it.
 
 ### Security
 
@@ -59,12 +66,6 @@ record. Detailed per-session notes and verification results are in
 - The log formatter redacts the configured secrets wherever they would
   appear, as a backstop.
 - Validation errors no longer echo the rejected input back in `details`.
-
-### Changed
-
-- With `RAG_API_KEY` set, every path except `/health`, `/ready` and the API
-  docs requires the key, including unknown ones (401 instead of 404).
-- `rag ingest` checks a file's size before reading it.
 
 ## [0.1.0] - 2026-10-29
 
@@ -155,5 +156,6 @@ record. Detailed per-session notes and verification results are in
 - Third-party GitHub Actions are pinned to commit SHAs and kept current by
   Dependabot.
 
-[Unreleased]: https://github.com/saicharan-nidiganti/production-rag/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/saicharan-nidiganti/production-rag/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/saicharan-nidiganti/production-rag/releases/tag/v0.2.0
 [0.1.0]: https://github.com/saicharan-nidiganti/production-rag/releases/tag/v0.1.0
