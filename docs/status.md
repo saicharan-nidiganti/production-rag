@@ -81,6 +81,14 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
   structure, which isn't stored.
 - Checks: 629 passed, 4 skipped; coverage 96.1%; the smoke test and the offline evaluation
   gate pass.
+- Performance (issues #34 and #35): `rag bench` measures ingestion, a 100-page PDF,
+  questions per stage, streams and an HTTP load test against a real server, on a temporary
+  index of 10,000 chunks, and gates the result with `eval/bench_thresholds.json`: the
+  targets of requirements section 7 as limits, and regression rules against a baseline. CI
+  runs it on every push. Measured on the laptop: retrieval p95 13 ms offline and 160 ms
+  with bge-small and reranking (limit 300 ms); a 100-page PDF in 0.9 s and 17.7 s (limit
+  60 s). [performance.md](performance.md) has the definitions, results, capacity
+  estimates and the gate. Time to first token with Claude is still unmeasured.
 
 ### Session 16 — The container image (2026-11-10)
 

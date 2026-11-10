@@ -105,9 +105,9 @@ the item notes the proposed decision.
 - [x] Configuration management
 - [x] Logging
 - [x] Observability — JSON logs with request ids, per-stage timings, Prometheus metrics at `/metrics` ([observability.md](observability.md)); tracing deferred until requests span processes
-- [ ] Performance testing
+- [x] Performance testing — `rag bench`: latency percentiles per stage, throughput, an HTTP load test, resources and tokens, gated against limits and a baseline in CI ([performance.md](performance.md))
 - [ ] OCR for scanned PDFs
-- [ ] Container images
+- [x] Container images — `ghcr.io/saicharan-nidiganti/production-rag`, built, tested and published for each release
 - [x] Operational documentation — [operations.md](operations.md)
 - [x] Deployment smoke test and package check — `make smoke` (a real server over HTTP) and `make package` (the installed wheel) run in CI
 

@@ -55,7 +55,7 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould.
 | NFR-4 | Privacy | Document contents, questions and answers are not written to application logs. Documents are sent only to the model providers configured by the operator. | Met |
 | NFR-5 | Reliability | A failed ingestion leaves no partial chunks or vectors behind. Reprocessing a document is idempotent. | Met: chunks are written in the transaction that marks a document ready; a worker that lost its claim discards its work; idempotent by hash |
 | NFR-6 | Traceability | Every answer records which chunks were retrieved and cited, with the retrieval configuration and model versions used. | Partial: responses carry retrieved and cited chunks and the model; answers aren't stored |
-| NFR-7 | Performance | Initial targets in §7. They are measured on a reference dataset, not assumed. | Partial: measured on golden v1, not yet on the 10k-chunk reference |
+| NFR-7 | Performance | Initial targets in §7. They are measured on a reference dataset, not assumed. | Met offline: `rag bench` measures them at 10,000 chunks and CI gates them ([performance.md](performance.md)); time to first token with Claude waits for the paid run |
 | NFR-8 | Accessibility | The web interface meets WCAG 2.1 AA for core flows (sign in, upload, ask, read citations). | Not started (no UI) |
 | NFR-9 | Reproducibility | A new developer can run the full stack locally from the README. Evaluation runs are repeatable from a versioned dataset and configuration. | Met |
 | NFR-10 | Maintainability | Typed code, automated lint/type/test checks in CI, and ADRs for significant decisions. | Met |
@@ -118,6 +118,9 @@ computed on the current golden dataset (see [evaluation.md](evaluation.md#princi
 | Secret scanning on every commit | 0 findings |
 
 ### Performance (reference: 10,000 chunks per user, local development hardware)
+
+Measured by `rag bench` and gated in CI by `eval/bench_thresholds.json`;
+[performance.md](performance.md) has the definitions, rationale and results.
 
 | Metric | Initial target |
 | --- | --- |

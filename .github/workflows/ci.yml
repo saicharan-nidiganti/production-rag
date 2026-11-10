@@ -61,6 +61,36 @@ jobs:
           path: eval/reports/
           if-no-files-found: ignore
 
+  performance:
+    name: Performance benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12" # the baseline in eval/bench/ was recorded with 3.12
+          enable-cache: true
+
+      - name: Install
+        run: make install
+
+      # Exit 1: a limit or a regression rule failed. Exit 3: the benchmark couldn't run.
+      - name: Benchmark (10,000 chunks, offline configuration)
+        run: make bench
+
+      - name: Show the report on the run page
+        if: always()
+        run: cat eval/reports/bench/benchmark.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload the benchmark report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark
+          path: eval/reports/bench/
+          if-no-files-found: ignore
+
   package:
     name: Build and install the package
     runs-on: ubuntu-latest

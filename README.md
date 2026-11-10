@@ -246,6 +246,7 @@ Deployment, monitoring, backups and troubleshooting: [docs/operations.md](docs/o
 make install     # uv sync --frozen --all-extras
 make check       # lock check, lint, mypy --strict, tests with coverage, retrieval gate
 make smoke       # start a real server; upload, wait for ingestion, search, ask, stream
+make bench       # latency, throughput and resources at 10,000 chunks, gated like CI
 make help        # every target
 ```
 

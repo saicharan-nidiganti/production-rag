@@ -1,0 +1,24 @@
+{
+  "description": "Performance gate for `rag bench` (docs/performance.md). Limits are the targets in docs/requirements.md section 7 and hold on any machine. Regression rules compare with a baseline from the same workload, configuration and machine; fail_pct is set where a change can't be noise on shared CI runners (about 2x), warn_pct flags drift worth a look, and min_delta ignores changes too small to matter.",
+  "limits": {
+    "query.latency_ms.retrieval.p95": {"max": 300, "source": "requirements 7: retrieval p95 under 300 ms at 10,000 chunks"},
+    "stream.first_token_ms.p95": {"max": 3000, "source": "requirements 7: first token p95 under 3 s"},
+    "pdf.seconds": {"max": 60, "source": "requirements 7: a 100-page text PDF under 60 s"},
+    "http.errors": {"max": 0, "source": "every request in the load test succeeds"}
+  },
+  "regressions": {
+    "query.latency_ms.total.p95": {"worse": "higher", "warn_pct": 25, "fail_pct": 100, "min_delta": 2},
+    "query.latency_ms.total.p99": {"worse": "higher", "warn_pct": 50, "fail_pct": 150, "min_delta": 5},
+    "query.latency_ms.retrieval.p95": {"worse": "higher", "warn_pct": 25, "fail_pct": 100, "min_delta": 2},
+    "query.cpu_ms_per_query": {"worse": "higher", "warn_pct": 25, "fail_pct": 100, "min_delta": 1},
+    "http.latency_ms.p95": {"worse": "higher", "warn_pct": 30, "fail_pct": 100, "min_delta": 5},
+    "http.latency_ms.p99": {"worse": "higher", "warn_pct": 50, "fail_pct": 150, "min_delta": 10},
+    "http.requests_per_s": {"worse": "lower", "warn_pct": 20, "fail_pct": 50},
+    "ingestion.chunks_per_s": {"worse": "lower", "warn_pct": 25, "fail_pct": 60},
+    "pdf.seconds": {"worse": "higher", "warn_pct": 30, "fail_pct": 100, "min_delta": 1},
+    "resources.peak_rss_bytes": {"worse": "higher", "warn_pct": 15, "fail_pct": 40, "min_delta": 20971520},
+    "ingestion.bytes_per_chunk": {"worse": "higher", "warn_pct": 10, "fail_pct": 25},
+    "tokens.per_query": {"worse": "higher", "warn_pct": 10, "fail_pct": 25},
+    "tokens.estimated_cost_usd": {"worse": "higher", "warn_pct": 10, "fail_pct": 25}
+  }
+}

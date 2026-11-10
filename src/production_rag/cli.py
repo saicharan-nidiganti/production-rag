@@ -8,7 +8,7 @@ import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from production_rag.config import ConfigurationError, Settings, get_settings
 from production_rag.observability import configure_logging
@@ -257,6 +257,76 @@ def cmd_reindex(_: argparse.Namespace, settings: Settings) -> int:
     finally:
         container.close()
     return 0
+
+
+def cmd_bench(args: argparse.Namespace, settings: Settings) -> int:
+    """Exit 0 when the gate passes (or only warns), 1 when it fails, 2 when the run is refused
+    and 3 when the benchmark couldn't run, so CI can tell a slow build from a broken one."""
+    from production_rag.evaluation import benchmark, perfgate
+    from production_rag.evaluation.dataset import DatasetError
+
+    options = benchmark.BenchOptions(
+        corpus_dir=Path(args.corpus),
+        dataset=Path(args.dataset),
+        chunks=args.chunks,
+        seed=args.seed,
+        repeat=args.repeat,
+        warmup=args.warmup,
+        stream_samples=args.stream_samples,
+        pdf_pages=args.pdf_pages,
+        http_requests=args.requests,
+        concurrency=args.concurrency,
+    )
+    try:
+        thresholds = _read_json(args.thresholds) if args.thresholds else {}
+        perfgate.validate_thresholds(thresholds)
+        baseline = _read_json(args.baseline) if args.baseline else None
+        if (
+            baseline is not None
+            and baseline.get("benchmark_version") != benchmark.BENCHMARK_VERSION
+        ):
+            raise benchmark.BenchmarkError(f"{args.baseline} isn't a version-1 benchmark report")
+        if settings.generator == "anthropic" and not args.allow_paid:
+            from production_rag.evaluation.dataset import load_dataset
+
+            calls = options.model_calls(len(load_dataset(options.dataset)))
+            print(
+                f"refusing to run: with RAG_GENERATOR=anthropic the benchmark makes up to "
+                f"{calls:,} paid Claude API calls. Pass --allow-paid to proceed, or set "
+                "RAG_GENERATOR=extractive for a free run.",
+                file=sys.stderr,
+            )
+            return 2
+        report = benchmark.run(settings, options, progress=lambda m: print(m, file=sys.stderr))
+    except (OSError, ValueError, DatasetError, benchmark.BenchmarkError) as exc:
+        print(f"benchmark error: {exc}", file=sys.stderr)
+        return 3
+
+    gate = perfgate.evaluate(report, thresholds, baseline)
+    report["gate"] = gate.as_dict()
+    if args.output:
+        data, summary = benchmark.write(report, Path(args.output))
+        print(f"report: {data} and {summary}", file=sys.stderr)
+    if args.save_baseline:
+        target = Path(args.save_baseline)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        baseline_report = benchmark.without_measurements(report)
+        target.write_text(json.dumps(baseline_report, indent=2) + "\n", encoding="utf-8")
+        print(f"baseline: {target}", file=sys.stderr)
+    print(benchmark.render(report), end="")
+    if gate.outcome == "fail" or (gate.outcome == "warn" and args.fail_on_warn):
+        return 1
+    return 0
+
+
+def _read_json(path: str) -> dict[str, Any]:
+    try:
+        value = json.loads(Path(path).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{path} isn't valid JSON: {exc}") from None
+    if not isinstance(value, dict):
+        raise ValueError(f"{path} must hold a JSON object")
+    return value
 
 
 def cmd_eval(args: argparse.Namespace, settings: Settings) -> int:
@@ -531,6 +601,31 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--mode", choices=modes)
     ev.add_argument("--top-k", type=int)
     ev.set_defaults(func=cmd_eval)
+
+    bench = sub.add_parser(
+        "bench", help="measure latency, throughput and resources on a temporary index"
+    )
+    bench.add_argument("--corpus", default="eval/corpus")
+    bench.add_argument("--dataset", default="eval/golden_v2.jsonl", help="the questions asked")
+    bench.add_argument(
+        "--chunks", type=_at_least_one, default=10_000, help="index size to reach (default 10000)"
+    )
+    bench.add_argument("--seed", type=int, default=7, help="for the synthetic documents")
+    bench.add_argument("--repeat", type=_at_least_one, default=3, help="passes over the questions")
+    bench.add_argument("--warmup", type=_days, default=10, help="questions asked, not recorded")
+    bench.add_argument("--stream-samples", type=_days, default=20, help="streamed answers")
+    bench.add_argument("--pdf-pages", type=_days, default=100, help="0 skips the PDF")
+    bench.add_argument("--requests", type=_days, default=200, help="HTTP requests; 0 skips HTTP")
+    bench.add_argument("--concurrency", type=_at_least_one, default=4, help="HTTP clients")
+    bench.add_argument(
+        "--thresholds", help="limits and regression rules (eval/bench_thresholds.json)"
+    )
+    bench.add_argument("--baseline", help="a report to compare against")
+    bench.add_argument("--output", help="directory for benchmark.json and benchmark.md")
+    bench.add_argument("--save-baseline", metavar="PATH", help="also write the run as a baseline")
+    bench.add_argument("--fail-on-warn", action="store_true", help="exit 1 on warnings too")
+    bench.add_argument("--allow-paid", action="store_true", help="allow paid generator calls")
+    bench.set_defaults(func=cmd_bench)
 
     serve = sub.add_parser("serve", help="run the HTTP API")
     serve.add_argument("--host", default="127.0.0.1")

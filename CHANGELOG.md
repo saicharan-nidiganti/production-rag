@@ -12,6 +12,15 @@ record. Detailed per-session notes and verification results are in
 
 ### Added
 
+- **Performance benchmark**: `rag bench` builds a temporary index of the evaluation
+  corpus and seeded synthetic documents (10,000 chunks by default), ingests a generated
+  100-page PDF, asks the golden questions in process and streamed, and load-tests a real
+  `rag serve` with concurrent clients. It reports p50, p95 and p99 per stage, throughput,
+  CPU and memory where the platform exposes them, database size, and tokens and estimated
+  cost when the generator reports them, as JSON and Markdown. The gate
+  (`eval/bench_thresholds.json`) applies the requirements' targets as limits and compares
+  with a baseline: pass, warn or fail, with exit code 3 when the run itself fails. CI runs
+  it on every push (`make bench`).
 - **Backups, verification and restores**: `rag db backup` makes an online copy with
   SQLite's backup API, checks it, and writes a manifest with its schema revision, counts
   and SHA-256; `--keep N` prunes older ones. `rag db verify` checks the database or a backup

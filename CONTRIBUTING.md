@@ -46,6 +46,7 @@ the same targets, so they can't drift from what you run locally. Without make
 | `make test` | `uv run python -m pytest --cov` | Offline suite; coverage floor 90% |
 | `make eval-gate` | `RAG_EMBEDDING_PROVIDER=hashing RAG_RERANKER=none uv run rag eval --thresholds eval/thresholds.json` | Retrieval regression gate |
 | `make smoke` | `uv run python scripts/smoke_test.py` | A real server over HTTP: readiness, upload, background ingestion, search, a cited answer |
+| `make bench` | `RAG_EMBEDDING_PROVIDER=hashing RAG_RERANKER=none RAG_GENERATOR=extractive uv run rag bench --thresholds eval/bench_thresholds.json` | Latency, throughput and resources at 10,000 chunks, against limits and the CI baseline ([performance.md](docs/performance.md)) |
 | `make package` | see the [Makefile](Makefile) | The wheel installs and its CLI works outside the repository |
 | `make docs-lint` | `npx markdownlint-cli2 "**/*.md"` | Markdown style (links are checked by the tests) |
 

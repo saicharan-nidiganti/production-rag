@@ -78,7 +78,8 @@ src/production_rag/
   api/               FastAPI app, request guard (API key, rate limits, body size), routes,
                      Server-Sent Events, /metrics, schemas, error mapping (transport only)
   cli.py             rag command (transport only)
-  evaluation/        golden dataset, metrics, runner, regression gate
+  evaluation/        golden dataset, metrics, runner, regression gate; the performance
+                     benchmark and its gate
 eval/                corpus, golden dataset, gate thresholds (versioned evaluation inputs)
 scripts/             smoke test, reference reports, configuration comparison
 tests/               unit/ and integration/ (offline), plus live tests behind a flag

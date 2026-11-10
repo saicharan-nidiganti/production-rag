@@ -6,10 +6,12 @@
 # maintainer's approval (docs/evaluation.md#paid-evaluation-with-claude).
 
 UV ?= uv
+# The baseline `make bench` compares with: a run recorded on CI's runners (docs/performance.md).
+BENCH_BASELINE ?= eval/bench/baseline-ci.json
 .DEFAULT_GOAL := help
 
-.PHONY: help install lock-check lint format typecheck test eval-gate smoke package check \
-	live-test docs-lint serve clean
+.PHONY: help install lock-check lint format typecheck test eval-gate smoke bench package \
+	check live-test docs-lint serve clean
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-11s %s\n", $$1, $$2}'
@@ -52,6 +54,11 @@ package: ## Build sdist and wheel, then install the wheel alone and run the CLI 
 	  $(UV) run --isolated --no-project --with "$(CURDIR)"/dist/*.whl \
 	    rag search "rollback command" | grep -q "deployment-runbook.md"
 	@echo "package check passed"
+
+bench: ## Performance benchmark (10,000 chunks, offline), gated by eval/bench_thresholds.json
+	RAG_EMBEDDING_PROVIDER=hashing RAG_RERANKER=none RAG_GENERATOR=extractive $(UV) run rag bench \
+	  --thresholds eval/bench_thresholds.json --output eval/reports/bench \
+	  $(if $(wildcard $(BENCH_BASELINE)),--baseline $(BENCH_BASELINE))
 
 check: lock-check lint typecheck test eval-gate ## Everything the CI quality job checks, except the smoke test
 
