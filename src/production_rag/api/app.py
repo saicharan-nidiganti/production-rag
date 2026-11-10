@@ -11,9 +11,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 
-from production_rag import __version__
+from production_rag import __version__, metrics
 from production_rag.api.errors import error_response, register_error_handlers
 from production_rag.api.guard import RequestGuard
+from production_rag.api.monitoring import metrics_router
 from production_rag.api.routes import api_router, health_router
 from production_rag.config import ConfigurationError, Settings, get_settings
 from production_rag.container import Container, build_container
@@ -24,6 +25,14 @@ from production_rag.observability import configure_logging, request_id_var
 logger = logging.getLogger(__name__)
 
 _VALID_REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
+
+def _route(request: Request) -> str:
+    """The matched route's template (``/v1/documents/{document_id}``), never the raw path, so
+    a metric gets one series per route rather than one per URL a client tries."""
+    route = request.scope.get("route")
+    path = getattr(route, "path", None)
+    return path if isinstance(path, str) else "unmatched"
 
 
 def create_app(settings: Settings | None = None, *, container: Container | None = None) -> FastAPI:
@@ -100,15 +109,17 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
                 logger.error("request.unhandled_error", exc_info=exc)
                 response = error_response(500, "internal_error", "internal server error")
             response.headers["X-Request-ID"] = request_id
+            elapsed = time.perf_counter() - start
             logger.info(
                 "http.request",
                 extra={
                     "method": request.method,
                     "path": request.url.path,
                     "status": response.status_code,
-                    "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+                    "duration_ms": round(elapsed * 1000, 2),
                 },
             )
+            metrics.observe_http(request.method, _route(request), response.status_code, elapsed)
             return response
         finally:
             request_id_var.reset(token)
@@ -116,6 +127,7 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
     register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(api_router)
+    app.include_router(metrics_router)
     return app
 
 

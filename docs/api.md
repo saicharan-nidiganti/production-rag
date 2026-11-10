@@ -92,6 +92,23 @@ Run `rag reindex` to fix them. `ingestion` counts documents by status and the
 live ingestion threads in the process that answered. It's for monitoring and
 doesn't affect readiness.
 
+### `GET /metrics`
+
+Prometheus metrics in the text exposition format (`text/plain; version=0.0.4`): request,
+question, generation, ingestion and security counters for the process that answered, and
+the state of the queue and index read from the database. Unlike the probes it requires the
+API key when one is set, and it draws from the `read` rate limit. Returns 404 `not_found`
+when `RAG_METRICS_ENABLED=false`. Every metric is listed in
+[observability.md](observability.md#metrics).
+
+```text
+rag_http_requests_total{method="POST",route="/v1/query",status="200"} 12.0
+rag_queries_total{status="answered",streamed="false"} 9.0
+rag_query_stage_seconds_bucket{le="0.5",stage="total"} 11.0
+rag_documents{status="ready"} 4.0
+rag_ingestion_oldest_queued_seconds 0.0
+```
+
 ## Documents
 
 ### `POST /v1/documents`

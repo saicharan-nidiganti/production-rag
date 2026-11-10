@@ -41,6 +41,25 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 
 ## Session log
 
+### Session 17 — Production readiness: metrics (2026-11-10)
+
+- The README, the operations guide and the architecture document were reworked, with new
+  diagrams, each rendered and checked as an image (`62c53c5`).
+- The owner approved the next phase, production readiness. Issue #32 (packaging and
+  deployment) was closed with the container image as its evidence.
+- `GET /metrics` serves Prometheus metrics: requests by route template, answer outcomes,
+  stage latency, tokens, generation failures and refusals, ingestion outcomes, security
+  refusals, and the queue's state read from the database at each scrape. It sits behind the
+  API key and still answers during a database outage, reporting `rag_database_up 0`.
+  `RAG_METRICS_ENABLED` turns it off. New dependency: `prometheus-client` 0.26.0.
+- [observability.md](observability.md) covers what issue #25 asks for: logs, metrics,
+  tracing (deferred, with its spans defined), request correlation, RAG diagnosis and
+  sensitive-data handling, with Prometheus alert rules.
+- The smoke test and the container check scrape `/metrics`. The container check applies
+  only to sources that have it, so a manual rebuild of 0.2.0 still passes.
+- Checks: 589 passed, 4 skipped; coverage 96.0%; ruff, mypy and markdownlint clean; the
+  real-server smoke test passed on Windows.
+
 ### Session 16 — The container image (2026-11-10)
 
 - The repository's "Packages" panel only lists GitHub Packages, which hosts container

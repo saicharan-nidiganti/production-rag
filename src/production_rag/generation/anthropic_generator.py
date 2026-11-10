@@ -20,6 +20,7 @@ from typing import Any
 import anthropic
 from anthropic.types.beta import BetaCitationSearchResultLocation, BetaMessage
 
+from production_rag import metrics
 from production_rag.config import Settings
 from production_rag.generation.base import (
     AnswerComplete,
@@ -233,10 +234,12 @@ class AnthropicGenerator:
                 **usage,
             },
         )
+        metrics.observe_generation(response.model, usage["input_tokens"], usage["output_tokens"])
 
         if response.stop_reason == "refusal":
             category = response.stop_details.category if response.stop_details else None
             logger.warning("generation.refused", extra={"category": category})
+            metrics.count_refusal(category)
             return GeneratedAnswer(
                 status="refused",
                 segments=[AnswerSegment(REFUSAL_MESSAGE)],

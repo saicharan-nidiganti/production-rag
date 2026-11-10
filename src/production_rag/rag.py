@@ -7,6 +7,7 @@ import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 
+from production_rag import metrics
 from production_rag.config import RetrievalMode, Settings
 from production_rag.generation import (
     INSUFFICIENT_EVIDENCE_MESSAGE,
@@ -163,6 +164,12 @@ class RagService:
                 "streamed": streamed,
                 "timings_ms": result.timings_ms,
             },
+        )
+        metrics.observe_query(
+            status=answer.status,
+            streamed=streamed,
+            abstained=result.abstained_before_generation,
+            timings_ms=result.timings_ms,
         )
 
 

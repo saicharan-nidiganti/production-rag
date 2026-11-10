@@ -26,6 +26,7 @@ from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from production_rag import metrics
 from production_rag.api.errors import error_response
 from production_rag.api.ratelimit import (
     Operation,
@@ -109,6 +110,7 @@ class RequestGuard:
                 **_where(scope),
             },
         )
+        metrics.count_security_refusal("auth_failed")
         response = error_response(401, "unauthorized", "missing or invalid API key")
         response.headers["WWW-Authenticate"] = "Bearer"
         return response
@@ -128,6 +130,7 @@ class RequestGuard:
             "security.rate_limited",
             extra={"operation": operation, "retry_after_s": int(retry_after), **_where(scope)},
         )
+        metrics.count_security_refusal("rate_limited", operation)
         what = "failed API-key attempts" if operation == "auth_failure" else f"{operation} requests"
         response = error_response(
             429, "rate_limited", f"too many {what}; retry after {retry_after} s"
@@ -160,6 +163,7 @@ class RequestGuard:
             "security.request_too_large",
             extra={"limit_bytes": limit, "declared_bytes": declared, **_where(scope)},
         )
+        metrics.count_security_refusal("request_too_large")
         return error_response(413, code, message)
 
     def _counting(self, scope: Scope, receive: Receive) -> Callable[[], Awaitable[Message]]:
@@ -176,6 +180,7 @@ class RequestGuard:
                         "security.request_too_large",
                         extra={"limit_bytes": limit, "received_bytes": received, **_where(scope)},
                     )
+                    metrics.count_security_refusal("request_too_large")
                     raise RequestTooLargeError(code, message)
             return event
 

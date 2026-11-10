@@ -23,6 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
+from production_rag import metrics
 from production_rag.config import Settings
 from production_rag.db.documents import DocumentRepository
 from production_rag.db.models import Chunk, Document, DocumentFile, utcnow
@@ -274,10 +275,12 @@ class IngestionService:
             )
         except ClaimLost:
             logger.warning("ingest.claim_lost", extra=log)
+            metrics.observe_ingestion("lost", time.perf_counter() - start)
             return ProcessOutcome("lost")
         except _Stopping:
             self.queue.release(claim)
             logger.info("ingest.released", extra=log)
+            metrics.observe_ingestion("released", time.perf_counter() - start)
             return ProcessOutcome("released")
         except Exception as exc:
             code, message, expected = _failure_reason(exc)
@@ -288,7 +291,9 @@ class IngestionService:
                 extra={**log, "error_code": code},
                 exc_info=None if expected else exc,
             )
+            metrics.observe_ingestion("failed", time.perf_counter() - start)
             return ProcessOutcome("failed", exc)
+        elapsed = time.perf_counter() - start
         logger.info(
             "ingest.completed",
             extra={
@@ -297,9 +302,10 @@ class IngestionService:
                 "size_bytes": len(data),
                 "chunks": len(spans),
                 "embedding_model": self._embedder.model_id,
-                "duration_ms": round((time.perf_counter() - start) * 1000, 2),
+                "duration_ms": round(elapsed * 1000, 2),
             },
         )
+        metrics.observe_ingestion("ready", elapsed, len(spans))
         return ProcessOutcome("ready")
 
     # --- Maintenance ---

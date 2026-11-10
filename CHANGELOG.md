@@ -12,6 +12,16 @@ record. Detailed per-session notes and verification results are in
 
 ### Added
 
+- **Prometheus metrics** at `GET /metrics`: requests and latency by route
+  template, answer outcomes and per-stage latency, model tokens, generation
+  failures and refusals, ingestion outcomes, security refusals, and the
+  queue's state (documents by status, chunks, stale chunks, the oldest queued
+  document's wait, live workers, database and schema health). Behind the API
+  key; `RAG_METRICS_ENABLED=false` turns it off. Adds the `prometheus-client`
+  dependency. The smoke test and the container image check scrape it.
+- **docs/observability.md**: every log event and metric, request correlation,
+  Prometheus alert rules, diagnosing retrieval and generation problems, and
+  what is never recorded. Tracing is deferred, with its spans defined.
 - **Container image** on the GitHub Container Registry, `ghcr.io/saicharan-nidiganti/production-rag`, with
   tags `X.Y.Z`, `X.Y` and `latest`. Built from `uv.lock`, it runs
   `rag serve --migrate` as an unprivileged user, keeps its data in `/data`

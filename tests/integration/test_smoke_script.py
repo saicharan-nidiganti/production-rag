@@ -61,7 +61,17 @@ def _healthy(request: httpx.Request) -> httpx.Response:
     if path == "/v1/query/stream":
         return _sse(("retrieval", {}), ("citation", {}), ("text", {"text": ANSWER}),
                     ("done", {"answer": ANSWER}))  # fmt: skip
+    if path == "/metrics":
+        return httpx.Response(200, text=METRICS)
     return httpx.Response(404)
+
+
+METRICS = """# HELP rag_documents Documents by ingestion status.
+# TYPE rag_documents gauge
+rag_documents{status="ready"} 1.0
+rag_ingestion_documents_total{outcome="ready"} 3.0
+rag_queries_total{status="answered",streamed="true"} 2.0
+"""
 
 
 ANSWER = "It runs for 30 minutes."
@@ -128,6 +138,19 @@ def test_fails_when_ingestion_fails() -> None:
         _with(f"/v1/documents/{DOC_ID}", lambda _: httpx.Response(200, json=doc)),
         "background ingestion: ready",
     )
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        httpx.Response(404),
+        httpx.Response(200, text=METRICS.replace('{status="ready"} 1.0', '{status="ready"} 0.0')),
+        httpx.Response(200, text=METRICS.replace('streamed="true"', 'streamed="false"')),
+    ],
+    ids=["missing", "document-not-counted", "stream-not-counted"],
+)
+def test_fails_when_metrics_are_missing_or_wrong(response: httpx.Response) -> None:
+    _fails(_with("/metrics", lambda _: response), "GET /metrics reports")
 
 
 def test_fails_when_ingestion_never_finishes() -> None:

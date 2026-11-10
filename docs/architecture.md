@@ -65,6 +65,7 @@ src/production_rag/
   db/                SQLAlchemy models, engine, Alembic migrations (single source of schema truth),
                      document queries (documents.py)
   embeddings.py      Embedder protocol: hashing and fastembed providers
+  metrics.py         Prometheus counters and histograms, updated where events are logged
   parsing/           text extraction (text, Markdown, PDF, DOCX, HTML) and the isolated
                      parser process that runs it
   ingestion/         chunking, the queue's claim protocol (queue.py),
@@ -74,7 +75,7 @@ src/production_rag/
   rag.py             query orchestration and abstention
   container.py       component wiring
   api/               FastAPI app, request guard (API key, rate limits, body size), routes,
-                     Server-Sent Events, schemas, error mapping (transport only)
+                     Server-Sent Events, /metrics, schemas, error mapping (transport only)
   cli.py             rag command (transport only)
   evaluation/        golden dataset, metrics, runner, regression gate
 eval/                corpus, golden dataset, gate thresholds (versioned evaluation inputs)
@@ -113,9 +114,9 @@ flowchart TB
         direction LR
         ingestion ~~~ retrieval
     end
-    subgraph L2["2 Storage, models, extraction"]
+    subgraph L2["2 Storage, models, extraction, metrics"]
         direction LR
-        db ~~~ embeddings ~~~ parsing
+        db ~~~ embeddings ~~~ parsing ~~~ metrics
     end
     subgraph L1["1 Foundation"]
         direction LR

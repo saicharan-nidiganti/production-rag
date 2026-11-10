@@ -24,6 +24,7 @@ from typing import Any
 import anyio
 from pydantic import BaseModel
 
+from production_rag import metrics
 from production_rag.api.schemas import (
     CitationOut,
     ErrorBody,
@@ -87,6 +88,7 @@ def sse_events(
         logger.error(
             "generation.failed", extra={"retryable": exc.retryable, "streamed": True}, exc_info=exc
         )
+        metrics.count_generation_failure(retryable=exc.retryable)
         code = "generation_unavailable" if exc.retryable else "generation_failed"
         yield _error(code, str(exc), request_id)
     except Exception as exc:  # the response has started: report it in the stream

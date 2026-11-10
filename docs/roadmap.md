@@ -104,7 +104,7 @@ the item notes the proposed decision.
 - [x] Error handling
 - [x] Configuration management
 - [x] Logging
-- [ ] Observability — JSON logs, request ids and per-stage timings done; metrics export pending
+- [x] Observability — JSON logs with request ids, per-stage timings, Prometheus metrics at `/metrics` ([observability.md](observability.md)); tracing deferred until requests span processes
 - [ ] Performance testing
 - [ ] OCR for scanned PDFs
 - [ ] Container images

@@ -7,6 +7,7 @@ because they must respect the claim protocol.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import get_args
 
 from sqlalchemy import func, select
@@ -82,3 +83,14 @@ class DocumentRepository:
                 or 0
             )
         return {"documents": documents, "chunks": chunks, "stale_chunks": stale}
+
+    def oldest_queued_at(self) -> datetime | None:
+        """When the longest-waiting queued document was queued, or None if none waits."""
+        with self._sessions() as session:
+            oldest = session.scalar(
+                select(func.min(Document.updated_at)).where(Document.status == "queued")
+            )
+        if oldest is None:
+            return None
+        # SQLite returns the stored UTC time without its zone.
+        return oldest if oldest.tzinfo else oldest.replace(tzinfo=UTC)

@@ -10,6 +10,7 @@ Each topic has one authoritative document. Start with the repository
 | [api.md](api.md) | Call the HTTP API: every endpoint, field, status code and error, with real responses | API users |
 | [configuration.md](configuration.md) | Look up any environment variable and its default (a test keeps it complete) | Operators, contributors |
 | [operations.md](operations.md) | Deploy, migrate, monitor, back up and troubleshoot, including background ingestion | Operators |
+| [observability.md](observability.md) | Find every log event and metric, correlate a request, set alerts, and see what is never recorded | Operators, reviewers |
 | [security.md](security.md) | Review the controls, data flows, third-party models, supply chain and known gaps | Reviewers, operators |
 | [evaluation.md](evaluation.md) | Understand the dataset, the metrics, current results, the regression gates and the paid-evaluation plan | Contributors, reviewers |
 | [decisions/](decisions/README.md) | Read why each consequential technical choice was made, with options and trade-offs (ADRs) | Contributors, reviewers |

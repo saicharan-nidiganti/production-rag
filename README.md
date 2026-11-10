@@ -123,6 +123,9 @@ flowchart TB
 - **Streaming.** `POST /v1/query/stream` sends the retrieved passages, then the answer's text
   and citations as Claude writes them, then exactly the `/v1/query` response. A client that
   disconnects stops the generation ([ADR-0010](docs/decisions/0010-streaming-answers-over-sse.md)).
+- **Observability.** JSON logs correlated by request id, and Prometheus metrics at `/metrics`
+  for request and stage latency, answer outcomes, tokens, the ingestion queue and security
+  refusals. Neither records questions, documents or answers ([docs/observability.md](docs/observability.md)).
 
 ## Results
 

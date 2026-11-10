@@ -211,6 +211,26 @@ def _exercise(
     ingestion = client.get("/ready").json()["checks"]["ingestion"]
     _check(ingestion["ready"] == 1 and ingestion["workers"] == 1, "GET /ready reports ingestion")
 
+    scrape = client.get("/metrics")
+    samples = _samples(scrape.text) if scrape.status_code == 200 else {}
+    _check(
+        samples.get('rag_documents{status="ready"}') == 1
+        # Counters belong to the process: a server that has run longer has counted more.
+        and samples.get('rag_ingestion_documents_total{outcome="ready"}', 0) >= 1
+        and samples.get('rag_queries_total{status="answered",streamed="true"}', 0) >= 1,
+        "GET /metrics reports the document, its ingestion and the streamed answer",
+    )
+
+
+def _samples(exposition: str) -> dict[str, float]:
+    """``name{labels}`` to value, from the Prometheus text format."""
+    samples: dict[str, float] = {}
+    for line in exposition.splitlines():
+        if line and not line.startswith("#"):
+            series, _, value = line.rpartition(" ")
+            samples[series] = float(value)
+    return samples
+
 
 def main() -> int:
     with tempfile.TemporaryDirectory(prefix="rag-smoke-", ignore_cleanup_errors=True) as tmp:

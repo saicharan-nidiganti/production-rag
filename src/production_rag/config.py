@@ -163,6 +163,10 @@ class Settings(BaseSettings):
         ge=0,
         description="Wrong or missing API keys per client per minute before 429.",
     )
+    metrics_enabled: bool = Field(
+        default=True,
+        description="Serve Prometheus metrics at GET /metrics (behind the API key, if set).",
+    )
     log_level: str = "INFO"
 
     def secret_values(self) -> list[str]:

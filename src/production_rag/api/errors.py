@@ -11,6 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from production_rag import metrics
 from production_rag.api.schemas import ErrorBody, ErrorResponse
 from production_rag.generation import GenerationError
 from production_rag.ingestion import (
@@ -64,6 +65,7 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(GenerationError)
     async def _generation(_: Request, exc: GenerationError) -> JSONResponse:
         logger.error("generation.failed", extra={"retryable": exc.retryable}, exc_info=exc)
+        metrics.count_generation_failure(retryable=exc.retryable)
         if exc.retryable:
             return error_response(503, "generation_unavailable", str(exc))
         return error_response(502, "generation_failed", str(exc))

@@ -203,39 +203,37 @@ meantime. Re-run `rag eval` with the new model and recalibrate `RAG_MIN_VECTOR_S
 
 ## Logs and monitoring
 
-Logs are JSON lines on stderr. Useful fields and signals:
+The backend emits three signals. [observability.md](observability.md) lists every log event
+and metric, with Prometheus rules for the alerts below.
 
-| Signal | Source |
-| --- | --- |
-| Request rate, latency and errors by path | `event = http.request` (`status`, `duration_ms`, `path`) |
-| Answer outcomes | `event = query.completed`: count by `status`; watch the `insufficient_evidence` share |
-| Pre-generation abstentions | `query.completed` with `abstained_before_generation = true` |
-| Stage latency | `query.completed.timings_ms.retrieval` / `.generation`; for streamed answers (`streamed = true`) also `.first_token`, the time to the first text |
-| Model usage and cost | `event = generation.completed`: `input_tokens`, `output_tokens`, `model` |
-| Ingestion throughput and failures | `ingest.queued`, `ingest.completed` (`chunks`, `duration_ms`), `ingest.failed` (`error_code`, `attempt`) |
-| Ingestion recovery | `ingest.recovered` (a lapsed lease was taken over), `ingest.claim_lost` (a late worker's result was discarded), `ingest.released` (handed back at shutdown) |
-| Ingestion worker health | `ingest.worker_error` (database unavailable or not migrated; retried with a backoff up to 30 s), `ingest.lease_renewal_failed` |
-| Refusals | `event = generation.refused` (`category`) |
-| Security refusals | `security.auth_failed` (`reason`), `security.rate_limited` (`operation`, `retry_after_s`), `security.request_too_large`; each with the client address |
-| Upstream failures | `event = generation.failed` (`retryable`); HTTP 502/503 |
+- **Metrics** at `GET /metrics`, in the Prometheus text format: request rates and latency by
+  route, answer outcomes, stage latency, tokens, ingestion outcomes, queue depth and age,
+  security refusals. Scrape every 15 seconds, with the API key when one is set. Counters are
+  per process; the queue and index gauges come from the database.
+- **Logs**: JSON lines on stderr, one event per line. Ship them to your log store and filter
+  on `request_id` for a request, or `document_id` for a document's ingestion.
+- **Probes**: `GET /health` for liveness and `GET /ready` for readiness.
 
-Every log line within a request carries `request_id`, which is also returned as `X-Request-ID`.
-`generation.completed` also logs `anthropic_request_id`; quote it when reporting an API problem
-to Anthropic. Question text and document contents are never logged.
+Every log line within a request carries `request_id`, which is also returned as `X-Request-ID`
+and in error bodies. `generation.completed` also logs `anthropic_request_id`; quote it when
+reporting an API problem to Anthropic. Question text, document contents, answers and
+credentials are never logged or used as metric labels.
 
 ### Alerts worth setting
 
-Starting points; tune the thresholds to your traffic.
+Starting points; tune the thresholds to your traffic. Without Prometheus, the log events in
+the last column give the same signal.
 
-| Alert | Condition | Usual cause |
-| --- | --- | --- |
-| Not ready | `/ready` isn't 200 for 2 minutes | Schema behind after an upgrade; database unreachable |
-| Ingestion backlog | `checks.ingestion.queued` keeps growing for 15 minutes | No process runs workers, or workers fail (`ingest.worker_error`) |
-| Stuck processing | `processing` stays above 0 with no `ingest.completed` for longer than `RAG_INGEST_LEASE_S` | A worker died; the lease hands the document over |
-| Server errors | 5xx above 1% of `http.request` over 5 minutes | Unexpected errors: look up the `request_id` |
-| Model unavailable | `generation.failed` with `retryable = true`, or 503 `generation_unavailable`, above your baseline | Claude rate limits or overload |
-| Abuse | Spikes of `security.auth_failed` or `security.rate_limited` | A misconfigured client, or key guessing |
-| Slow answers | p95 of `query.completed.timings_ms.total` above your target | Large corpus, reranking many candidates, or a slow model |
+| Alert | Metric condition | From the logs | Usual cause |
+| --- | --- | --- | --- |
+| Not ready | `rag_database_up` or `rag_schema_at_head` is 0 for 2 minutes | `/ready` isn't 200 | Schema behind after an upgrade; database unreachable |
+| Ingestion backlog | `rag_ingestion_oldest_queued_seconds` above 900 | `checks.ingestion.queued` keeps growing | No process runs workers, or workers fail (`ingest.worker_error`) |
+| No workers | `rag_ingestion_workers` sums to 0 while `rag_documents{status="queued"}` is above 0 | `ingest.workers_started` missing after a restart | Started with `RAG_INGEST_WORKERS=0` everywhere, or the schema was behind at startup |
+| Server errors | 5xx above 1% of `rag_http_requests_total` over 5 minutes | `http.request` with `status` 500 or more | Unexpected errors: look up the `request_id` |
+| Model unavailable | `rag_generation_failures_total{retryable="true"}` rising | `generation.failed` with `retryable = true` | Claude rate limits, overload or an outage |
+| Model misconfigured | any `rag_generation_failures_total{retryable="false"}` | `generation.failed` with `retryable = false` | Credentials, credit or the model name |
+| Abuse | `rag_security_refusals_total` above 1 per second for 10 minutes | Spikes of `security.auth_failed` or `security.rate_limited` | A misconfigured client, or key guessing |
+| Slow answers | p95 of `rag_query_stage_seconds{stage="total"}` above your target | p95 of `query.completed.timings_ms.total` | Large corpus, reranking many candidates, or a slow model |
 
 ## Backups
 

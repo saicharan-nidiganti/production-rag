@@ -10,6 +10,7 @@ dependencies = [
     "anthropic>=2.0",  # 2.x sends API version 2026-10-21, which this code targets
     "fastapi>=0.115",
     "numpy>=2.1",
+    "prometheus-client>=0.26",
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "pypdf>=5.1",

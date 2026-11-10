@@ -130,6 +130,7 @@ Changing the provider, model or dimensions requires `rag reindex`
 | `RAG_RATE_LIMIT_SEARCH_PER_MINUTE` | `120` | Searches (`POST /v1/search`) per client per minute. |
 | `RAG_RATE_LIMIT_READ_PER_MINUTE` | `600` | Every other `/v1` request per client per minute. |
 | `RAG_RATE_LIMIT_AUTH_FAILURES_PER_MINUTE` | `10` | Missing or wrong API keys per client per minute, when `RAG_API_KEY` is set. Past it, the client gets 429 without its key being checked, even a correct one, until an attempt refills. |
+| `RAG_METRICS_ENABLED` | `true` | Serve Prometheus metrics at `GET /metrics`, behind the API key when one is set. `false` makes the route answer 404. The metrics are in [observability.md](observability.md). |
 | `RAG_LOG_LEVEL` | `INFO` | Root log level for the JSON logs on stderr. The configured secrets are replaced by `[REDACTED]` wherever they would appear in a log line. |
 
 Rate limits are token buckets per client address: a client may use a minute's allowance at

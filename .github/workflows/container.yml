@@ -114,7 +114,11 @@ jobs:
             | python3 -c "import json, sys; a = json.load(sys.stdin); assert a['status'] == 'answered' and a['citations'], a; print(a['answer'])"
           curl -fsSN "$url/v1/query/stream" -H "Content-Type: application/json" -d "$question" \
             | grep -q '^event: done' || { echo "::error::no streamed answer"; exit 1; }
-          echo "image works: ready, ingests, answers with citations, streams, non-root"
+          if [ -f src/production_rag/metrics.py ]; then # releases before 0.3 have no /metrics
+            curl -fsS "$url/metrics" | grep -q '^rag_documents{status="ready"} 1.0$' \
+              || { echo "::error::/metrics does not report the document"; exit 1; }
+          fi
+          echo "image works: ready, ingests, answers with citations, streams, metrics, non-root"
 
       - name: Log in to the GitHub Container Registry
         if: env.PUBLISH == 'true'
