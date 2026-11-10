@@ -148,6 +148,16 @@ With no configuration this runs fully offline: lexical `hashing` embeddings and 
 real use, copy `.env.example` to `.env`; it selects `bge-small` embeddings, reranking and
 Claude (`ANTHROPIC_API_KEY` required). The models download on first use (about 150 MB).
 
+### Or run the container image
+
+```bash
+docker run -p 8000:8000 -v rag-data:/data ghcr.io/saicharan-nidiganti/production-rag:0.2.0
+```
+
+It applies migrations at start, keeps the database in the `rag-data` volume and runs
+offline by default too. Pass settings with `-e`, for example `-e RAG_GENERATOR=anthropic
+-e ANTHROPIC_API_KEY -e RAG_API_KEY`; see [operations.md](docs/operations.md#container-image).
+
 ## API
 
 ```bash

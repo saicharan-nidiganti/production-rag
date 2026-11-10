@@ -1,0 +1,134 @@
+name: Container image
+
+# Builds the image, runs it and checks it answers, then publishes it to the GitHub Container
+# Registry: for every release tag, or by hand for an existing release (docs/release.md).
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - .github/workflows/container.yml
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Existing release tag whose source goes into the image, for example v0.2.0"
+        required: true
+      publish:
+        description: "Push the image to ghcr.io (otherwise build and test only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-${{ github.ref }}-${{ inputs.release || '' }}
+  cancel-in-progress: false
+
+jobs:
+  image:
+    name: Build, test and publish the image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io with GITHUB_TOKEN
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+      TEST_TAG: production-rag:test
+      PUBLISH: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # release tags, for a manual build of an earlier release
+
+      - name: Use the release's source (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          RELEASE: ${{ inputs.release }} # via env, never spliced into the script
+        run: |
+          git rev-parse --verify --quiet "refs/tags/${RELEASE}" >/dev/null \
+            || { echo "::error::${RELEASE} is not a tag of this repository"; exit 1; }
+          # The image's code is exactly the release's; the Dockerfile and this workflow are current.
+          git checkout "${RELEASE}" -- src pyproject.toml uv.lock README.md LICENSE
+
+      - name: Version and labels
+        id: version
+        env:
+          RELEASE: ${{ inputs.release || github.ref_name }}
+        run: |
+          version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            [ "v${version}" = "${RELEASE}" ] \
+              || { echo "::error::pyproject.toml says ${version}, the tag is ${RELEASE}"; exit 1; }
+            echo "revision=$(git rev-parse "${RELEASE}^{commit}")" >> "$GITHUB_OUTPUT"
+          else
+            echo "revision=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        id: meta
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}},value=v${{ steps.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ steps.version.outputs.version }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.revision=${{ steps.version.outputs.revision }}
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build the image for testing
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          load: true
+          tags: ${{ env.TEST_TAG }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Test the image (offline configuration)
+        run: |
+          set -euo pipefail
+          url=http://127.0.0.1:8000
+          json() { python3 -c "import json, sys; print(json.load(sys.stdin)$1)"; }
+          docker run -d --name rag -p 8000:8000 "$TEST_TAG"
+          trap 'docker logs rag; docker rm -f rag >/dev/null' EXIT
+          for _ in $(seq 60); do curl -fsS "$url/ready" >/dev/null 2>&1 && break; sleep 1; done
+          curl -fsS "$url/ready"; echo
+          [ "$(docker exec rag id -u)" = "10001" ] || { echo "::error::runs as root"; exit 1; }
+          doc=$(curl -fsS -F "file=@eval/corpus/deployment-runbook.md" "$url/v1/documents" | json "['document']['id']")
+          for _ in $(seq 60); do
+            status=$(curl -fsS "$url/v1/documents/$doc" | json "['status']")
+            [ "$status" = ready ] && break
+            [ "$status" = failed ] && { echo "::error::ingestion failed"; exit 1; }
+            sleep 1
+          done
+          [ "$status" = ready ] || { echo "::error::ingestion did not finish"; exit 1; }
+          question='{"question": "How long does the canary run?"}'
+          curl -fsS "$url/v1/query" -H "Content-Type: application/json" -d "$question" \
+            | python3 -c "import json, sys; a = json.load(sys.stdin); assert a['status'] == 'answered' and a['citations'], a; print(a['answer'])"
+          curl -fsSN "$url/v1/query/stream" -H "Content-Type: application/json" -d "$question" \
+            | grep -q '^event: done' || { echo "::error::no streamed answer"; exit 1; }
+          echo "image works: ready, ingests, answers with citations, streams, non-root"
+
+      - name: Log in to the GitHub Container Registry
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish the tested image
+        if: env.PUBLISH == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

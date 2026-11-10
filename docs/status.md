@@ -41,6 +41,20 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 
 ## Session log
 
+### Session 16 — The container image (2026-11-10)
+
+- The repository's "Packages" panel only lists GitHub Packages, which hosts container
+  images but not Python packages, so each release is now also a container image,
+  `ghcr.io/saicharan-nidiganti/production-rag`.
+- `Dockerfile`: dependencies from `uv.lock` (`uv sync --frozen --no-dev`), a slim Python 3.12
+  runtime, an unprivileged user, data and models in `/data`, a health check, and
+  `rag serve --migrate`. `.dockerignore` sends only the package sources to the build.
+- `.github/workflows/container.yml` builds the image, runs it and checks that it becomes
+  ready, ingests, answers with citations and streams, then publishes it: on every release
+  tag, or by hand for an existing release, using that release's source. Third-party
+  actions are pinned to commit SHAs, at releases at least two weeks old.
+- 0.2.0 was published from the `v0.2.0` tag's source.
+
 ### Session 15 — Publication, the repository's new place, a credit check (2026-11-10)
 
 - The owner approved the final verification. The annotated tag `v0.2.0` on `2ceb918` and

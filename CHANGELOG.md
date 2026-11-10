@@ -10,6 +10,16 @@ record. Detailed per-session notes and verification results are in
 
 ## [Unreleased]
 
+### Added
+
+- **Container image** on the GitHub Container Registry, `ghcr.io/saicharan-nidiganti/production-rag`, with
+  tags `X.Y.Z`, `X.Y` and `latest`. Built from `uv.lock`, it runs
+  `rag serve --migrate` as an unprivileged user, keeps its data in `/data`
+  and has a health check. `.github/workflows/container.yml` builds it, checks
+  that it becomes ready, ingests, answers with citations and streams, and only
+  then publishes it, for every release tag (or by hand for an earlier one).
+  Published for 0.2.0 from that release's source.
+
 ## [0.2.0] - 2026-11-10
 
 ### Added

@@ -24,6 +24,27 @@ uv run python -c \
   "from production_rag.retrieval.reranking import FastEmbedReranker; FastEmbedReranker('Xenova/ms-marco-MiniLM-L-6-v2', '/opt/models')"
 ```
 
+### Container image
+
+Each release is published as `ghcr.io/saicharan-nidiganti/production-rag` (tags `X.Y.Z`, `X.Y` and `latest`), built from
+`uv.lock` and tested by [container.yml](../.github/workflows/container.yml) before it is
+pushed: it must become ready, ingest a document, answer with citations and stream an answer.
+
+```bash
+docker run -d --name rag -p 8000:8000 -v rag-data:/data \
+  -e RAG_API_KEY -e ANTHROPIC_API_KEY \
+  -e RAG_EMBEDDING_PROVIDER=fastembed -e RAG_RERANKER=fastembed -e RAG_GENERATOR=anthropic \
+  ghcr.io/saicharan-nidiganti/production-rag:0.2.0
+```
+
+- It runs `rag serve --migrate`: one process on port 8000, as an unprivileged user
+  (uid 10001), with a `HEALTHCHECK` on `/health`.
+- `/data` holds the SQLite database (`RAG_DATABASE_URL=sqlite:////data/rag.db`) and the
+  downloaded models (`RAG_FASTEMBED_CACHE_DIR=/data/models`): mount a volume there.
+- With no settings it runs offline: hashing embeddings and extractive answers. `-e NAME`
+  without a value passes the variable from your shell, so secrets stay off the command line.
+- Run one container per database: SQLite allows a single writer.
+
 ## Deploy sequence
 
 1. `uv run rag db upgrade`: apply migrations. This is an explicit step; the service doesn't

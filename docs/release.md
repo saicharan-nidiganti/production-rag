@@ -21,7 +21,7 @@ Run against the exact commit to be tagged.
 | 8 | The docs match the code: README status table, [status.md](status.md), known limitations, configuration (tested) | Read through; `tests/unit/test_docs.py` for links, settings and diagrams |
 | 9 | Live-model behaviour is either verified or stated as unverified in the release notes | [evaluation.md](evaluation.md#paid-evaluation-with-claude) |
 | 10 | CHANGELOG: `[Unreleased]` becomes `[X.Y.Z] - date`, with a new empty `[Unreleased]` above it | Edit, commit, wait for CI |
-| 11 | Tag and release | `git tag -a vX.Y.Z -m "..." <commit> && git push origin vX.Y.Z`, then create the GitHub release from the tag with the notes; attach the wheel and sdist from `uv build` |
+| 11 | Tag and release | `git tag -a vX.Y.Z -m "..." <commit> && git push origin vX.Y.Z`, then create the GitHub release from the tag with the notes; attach the wheel and sdist from `uv build`. Pushing the tag also builds, tests and publishes the container image ([container.yml](../.github/workflows/container.yml)) |
 
 ## v0.2.0: status
 
