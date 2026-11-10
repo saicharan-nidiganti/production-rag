@@ -32,7 +32,10 @@ LABEL org.opencontainers.image.title="Production RAG" \
       org.opencontainers.image.source="https://github.com/saicharan-nidiganti/production-rag" \
       org.opencontainers.image.licenses="MIT"
 
-RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin rag \
+# The base image's tag lags the distribution's security fixes; take them at build time.
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --uid 10001 --create-home --shell /usr/sbin/nologin rag \
     && mkdir /data && chown rag:rag /data
 COPY --from=build /app/.venv /app/.venv
 
