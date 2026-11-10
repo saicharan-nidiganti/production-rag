@@ -30,6 +30,12 @@ def head_revision() -> str | None:
     return script.get_current_head()
 
 
+def known_revisions() -> list[str]:
+    """Every revision this version can migrate from, oldest first."""
+    script = ScriptDirectory.from_config(alembic_config("sqlite://"))
+    return [rev.revision for rev in reversed(list(script.walk_revisions()))]
+
+
 def current_revision(engine: Engine) -> str | None:
     with engine.connect() as conn:
         return MigrationContext.configure(conn).get_current_revision()

@@ -72,6 +72,8 @@ policy before enabling the Claude generator.
 | Prompt-injection cases exist (`partner-integrations.md` in the corpus, `t-par-*` in golden v2) but are only informative with an LLM generator | NFR-3, requirements §7 | Run them with Claude once the owner authorizes a paid evaluation |
 | The parser process is isolated from the service but not sandboxed: it can reach the network and the filesystem, and on Windows has no memory limit | NFR-2 | Add a sandbox (no network, read-only filesystem) before accepting anonymous uploads ([ADR-0007](decisions/0007-isolated-document-parsing.md)) |
 | Single static API key, no rotation overlap | — | Replaced by sessions in Phase 5 |
+| The application doesn't encrypt the database or its backups | Data at rest | Put `/data` on an encrypted volume and encrypt backups before they leave the host ([data-lifecycle.md](data-lifecycle.md#privacy-and-security)) |
+| Deleted content stays in free database pages and in backups until they are rewritten or expire | Erasure | `VACUUM` with the service stopped, and backup retention ([data-lifecycle.md](data-lifecycle.md#deletion)) |
 
 ## Operator checklist
 
@@ -85,5 +87,9 @@ policy before enabling the Claude generator.
 4. Keep `.env` readable only by that user.
 5. Restrict document uploads to trusted users: uploaded text can influence
    answers.
-6. Delete failed documents you won't retry: each keeps its raw upload
-   (`GET /v1/documents?status=failed` lists them).
+6. Delete failed documents you won't retry, since each keeps its raw upload: schedule
+   `rag db prune --failed-older-than 30`, or list them with
+   `GET /v1/documents?status=failed`.
+7. Schedule `rag db backup --keep 7`, copy the backups off the host encrypted, keep them
+   readable only by the service user, and test a restore regularly
+   ([data-lifecycle.md](data-lifecycle.md#backup)).

@@ -93,7 +93,7 @@ app enforces the limit too, but only after the body has been received.
 
 1. Read the release notes and the [changelog](../CHANGELOG.md) for new settings and
    behaviour changes.
-2. Back up the database ([Backups](#backups)).
+2. Back up the database: `rag db backup` ([Backups](#backups)).
 3. Install the new version: `git pull && uv sync --frozen --all-extras --no-dev`, or pull the
    new image tag.
 4. Apply migrations with `rag db upgrade`; the container image does this when it starts.
@@ -102,7 +102,7 @@ app enforces the limit too, but only after the body has been received.
    `expected_revision`, and ask one question.
 
 To roll back, run the previous version. If the upgrade applied a migration, restore the
-backup from step 2 first: there is no `rag db downgrade` command. 0.1.0 and 0.2.0 share
+backup from step 2 first with `rag db restore`: there is no `rag db downgrade` command. 0.1.0 and 0.2.0 share
 schema revision 0003, so moving between them needs no migration.
 
 ## Sizing
@@ -237,19 +237,37 @@ the last column give the same signal.
 
 ## Backups
 
-The database is a single SQLite file in WAL mode. Copying the file alone can miss what is in
-the write-ahead log, so take backups with SQLite's backup API. This works while the service
-runs, and inside the container image, which has Python but not the `sqlite3` shell:
+The database is one SQLite file in WAL mode, and the only copy of the extracted text and
+the ingestion state. Copying the file alone can miss what is still in the write-ahead log, so
+use `rag db backup`, which copies it with SQLite's backup API while the service runs:
 
 ```bash
-python -c "import sqlite3; d = sqlite3.connect('rag-backup.db'); sqlite3.connect('/data/rag.db').backup(d); d.close()"
-docker exec rag python -c "..."          # the same command, inside a running container
+rag db backup --keep 7                       # backups/ beside the database, newest 7 kept
+rag db verify --file backups/rag-backup-20261110-043920-504.db
+docker exec rag rag db backup --keep 7       # in the container: /data/backups
+docker cp rag:/data/backups/. ./offsite/     # then copy them off the host, encrypted
 ```
 
-To restore: stop the service, replace `rag.db` with the backup, delete any `rag.db-wal` and
-`rag.db-shm` left beside it, start the service and check `/ready`. Documents can be
-re-ingested from their sources, but the database is the only copy of the extracted text and
-the ingestion metadata.
+Each backup is a single file with a JSON manifest beside it (time, version, schema
+revision, counts, SHA-256). The copy passes SQLite's integrity check before it gets its final
+name. `rag db verify` checks the live database, or a backup with `--file`, for damage and
+broken invariants, and exits 1 if any check fails.
+
+To restore, stop the service, then:
+
+```bash
+rag db restore backups/rag-backup-20261110-043920-504.db --yes
+rag db upgrade                               # only if it reports "needs_upgrade": true
+```
+
+The restore refuses a backup that fails verification. It keeps the database it replaces as
+`rag.pre-restore-<time>.db` and verifies the result. Start the service and check `/ready`.
+
+For retention, `rag db prune --failed-older-than 30` deletes failed documents, with their
+stored uploads, that nobody has retried for 30 days; add `--dry-run` to list them first. Run
+both commands from a scheduler, such as cron or a Kubernetes CronJob.
+[data-lifecycle.md](data-lifecycle.md) covers what each piece of data is, how long it is
+kept, how to rebuild it and the recovery procedure for each kind of failure.
 
 ## Security
 
@@ -262,6 +280,8 @@ checklist are in [security.md](security.md). All settings are listed in
 | Symptom | Cause and fix |
 | --- | --- |
 | `/ready` 503 with `schema: not at head` | Run `rag db upgrade` |
+| `rag db verify` fails `search_index`, or searches miss text that is in a document | The full-text index is out of step with the chunks: `rag db rebuild-search-index` |
+| `rag db verify` fails `sqlite_integrity`, or SQLite reports "database disk image is malformed" | Stop the service and restore the newest backup that verifies ([data-lifecycle.md](data-lifecycle.md#recovery)) |
 | Documents stay `queued` | No process runs workers (`checks.ingestion.workers` is 0 everywhere), or workers log `ingest.worker_error`. Start a process with `RAG_INGEST_WORKERS` ≥ 1, or fix the database error |
 | A document stays `processing` for minutes | Its worker died; it's taken over once the lease lapses (`RAG_INGEST_LEASE_S`). Large PDFs can also simply take that long: check for `ingest.completed` |
 | `failed` with `internal_error` | The message names the exception type; the full error is in the `ingest.failed` log line. Fix it, then retry |

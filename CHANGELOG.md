@@ -12,6 +12,20 @@ record. Detailed per-session notes and verification results are in
 
 ### Added
 
+- **Backups, verification and restores**: `rag db backup` makes an online copy with
+  SQLite's backup API, checks it, and writes a manifest with its schema revision, counts
+  and SHA-256; `--keep N` prunes older ones. `rag db verify` checks the database or a backup
+  (checksum, SQLite integrity, foreign keys, schema, full-text index, chunk and upload
+  invariants, vector sizes) without writing to it. `rag db restore --yes` refuses a backup
+  that fails verification, keeps the database it replaces, and moves the index generation
+  forward so running processes reload their vectors. `rag db rebuild-search-index`
+  repairs the full-text index.
+- **Retention**: `rag db prune --failed-older-than DAYS [--dry-run]` deletes failed
+  documents and their stored uploads.
+- **Lineage**: each document's `metadata.ingested_with` records the version and the chunk
+  size and overlap that produced its chunks.
+- **docs/data-lifecycle.md**: data inventory and classification, storage, lineage,
+  versioning, retention, deletion, backup, recovery procedures, privacy and growth.
 - **Prometheus metrics** at `GET /metrics`: requests and latency by route
   template, answer outcomes and per-stage latency, model tokens, generation
   failures and refusals, ingestion outcomes, security refusals, and the

@@ -167,7 +167,8 @@ location: /v1/documents/37f7f8c9-44cd-463d-ab2d-94778be20085
 Only `ready` documents appear in search and answers. Until then, `title` is the
 file name and `num_chunks` is 0. Once ready, the title is the first Markdown H1,
 the PDF title metadata, or the file name, and for PDFs `metadata.pages` holds
-the page count.
+the page count. `metadata.ingested_with` records what produced the chunks: the
+version and the chunk size and overlap ([data-lifecycle.md](data-lifecycle.md#lineage)).
 
 `GET /v1/documents/{id}` once processing has finished:
 
@@ -176,6 +177,7 @@ the page count.
   "id": "37f7f8c9-44cd-463d-ab2d-94778be20085",
   "title": "Public API Usage Limits",
   "num_chunks": 5,
+  "metadata": {"ingested_with": {"version": "0.2.0", "chunk_size": 1000, "chunk_overlap": 150}},
   "status": "ready",
   "error": null,
   "attempts": 1,

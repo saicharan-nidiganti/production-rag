@@ -6,6 +6,7 @@ because they must respect the claim protocol.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import get_args
@@ -14,6 +15,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from production_rag.db.models import Chunk, Document, DocumentStatus
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -59,6 +62,23 @@ class DocumentRepository:
             session.delete(document)
             session.commit()
         return True
+
+    def delete_failed(self, older_than: datetime, *, dry_run: bool = False) -> list[str]:
+        """Delete failed documents last updated before ``older_than``, with their stored
+        uploads (retention). Returns their ids, oldest first; deletes nothing on a dry run."""
+        with self._sessions() as session:
+            documents = session.scalars(
+                select(Document)
+                .where(Document.status == "failed", Document.updated_at < older_than)
+                .order_by(Document.updated_at)
+            ).all()
+            ids = [document.id for document in documents]
+            if not dry_run:
+                for document in documents:
+                    session.delete(document)
+                session.commit()
+        logger.info("retention.failed_documents", extra={"matched": len(ids), "dry_run": dry_run})
+        return ids
 
     def status_counts(self) -> dict[str, int]:
         counts = dict.fromkeys(get_args(DocumentStatus), 0)

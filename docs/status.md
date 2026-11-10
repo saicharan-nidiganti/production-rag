@@ -41,7 +41,7 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 
 ## Session log
 
-### Session 17 — Production readiness: metrics (2026-11-10)
+### Session 17 — Production readiness: metrics, backups (2026-11-10)
 
 - The README, the operations guide and the architecture document were reworked, with new
   diagrams, each rendered and checked as an image (`62c53c5`).
@@ -59,6 +59,20 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
   only to sources that have it, so a manual rebuild of 0.2.0 still passes.
 - Checks: 589 passed, 4 skipped; coverage 96.0%; ruff, mypy and markdownlint clean; the
   real-server smoke test passed on Windows.
+- Backups, verification and restores (issues #36 and #37): `rag db backup` (online, checked,
+  with a manifest and SHA-256; `--keep N`), `rag db verify` (checksum, SQLite integrity,
+  foreign keys, schema, full-text index, chunk and upload invariants, vector sizes; never
+  writes to the file), `rag db restore --yes` (refuses a backup that fails verification,
+  keeps a pre-restore copy, moves the index generation forward so a running process
+  reloads), `rag db rebuild-search-index` and `rag db prune --failed-older-than DAYS`.
+  Documents record `metadata.ingested_with` for lineage.
+  [data-lifecycle.md](data-lifecycle.md) covers the requirements of #36.
+- Tried end to end by hand on a scratch database first: backup, tampering caught, restore
+  refused without `--yes`, then done, and the cached index reloaded. The smoke test now
+  takes an online backup while the server runs and verifies it; the container check does
+  the same for sources that have the command.
+- Checks: 618 passed, 4 skipped; coverage 96.1%; ruff, mypy, markdownlint and the offline
+  evaluation gate clean.
 
 ### Session 16 — The container image (2026-11-10)
 

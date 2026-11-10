@@ -118,7 +118,12 @@ jobs:
             curl -fsS "$url/metrics" | grep -q '^rag_documents{status="ready"} 1.0$' \
               || { echo "::error::/metrics does not report the document"; exit 1; }
           fi
-          echo "image works: ready, ingests, answers with citations, streams, metrics, non-root"
+          if [ -f src/production_rag/db/maintenance.py ]; then # releases before 0.3 have no backups
+            backup=$(docker exec rag rag db backup | json "['backup']")
+            docker exec rag rag db verify --file "$backup" >/dev/null \
+              || { echo "::error::the online backup failed verification"; exit 1; }
+          fi
+          echo "image works: ready, ingests, answers with citations, streams, metrics, backups, non-root"
 
       - name: Log in to the GitHub Container Registry
         if: env.PUBLISH == 'true'

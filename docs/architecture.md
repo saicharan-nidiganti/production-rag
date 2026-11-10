@@ -63,7 +63,8 @@ src/production_rag/
   observability.py   JSON logging, request-id context, stage timer
   text.py            tokenization shared by embeddings, lexical search, evaluation
   db/                SQLAlchemy models, engine, Alembic migrations (single source of schema truth),
-                     document queries (documents.py)
+                     document queries (documents.py), backups, verification and restores
+                     (maintenance.py)
   embeddings.py      Embedder protocol: hashing and fastembed providers
   metrics.py         Prometheus counters and histograms, updated where events are logged
   parsing/           text extraction (text, Markdown, PDF, DOCX, HTML) and the isolated

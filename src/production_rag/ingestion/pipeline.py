@@ -23,7 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from production_rag import metrics
+from production_rag import __version__, metrics
 from production_rag.config import Settings
 from production_rag.db.documents import DocumentRepository
 from production_rag.db.models import Chunk, Document, DocumentFile, utcnow
@@ -270,7 +270,16 @@ class IngestionService:
                 title=extracted.title,
                 content_type=extracted.content_type,
                 text=extracted.text,
-                metadata_=extracted.metadata,
+                # Lineage: what produced these chunks. The embedding model is recorded per
+                # chunk instead, since `rag reindex` changes it.
+                metadata_={
+                    **extracted.metadata,
+                    "ingested_with": {
+                        "version": __version__,
+                        "chunk_size": self._settings.chunk_size,
+                        "chunk_overlap": self._settings.chunk_overlap,
+                    },
+                },
                 num_chunks=len(spans),
             )
         except ClaimLost:

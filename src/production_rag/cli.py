@@ -6,7 +6,7 @@ import argparse
 import json
 import sys
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -27,16 +27,98 @@ def _container(settings: Settings) -> Container:
 
 def cmd_db(args: argparse.Namespace, settings: Settings) -> int:
     from production_rag.db import create_db_engine
+    from production_rag.db import maintenance as m
     from production_rag.db.migrate import current_revision, head_revision, upgrade_to_head
 
-    if args.action == "upgrade":
-        upgrade_to_head(settings.database_url)
+    if args.action in ("upgrade", "current"):
+        if args.action == "upgrade":
+            upgrade_to_head(settings.database_url)
+        engine = create_db_engine(settings.database_url)
+        try:
+            print(json.dumps({"current": current_revision(engine), "head": head_revision()}))
+        finally:
+            engine.dispose()
+        return 0
+    try:
+        if args.action == "prune":
+            return _prune(args, settings)
+        database = m.database_file(settings.database_url)
+        if args.action == "backup":
+            made = m.backup(database, Path(args.output) if args.output else None)
+            pruned = m.prune_backups(made.path.parent, args.keep) if args.keep else []
+            print(json.dumps({"backup": str(made.path), "manifest": str(made.manifest_path),
+                              **made.manifest, "pruned": [str(path) for path in pruned]},
+                             indent=2))  # fmt: skip
+            return 0
+        if args.action == "verify":
+            report = m.verify(Path(args.file) if args.file else database)
+            print(json.dumps(report.as_dict(), indent=2))
+            return 0 if report.ok else 1
+        if args.action == "restore":
+            return _restore(args, database)
+        m.rebuild_search_index(database)
+        print(json.dumps({"rebuilt": "search_index", "database": str(database)}))
+        return 0
+    except m.MaintenanceError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+
+def _restore(args: argparse.Namespace, database: Path) -> int:
+    from production_rag.db import maintenance as m
+
+    if not args.yes:
+        print(
+            f"error: this replaces {database} with {args.backup}. Stop the service, then run "
+            "again with --yes (the current database is kept as a pre-restore copy).",
+            file=sys.stderr,
+        )
+        return 2
+    restored = m.restore(Path(args.backup), database)
+    print(json.dumps({
+        "restored": str(restored.backup),
+        "database": str(restored.database),
+        "previous_copy": str(restored.previous_copy) if restored.previous_copy else None,
+        "needs_upgrade": restored.needs_upgrade,
+        "verification": restored.report.as_dict(),
+    }, indent=2))  # fmt: skip
+    if restored.needs_upgrade:
+        print("the backup's schema is older: run `rag db upgrade` before starting", file=sys.stderr)
+    return 0 if restored.report.ok else 1
+
+
+def _prune(args: argparse.Namespace, settings: Settings) -> int:
+    from production_rag.db import create_db_engine, session_factory
+    from production_rag.db.documents import DocumentRepository
+
     engine = create_db_engine(settings.database_url)
     try:
-        print(json.dumps({"current": current_revision(engine), "head": head_revision()}))
+        cutoff = datetime.now(UTC) - timedelta(days=args.failed_older_than)
+        repository = DocumentRepository(session_factory(engine))
+        ids = repository.delete_failed(cutoff, dry_run=args.dry_run)
     finally:
         engine.dispose()
+    print(json.dumps({
+        "dry_run": args.dry_run,
+        "failed_older_than_days": args.failed_older_than,
+        "would_delete" if args.dry_run else "deleted": len(ids),
+        "document_ids": ids,
+    }, indent=2))  # fmt: skip
     return 0
+
+
+def _days(value: str) -> int:
+    days = int(value)
+    if days < 0:
+        raise argparse.ArgumentTypeError("must be 0 or more")
+    return days
+
+
+def _at_least_one(value: str) -> int:
+    count = int(value)
+    if count < 1:
+        raise argparse.ArgumentTypeError("must be 1 or more")
+    return count
 
 
 def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
@@ -370,8 +452,35 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="rag", description="Production RAG command-line tools")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    db = sub.add_parser("db", help="database migrations")
-    db.add_argument("action", choices=["upgrade", "current"])
+    db = sub.add_parser("db", help="migrations, backups, integrity checks and retention")
+    actions = db.add_subparsers(dest="action", required=True)
+    actions.add_parser("upgrade", help="apply migrations up to the latest")
+    actions.add_parser("current", help="print the schema revision and the latest one")
+    backup = actions.add_parser("backup", help="make a verified online backup with a manifest")
+    backup.add_argument(
+        "--output", help="a directory (default: backups/ beside the database) or a .db file"
+    )
+    backup.add_argument(
+        "--keep", type=_at_least_one, metavar="N", help="then keep only the newest N backups there"
+    )
+    verify = actions.add_parser(
+        "verify", help="check the database, or a backup, for corruption and inconsistency"
+    )
+    verify.add_argument("--file", help="a backup or other database file to check instead")
+    restore = actions.add_parser(
+        "restore", help="replace the database with a backup (stop the service first)"
+    )
+    restore.add_argument("backup", help="the backup file to restore")
+    restore.add_argument("--yes", action="store_true", help="confirm replacing the database")
+    prune = actions.add_parser("prune", help="delete failed documents past their retention")
+    prune.add_argument(
+        "--failed-older-than", type=_days, required=True, metavar="DAYS",
+        help="failed documents not updated for this many days, with their stored uploads",
+    )  # fmt: skip
+    prune.add_argument("--dry-run", action="store_true", help="list them without deleting")
+    actions.add_parser(
+        "rebuild-search-index", help="rebuild the full-text index from the stored chunks"
+    )
     db.set_defaults(func=cmd_db)
 
     ingest = sub.add_parser("ingest", help="ingest files or directories")

@@ -66,6 +66,20 @@ def _stop(server: subprocess.Popen[bytes]) -> None:
     server.wait(timeout=30)
 
 
+def _backup_while_serving(workdir: Path, env: dict[str, str]) -> None:
+    """An online backup of the database the server is using, then a check of the copy."""
+    backup = [*RAG, "db", "backup", "--output", str(workdir / "backups")]
+    made = subprocess.run(backup, cwd=workdir, env=env, capture_output=True, text=True)
+    manifest = json.loads(made.stdout) if made.returncode == 0 else {}
+    _check(
+        manifest.get("documents", {}).get("ready") == 1,
+        "rag db backup copies the database while the server runs",
+    )
+    verify = [*RAG, "db", "verify", "--file", manifest["backup"]]
+    checked = subprocess.run(verify, cwd=workdir, env=env, capture_output=True, text=True)
+    _check(checked.returncode == 0, "rag db verify passes the backup")
+
+
 def run(workdir: Path) -> None:
     # Only the offline configuration: no inherited RAG_* settings, no API key, and a working
     # directory without a .env file.
@@ -97,6 +111,7 @@ def run(workdir: Path) -> None:
     try:
         with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=30) as client:
             check(client, server)
+        _backup_while_serving(workdir, env)
     except BaseException:
         _stop(server)
         print(f"--- server log ({log_path.name}) ---", file=sys.stderr)
