@@ -9,6 +9,7 @@ Each topic has one authoritative document. Start with the repository
 | [architecture.md](architecture.md) | Understand the components, the request and ingestion flows, the code layout and its enforced layering, and the path to v1 | Contributors, reviewers |
 | [api.md](api.md) | Call the HTTP API: every endpoint, field, status code and error, with real responses | API users |
 | [configuration.md](configuration.md) | Look up any environment variable and its default (a test keeps it complete) | Operators, contributors |
+| [deployment.md](deployment.md) | See what a deployment needs: the supported targets, hardware, environments, the release process, reliability, scaling, cost and recovery requirements | Operators, reviewers |
 | [operations.md](operations.md) | Deploy, migrate, monitor, back up and troubleshoot, including background ingestion | Operators |
 | [runbooks.md](runbooks.md) | Respond to an incident: severity, first steps, a procedure per failure, rollback, verifying recovery, the incident record | Operators |
 | [observability.md](observability.md) | Find every log event and metric, correlate a request, set alerts, and see what is never recorded | Operators, reviewers |

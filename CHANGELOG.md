@@ -12,6 +12,8 @@ record. Detailed per-session notes and verification results are in
 
 ### Added
 
+- **docs/deployment.md**: the supported deployment targets, hardware requirements measured
+  by the benchmark, environments, the release process and reliability requirements.
 - **docs/runbooks.md**: incident severity levels, the first five minutes, runbooks for a
   service that is down, provider failures, wrong or unsupported answers, slowness, stuck
   ingestion, a damaged database and security incidents, plus rollback, verifying recovery,

@@ -102,6 +102,9 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
   vulnerabilities in the base image, so the image now takes the distribution's security
   updates at build time and scans clean. The published 0.2.0 image predates that fix;
   republishing it waits for the owner.
+- [deployment.md](deployment.md) (issue #31): supported targets and why one instance,
+  minimum and recommended hardware from the benchmark, environments, the release process,
+  reliability, scaling, cost controls and recovery requirements.
 - [runbooks.md](runbooks.md) (issue #38): severity levels, first steps, a procedure per
   failure, rollback, verifying recovery, the incident record and the review.
 
