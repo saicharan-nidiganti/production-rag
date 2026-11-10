@@ -52,6 +52,8 @@ jobs:
           git rev-parse --verify --quiet "refs/tags/${RELEASE}" >/dev/null \
             || { echo "::error::${RELEASE} is not a tag of this repository"; exit 1; }
           # The image's code is exactly the release's; the Dockerfile and this workflow are current.
+          # Removed first: a checkout of the tag's files alone would leave files added since.
+          git rm -r -q --cached src && rm -rf src
           git checkout "${RELEASE}" -- src pyproject.toml uv.lock README.md LICENSE
 
       - name: Version and labels
