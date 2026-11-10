@@ -332,6 +332,17 @@ def test_every_route_but_the_probes_requires_the_api_key(secured_client: TestCli
     }
 
 
+def test_the_api_docs_can_be_removed(container: Container) -> None:
+    with TestClient(create_app(container=container)) as client:
+        assert client.get("/docs").status_code == 200
+        assert client.get("/openapi.json").status_code == 200
+    container.settings.api_docs_enabled = False
+    with TestClient(create_app(container=container)) as client:
+        for path in ("/docs", "/redoc", "/openapi.json"):
+            assert client.get(path).status_code == 404
+        assert client.get("/health").status_code == 200
+
+
 class _FailingGenerator:
     def __init__(self, error: Exception) -> None:
         self.error = error

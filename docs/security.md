@@ -41,6 +41,41 @@ policy before enabling the Claude generator.
 | Information leaks in errors | Unexpected errors return a generic 500 with a request id; upstream API error text is logged, not returned. An unexpected processing failure records only the error type on the document (`internal_error`); the details go to the log. Validation errors don't echo the rejected input. Database errors never quote their bound values (SQLAlchemy `hide_parameters`), so document text can't reach the log through one | [errors.py](../src/production_rag/api/errors.py), [pipeline.py](../src/production_rag/ingestion/pipeline.py), [engine.py](../src/production_rag/db/engine.py) |
 | Secrets in logs or the repository | `SecretStr` settings, never logged; `.env` git-ignored; gitleaks in CI. As a backstop, the log formatter replaces the configured secrets with `[REDACTED]` wherever they appear, exception text included. A test checks the Claude key appears in no log line, settings dump, evaluation report or cost plan | [observability.py](../src/production_rag/observability.py), [ci.yml](../.github/workflows/ci.yml), [test_plan.py](../tests/integration/test_plan.py) |
 
+## Audit, 2026-11-10
+
+A review of the code, API, configuration, dependencies, image, storage, logging, CI and the
+RAG-specific surfaces before the next release. Each area lists what was checked and the
+evidence; the findings follow.
+
+| Area | Checked | Result |
+| --- | --- | --- |
+| Dependencies | `pip-audit` against every locked version, on each push and weekly | No known vulnerabilities at `a153e33` |
+| Dependencies | Every runtime dependency is used; `prometheus-client`, added this cycle, has no dependencies of its own and is Apache-2.0 and BSD-2-Clause | No unused or unsupported package found |
+| Secrets | gitleaks on every pushed range in CI, and over the full history on 2026-10-29; `.env` is git-ignored and `.env.example` holds no values | No real credential has been committed. Two fingerprinted ignores cover made-up test values |
+| Secrets | Logs redact configured secrets; error bodies never include exception text; the image is built from an allow-list (`.dockerignore`) | Tested: `tests/unit/test_config_and_logging.py`, `tests/integration/test_api.py` |
+| API | The key, rate limits and body size are checked before a body is read; every route but the probes needs the key (a test walks the OpenAPI schema); validation errors don't echo input | Tested: `tests/integration/test_request_guard.py`, `test_api.py` |
+| API | No CORS headers are sent, so browsers on other origins can't read responses; no debug or reload mode exists | Confirmed in `api/app.py` and `cli.py` |
+| RAG | Retrieved text reaches the model only as `search_result` blocks, apart from the instructions, with untrusted-data framing; citations can only point at retrieved chunks; file names and metadata aren't sent as instructions | Tested with a fake client; **not yet measured with Claude** (the injection cases need the paid run) |
+| RAG | Retrieval can't cross tenants because v0 has one tenant | A known gap, below |
+| Storage | Bound parameters everywhere and FTS5 operators neutralized; statement errors hide their parameters | Tested: `tests/unit/test_embeddings_and_fusion.py`, `tests/integration/test_database.py` |
+| Storage | Backups carry a SHA-256 and are verified before a restore | Tested: `tests/integration/test_maintenance.py` |
+| Parsing | Each upload is parsed in a separate process without the service's secrets, with a time limit, and a memory limit on Linux and macOS | Tested: `tests/integration/test_parsing_isolation.py` |
+| Image | Runs as uid 10001, has no secrets, installs only locked dependencies | Checked by the container workflow on every build |
+| CI | Workflows default to read-only permissions; third-party actions are pinned to commit SHAs; publishing uses the job's own token | Confirmed in `.github/workflows/` |
+
+### Findings
+
+| Finding | Severity | Resolution |
+| --- | --- | --- |
+| The interactive API docs and OpenAPI schema are served without the API key | Low: the schema is public in this repository, but a deployment may not want to advertise its API | Fixed: `RAG_API_DOCS_ENABLED=false` removes them (operator checklist, item 8) |
+| No static analysis of the code for security problems | Medium: a class of bug nothing looked for | Fixed: CodeQL with the `security-extended` queries runs on every push and weekly |
+| The published image wasn't scanned, and had no bill of materials | Medium: a vulnerable base image would ship unnoticed | Fixed: the container workflow fails on a critical or high vulnerability that has a fix, and attaches an SBOM and build provenance to the published image |
+| The image's base wasn't kept current | Low | Fixed: Dependabot now watches the `Dockerfile` |
+| The database and its backups aren't encrypted by the application | Medium, by deployment | Documented as an operator control ([data-lifecycle.md](data-lifecycle.md#privacy-and-security)); listed under known gaps |
+| Prompt-injection resistance is unmeasured with a real model | Medium | Open: needs the paid evaluation, which the owner has authorized and which waits for API credit |
+
+No critical or high finding remains open in code. The open items are the known gaps below.
+
 ## Supply chain
 
 - Every dependency version is pinned in `uv.lock`, and CI fails if the lock is
@@ -48,7 +83,16 @@ policy before enabling the Claude generator.
 - CI runs `pip-audit` against the locked versions on every push and weekly, so
   newly published advisories surface without a code change.
 - Third-party GitHub Actions are pinned to commit SHAs. First-party
-  `actions/*` use major tags.
+  `actions/*` use major tags. Dependabot proposes updates for the actions and
+  for the image's base.
+- CodeQL analyzes the Python code with the `security-extended` queries on every
+  push, pull request and weekly; findings appear under the repository's code
+  scanning alerts.
+- The container workflow scans each image with Trivy before publishing and fails
+  on a critical or high vulnerability that has a fix. To accept one, add its id to
+  `.trivyignore` with the reason and a date to revisit it. Published images carry
+  an SPDX bill of materials and build provenance:
+  `docker buildx imagetools inspect ghcr.io/saicharan-nidiganti/production-rag:TAG --format '{{ json .SBOM }}'`.
 - Runtime dependency licenses are permissive (MIT, BSD, Apache-2.0, PSF) or
   MPL-2.0, which is compatible when the packages are used unmodified
   (requirements §5). The last check was on 2026-10-29.
@@ -93,3 +137,6 @@ policy before enabling the Claude generator.
 7. Schedule `rag db backup --keep 7`, copy the backups off the host encrypted, keep them
    readable only by the service user, and test a restore regularly
    ([data-lifecycle.md](data-lifecycle.md#backup)).
+8. Set `RAG_API_DOCS_ENABLED=false` unless you want the API's schema and its interactive
+   docs readable without the key.
+9. Put `/data` on an encrypted volume.

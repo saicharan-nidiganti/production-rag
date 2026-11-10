@@ -87,6 +87,10 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
         version=__version__,
         description="Retrieval-augmented generation with grounded, cited answers.",
         lifespan=lifespan,
+        # The docs are served without the API key; RAG_API_DOCS_ENABLED=false removes them.
+        docs_url="/docs" if settings.api_docs_enabled else None,
+        redoc_url="/redoc" if settings.api_docs_enabled else None,
+        openapi_url="/openapi.json" if settings.api_docs_enabled else None,
     )
     # Added before request_context, so it runs inside it: refusals get a request id and are
     # logged like any other response.

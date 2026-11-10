@@ -125,6 +125,17 @@ jobs:
           fi
           echo "image works: ready, ingests, answers with citations, streams, metrics, backups, non-root"
 
+      # Fails on a critical or high vulnerability that has a fix. To accept one, add its id
+      # to .trivyignore with the reason (docs/security.md).
+      - name: Scan the image for known vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.TEST_TAG }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+          format: table
+
       - name: Log in to the GitHub Container Registry
         if: env.PUBLISH == 'true'
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
@@ -141,3 +152,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          sbom: true # an SPDX bill of materials, attached to the image
+          provenance: mode=max # how, from what and by which workflow it was built

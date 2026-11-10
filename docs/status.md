@@ -89,6 +89,13 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
   with bge-small and reranking (limit 300 ms); a 100-page PDF in 0.9 s and 17.7 s (limit
   60 s). [performance.md](performance.md) has the definitions, results, capacity
   estimates and the gate. Time to first token with Claude is still unmeasured.
+- Two CI runs of the same code differed by 90% in latency, so the gate's time rules were
+  reset from that measurement (warn at 2x, fail at 4x) and the baseline re-recorded from a
+  typical runner (`a153e33`, gate PASS). Issues #34 and #35 closed.
+- Security audit (issue #40): CodeQL on every push; a Trivy scan, an SBOM and build
+  provenance for the image; Dependabot for the image's base; `RAG_API_DOCS_ENABLED` to
+  remove the unauthenticated API docs. [security.md](security.md#audit-2026-11-10) records
+  what was checked and the findings.
 
 ### Session 16 — The container image (2026-11-10)
 

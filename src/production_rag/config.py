@@ -163,6 +163,10 @@ class Settings(BaseSettings):
         ge=0,
         description="Wrong or missing API keys per client per minute before 429.",
     )
+    api_docs_enabled: bool = Field(
+        default=True,
+        description="Serve the interactive API docs and the OpenAPI schema, without the key.",
+    )
     metrics_enabled: bool = Field(
         default=True,
         description="Serve Prometheus metrics at GET /metrics (behind the API key, if set).",

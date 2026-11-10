@@ -12,3 +12,10 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: ci
+  # The image's base (python:3.12-slim) and the uv image it copies from.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: build

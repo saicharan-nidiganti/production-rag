@@ -12,6 +12,12 @@ record. Detailed per-session notes and verification results are in
 
 ### Added
 
+- **Security scanning**: CodeQL analyzes the code on every push and weekly. The container
+  workflow scans each image with Trivy and fails on a critical or high vulnerability that
+  has a fix; published images carry an SBOM and build provenance. Dependabot watches the
+  image's base. `docs/security.md` records the 2026-11-10 audit and its findings.
+- **`RAG_API_DOCS_ENABLED`**: `false` removes `/docs`, `/redoc` and `/openapi.json`, which
+  are served without the API key.
 - **Performance benchmark**: `rag bench` builds a temporary index of the evaluation
   corpus and seeded synthetic documents (10,000 chunks by default), ingests a generated
   100-page PDF, asks the golden questions in process and streamed, and load-tests a real
