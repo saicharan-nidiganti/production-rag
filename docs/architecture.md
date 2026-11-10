@@ -18,30 +18,42 @@ v1 target defined in [ADR-0001](decisions/0001-technology-stack.md) and
 5. **Isolation at the data layer** (v1). Ownership filters will be part of
    every query that reads documents, chunks or vectors. v0 is single tenant.
 
-## 2. System context (v0)
+## 2. Components (v0)
 
 ```mermaid
 flowchart LR
-    client([HTTP client]) -->|JSON| api[FastAPI app]
-    operator([Operator / CI]) --> cli[rag CLI]
-    api --> container[Container]
-    cli --> container
-    container --> ingestion[IngestionService]
-    container --> rag[RagService]
-    rag --> retriever[Retriever]
-    rag --> generator[Generator<br/>Claude or extractive]
-    ingestion --> embedder[Embedder<br/>hashing or fastembed]
+    http([HTTP client]) --> guard["RequestGuard<br/>key, rate limits, body size"] --> routes["FastAPI routes<br/>JSON and SSE"]
+    op([Operator or CI]) --> cli["rag CLI"]
+    evalr["Evaluation runner"]
+    routes --> wiring
+    cli --> wiring
+    evalr --> wiring
+    wiring["build_container<br/>component wiring"] --> ingestion["IngestionService<br/>and worker threads"]
+    wiring --> rag["RagService"]
+    ingestion -- "stdin, JSON" --> parser[["Parser process"]]
+    rag --> retriever["Retriever"]
+    rag --> generator["Generator<br/>Claude or extractive"]
+    retriever --> reranker["Reranker<br/>cross-encoder, optional"]
+    ingestion --> embedder["Embedder<br/>hashing or fastembed"]
     retriever --> embedder
-    retriever --> reranker[Reranker<br/>cross-encoder, optional]
-    ingestion --> db[(SQLite<br/>documents, chunks,<br/>chunks_fts, index_state)]
+    ingestion --> db[("SQLite")]
     retriever --> db
-    generator -->|HTTPS| claude[Claude API]
-    evalrunner[Evaluation runner] --> container
+    generator -- "HTTPS, streamed" --> claude{{"Claude API"}}
+    classDef external fill:#fff4e5,stroke:#c05621,color:#1a202c
+    classDef store fill:#e6f0ff,stroke:#2b6cb0,color:#1a202c
+    classDef isolated fill:#f7fafc,stroke:#4a5568,stroke-dasharray:5 3,color:#1a202c
+    class claude external
+    class db store
+    class parser isolated
 ```
 
 `container.build_container(settings)` constructs every component from
 `Settings`. The API, the CLI and the evaluation runner all use it, so they
-can't drift apart in how they assemble the system.
+can't drift apart in how they assemble the system. In front of the routes, the
+`RequestGuard` middleware checks the API key, the client's rate limit and the
+body size before a request body is read. The parser process is the only other
+process: one per upload, started by the ingestion worker. How the pieces are
+deployed is in [operations.md](operations.md#reference-deployment).
 
 ## 3. Code layout
 
@@ -53,18 +65,20 @@ src/production_rag/
   db/                SQLAlchemy models, engine, Alembic migrations (single source of schema truth),
                      document queries (documents.py)
   embeddings.py      Embedder protocol: hashing and fastembed providers
-  parsing/           text extraction (txt, md, pdf), and the isolated parser process that runs it
+  parsing/           text extraction (text, Markdown, PDF, DOCX, HTML) and the isolated
+                     parser process that runs it
   ingestion/         chunking, the queue's claim protocol (queue.py),
                      processing (pipeline.py), worker threads
   retrieval/         vector index, FTS5 search, RRF fusion, cross-encoder reranking, retriever
   generation/        Generator protocol: Claude and extractive generators, answer types
   rag.py             query orchestration and abstention
   container.py       component wiring
-  api/               FastAPI app, routes, schemas, auth, error mapping (transport only)
+  api/               FastAPI app, request guard (API key, rate limits, body size), routes,
+                     Server-Sent Events, schemas, error mapping (transport only)
   cli.py             rag command (transport only)
   evaluation/        golden dataset, metrics, runner, regression gate
 eval/                corpus, golden dataset, gate thresholds (versioned evaluation inputs)
-scripts/             reproducible experiments (compare_configs.py prints the evaluation tables)
+scripts/             smoke test, reference reports, configuration comparison
 tests/               unit/ and integration/ (offline), plus live tests behind a flag
 ```
 
@@ -75,15 +89,39 @@ that breaks this:
 
 ```mermaid
 flowchart TB
-    cli --> api & evaluation
-    api & evaluation --> container
-    container --> rag
-    rag --> generation
-    generation --> retrieval
-    container --> ingestion
-    ingestion --> parsing
-    ingestion & retrieval --> db & embeddings
-    db & embeddings & parsing --> foundation["config, text, observability"]
+    subgraph L8["8 Entry point"]
+        direction LR
+        cli
+    end
+    subgraph L7["7 Applications"]
+        direction LR
+        api ~~~ evaluation
+    end
+    subgraph L6["6 Wiring"]
+        direction LR
+        container
+    end
+    subgraph L5["5 Orchestration"]
+        direction LR
+        rag
+    end
+    subgraph L4["4 Answers"]
+        direction LR
+        generation
+    end
+    subgraph L3["3 Core services"]
+        direction LR
+        ingestion ~~~ retrieval
+    end
+    subgraph L2["2 Storage, models, extraction"]
+        direction LR
+        db ~~~ embeddings ~~~ parsing
+    end
+    subgraph L1["1 Foundation"]
+        direction LR
+        config ~~~ text ~~~ observability
+    end
+    L8 --> L7 --> L6 --> L5 --> L4 --> L3 --> L2 --> L1
 ```
 
 `ingestion` and `retrieval` never import each other: they share only the
@@ -104,11 +142,12 @@ sequenceDiagram
     participant A as API
     participant I as IngestionService
     participant W as Worker thread
+    participant P as Parser process
     participant E as Embedder
     participant D as SQLite
     C->>A: POST /v1/documents (multipart)
     A->>I: submit(filename, bytes)
-    I->>I: bare filename, type, size, PDF signature, UTF-8, SHA-256
+    I->>I: bare filename, type, size, signature (PDF, DOCX), text decodes, SHA-256
     I->>D: look up content hash
     alt duplicate content
         I-->>A: existing document (requeued if it had failed)
@@ -118,8 +157,10 @@ sequenceDiagram
         I->>W: wake
         A-->>C: 202, Location, status=queued
     end
-    W->>D: claim: queued -> processing, token, lease (compare-and-set)
-    W->>W: extract sections, chunk with offsets
+    W->>D: claim: queued to processing, token, lease (compare-and-set)
+    W->>P: the file on stdin (no secrets in its environment)
+    P-->>W: sections as JSON, or an error (killed after RAG_PARSE_TIMEOUT_S)
+    W->>W: chunk within sections, with offsets
     loop every 64 chunks
         W->>D: renew lease (or stop: back to queued)
         W->>E: embed heading path + chunk text
@@ -132,16 +173,22 @@ sequenceDiagram
 
 ```mermaid
 stateDiagram-v2
+    direction LR
     [*] --> queued: upload
-    queued --> processing: claimed by a worker
+    queued --> processing: a worker claims it
     processing --> ready: chunks written
-    processing --> failed: error (code and message)
+    processing --> failed: error, or interrupted too often
     processing --> queued: shutdown hands it back
-    processing --> processing: lease lapsed, another worker takes over
-    processing --> failed: interrupted RAG_INGEST_MAX_ATTEMPTS times
-    failed --> queued: retry or identical re-upload
+    failed --> queued: retry, or same file again
     ready --> [*]
+    note right of processing
+        A crashed worker's lease lapses
+        and another worker takes over.
+    end note
 ```
+
+A document fails with an error code and message, or with `interrupted` after
+`RAG_INGEST_MAX_ATTEMPTS` interruptions.
 
 1. **Validate** (at upload). The filename is reduced to a bare name. The type
    must be `.txt`, `.md`/`.markdown`, `.pdf`, `.docx` or `.html`/`.htm`, and
@@ -330,13 +377,57 @@ de-duplicated `citations` list, so a UI can render inline citation markers.
 
 SDK errors are classified. Rate limits, 5xx responses and connection failures
 are retryable (HTTP 503). Bad or missing credentials, invalid requests and
-unknown models are not (HTTP 502). The SDK retries transient failures itself.
+unknown models are not (HTTP 502). An error reported inside a stream is
+classified by its type, since its HTTP status is the stream's 200: overload and
+API errors are retryable. The SDK retries transient failures itself.
 
 The **extractive** generator is an offline, deterministic baseline. It quotes
 the retrieved sentences that overlap most with the question, each with its own
 citation. It keeps the pipeline runnable and testable without credentials, but
 it can't synthesize, and word overlap makes it answer some unanswerable
 questions.
+
+### Streaming
+
+`POST /v1/query/stream` runs the same pipeline as `/v1/query`, answering with
+Server-Sent Events ([ADR-0010](decisions/0010-streaming-answers-over-sse.md)):
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as POST /v1/query/stream
+    participant R as RagService
+    participant G as Claude generator
+    participant M as Claude API
+    C->>A: question
+    A->>R: stream_answer()
+    R->>R: retrieve, rerank, check the evidence
+    A-->>C: event: retrieval
+    alt no usable evidence
+        A-->>C: event: done (insufficient_evidence, no model call)
+    else evidence found
+        R->>G: stream(question, chunks)
+        G->>M: messages.stream, one search_result block per chunk
+        loop while Claude writes
+            M-->>G: text and citation deltas
+            G-->>A: TextDelta, CitationAdded
+            A-->>C: event: text, event: citation
+        end
+        G->>G: final answer from get_final_message()
+        A-->>C: event: done (exactly the /v1/query response)
+    end
+    Note over C,M: A client that disconnects closes the stream to the Claude API
+```
+
+- Retrieval, validation, authentication and rate limits happen before the stream
+  starts, so their errors are ordinary HTTP errors. A generation failure after it
+  started is an `error` event.
+- The Claude generator builds the final answer from `get_final_message()` with
+  the code `/v1/query` uses, so `done` is exactly that response. With server-side
+  fallbacks a mid-stream refusal keeps the streamed text; a refusal that stands
+  replaces it in `done`.
+- Closing the stream closes every iterator down to the SDK's, and with it the HTTP
+  connection to the Claude API.
 
 ## 8. API, observability and security
 
@@ -356,11 +447,13 @@ and `http.request`. Question text and document content are never logged
 (NFR-4).
 
 Security controls in v0: an optional static API key with constant-time
-comparison (`/health` and `/ready` stay open for probes), upload size and PDF
-page limits, filenames used only as metadata, bound SQL parameters and FTS5
-operator neutralization, untrusted-data framing for retrieved text, and
-secrets as `SecretStr`, never logged. [operations.md](operations.md) covers
-deployment and the remaining gaps.
+comparison, checked before the request body is read (`/health` and `/ready`
+stay open for probes); per-client rate limits; request body and upload size
+limits enforced as the body arrives; content checks and parsing in an isolated
+process; filenames used only as metadata; bound SQL parameters and FTS5
+operator neutralization; untrusted-data framing for retrieved text; and secrets
+as `SecretStr`, never logged. [security.md](security.md) lists every control
+and the remaining gaps.
 
 ## 9. Path to the v1 target
 
@@ -368,7 +461,8 @@ deployment and the remaining gaps.
 | --- | --- | --- | --- |
 | Storage | SQLite, FTS5 BM25, exact in-memory vectors (owner decision, ADR-0002) | PostgreSQL + pgvector + full-text search (ADR-0001 §2) | 5, with accounts |
 | Tenancy | Single tenant, optional API key | Accounts, Argon2id, cookie sessions, `owner_id` in every query (ADR-0001 §10) | 5 |
-| Ingestion | Synchronous, in the request | Postgres job queue and worker, `queued`/`processing`/`ready`/`failed` (FR-3) | 2 |
+| Ingestion | In the background, on a SQLite-backed queue served by worker threads in each API process ([ADR-0006](decisions/0006-background-ingestion.md)) | A PostgreSQL job queue with workers on several machines | 5 |
+| Deployment | One machine: `rag serve`, or the container image on ghcr.io | Several instances behind a load balancer, sharing PostgreSQL | 5 |
 | File types | PDF, TXT, Markdown, DOCX, HTML (FR-2) | OCR for scanned PDFs (FR-12) | 8 |
 | Answers | One response, or streamed over Server-Sent Events (FR-9, [ADR-0010](decisions/0010-streaming-answers-over-sse.md)) | Conversations (FR-11) | 4 |
 | Interface | HTTP API and CLI | React + Vite web app (ADR-0001 §11) | 6 |
@@ -449,6 +543,9 @@ security as defense in depth) are listed in ADR-0001 §10 and
   default, so a large PDF delays the documents queued behind it.
 - No OCR: scanned PDFs without a text layer are rejected as having no
   extractable text.
+- Rate limits are kept in each process's memory: several workers multiply them,
+  and a restart resets them.
+- A dropped answer stream can't be resumed; the client asks again.
 
 ## 11. Technology compatibility assessment
 
@@ -466,11 +563,12 @@ and the suites named).
 | Schema changes in place, reversible | Alembic on SQLite ≥ 3.35 (`DROP COLUMN` in downgrades) | Compatible | SQLite version checked (CI); upgrade and downgrade tests (CI). Batch migrations are avoided because they would cascade-delete chunks |
 | Several threads and processes sharing one database | SQLAlchemy 2 with a busy timeout; compare-and-set claims | Compatible within one machine | Two engines × two worker threads process each document once (CI); two uvicorn processes checked by hand. Not across machines, by design (ADR-0002) |
 | Blocking work without blocking the event loop | FastAPI with sync handlers (thread pool); ingestion in worker threads | Compatible | API and background-ingestion tests (CI); smoke test against a real server (CI) |
-| Untrusted parsing contained | pypdf in a separate process (ADR-0007) | Compatible | Isolation tests (CI); memory limits only on Linux and macOS |
+| Untrusted parsing contained | pypdf, and the standard library for DOCX and HTML, in a separate process (ADR-0007, ADR-0009) | Compatible | Isolation tests for every format, hostile-file tests (CI); memory limits only on Linux and macOS |
 | Works offline, no credentials | Hashing embedder and extractive generator as defaults | Compatible | Defaults test and the whole suite run offline (CI) |
 | Local semantic models in the same process | fastembed and ONNX Runtime (optional extra) | Compatible | The extra installs and imports on every CI Python (CI); model quality gates run locally only, because they download models |
-| A hosted answer model behind a replaceable interface | Anthropic SDK 2.x, `Generator` protocol | Compatible in code; **not verified live** | Request building, citation mapping and error mapping tested with a fake client (CI). The API has never accepted a request from this code: the account has no credit |
-| Operating systems | Linux (CI), Windows (development) | Linux and Windows verified; **macOS not tested** | CI runs on Ubuntu; the suite, smoke test and real-process checks ran on Windows 11 |
+| A hosted answer model behind a replaceable interface | Anthropic SDK 2.x, `Generator` protocol | Compatible in code; **not verified live** | Request building, citation mapping and error mapping tested with a fake client, and streaming through the real SDK's stream parser with recorded events (CI). The API has never accepted a request from this code: the account has no credit |
+| Operating systems | Linux (CI, container image), Windows (development) | Linux and Windows verified; **macOS not tested** | CI runs on Ubuntu; the suite, smoke test and real-process checks ran on Windows 11 |
+| Packaging and deployment | A wheel, and a container image (`python:3.12-slim`, dependencies from `uv.lock`) | Compatible | The wheel installs on its own and runs the CLI (CI); the image is built and smoke-tested before each publish ([container.yml](../.github/workflows/container.yml)) |
 
 Open points:
 

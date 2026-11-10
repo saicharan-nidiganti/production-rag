@@ -1,18 +1,21 @@
 # Production RAG — Ask My Docs
 
 [![CI](https://github.com/saicharan-nidiganti/production-rag/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/saicharan-nidiganti/production-rag/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/saicharan-nidiganti/production-rag)](https://github.com/saicharan-nidiganti/production-rag/releases/latest)
 ![Python 3.12 | 3.13 | 3.14](https://img.shields.io/badge/python-3.12%20%7C%203.13%20%7C%203.14-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Container image](https://img.shields.io/badge/container-ghcr.io-2496ED?logo=docker&logoColor=white)](https://github.com/saicharan-nidiganti/production-rag/pkgs/container/production-rag)
 
 A retrieval-augmented question-answering backend that answers from your documents, cites
 the exact passages it used, says so when the documents don't contain the answer, and
 measures itself against a versioned evaluation set on every commit.
 
-> **Status.** The v0 backend works end to end and is checked in CI: background ingestion,
-> hybrid retrieval with reranking, cited answers, abstention, an HTTP API, a CLI and
-> evaluation gates. Answers from Claude are implemented but **not yet measured live**:
-> the paid evaluation is approved and waits for API credit. Accounts, streaming and
-> a web UI are planned. Details: [docs/status.md](docs/status.md).
+> **Status: v0.2.0.** The v0 backend works end to end and is checked in CI: background
+> ingestion of five document formats, hybrid retrieval with reranking, cited answers,
+> abstention, streamed answers, per-client rate limits, an HTTP API, a CLI, a container
+> image and evaluation gates. Answers from Claude are implemented but **not yet measured
+> live**: the paid evaluation is approved and waits for API credit. Accounts and a web UI
+> come next. Details: [docs/status.md](docs/status.md).
 
 ## Why
 
@@ -48,26 +51,38 @@ documents, and as a worked example of taking RAG from prototype to an engineered
 ## Architecture
 
 ```mermaid
-flowchart TB
-    client(["Client or rag CLI"])
-    subgraph process["One API process"]
-        routes["HTTP routes<br/>auth, request ids, errors"]
-        ingestion["Ingestion<br/>queue, worker threads,<br/>extract, chunk, embed"]
-        query["Question answering<br/>hybrid retrieval, rerank,<br/>abstention, citations"]
+flowchart LR
+    client(["HTTP client<br/>or rag CLI"])
+    subgraph app["API process: rag serve, or the container image"]
+        direction TB
+        guard["Request guard<br/>API key, rate limits, body size"]
+        routes["Routes<br/>documents, search, query, query/stream"]
+        ingest["Ingestion workers<br/>queue, chunk, embed"]
+        answer["Question answering<br/>hybrid retrieval, rerank,<br/>abstention, citations"]
+        guard --> routes
+        routes --> ingest
+        routes --> answer
     end
-    db[("SQLite<br/>documents, uploads, chunks,<br/>FTS5 index, vectors")]
+    parser[["Parser process<br/>one per upload, no secrets,<br/>timeout and memory limit"]]
+    db[("SQLite<br/>documents, queue, chunks,<br/>FTS5 index, vectors")]
     claude{{"Claude API<br/>or the offline generator"}}
-
-    client --> routes
-    routes -- "upload, status" --> ingestion
-    routes -- "search, ask" --> query
-    ingestion -- "claims, chunks" --> db
-    query -- "BM25 + vectors" --> db
-    query -- "chunks as search results" --> claude
+    client -- "JSON, or SSE for streams" --> guard
+    ingest -- "file in, sections out" --> parser
+    ingest --> db
+    answer --> db
+    answer -- "chunks as search results" --> claude
+    classDef external fill:#fff4e5,stroke:#c05621,color:#1a202c
+    classDef store fill:#e6f0ff,stroke:#2b6cb0,color:#1a202c
+    classDef isolated fill:#f7fafc,stroke:#4a5568,stroke-dasharray:5 3,color:#1a202c
+    class claude external
+    class db store
+    class parser isolated
 ```
 
-A single process serves the API and runs the ingestion workers. SQLite holds everything,
-including the queue, so there is nothing else to operate
+A single process serves the API and runs the ingestion workers. A request guard checks the
+API key, the client's rate limit and the body size before a request body is read. Each
+upload is parsed in a short-lived child process with no secrets and a time limit. SQLite
+holds everything, including the queue, so there is nothing else to operate
 ([ADR-0002](docs/decisions/0002-v0-storage-and-scope.md),
 [ADR-0006](docs/decisions/0006-background-ingestion.md)). Package dependencies point one
 way, and a test enforces it. Component and sequence diagrams are in
@@ -82,7 +97,7 @@ flowchart TB
     rrf --> rerank["Cross-encoder rerank of the top 5 (optional)"]
     rerank --> gate{"Evidence strong enough?"}
     gate -- "no" --> abstain["insufficient_evidence, no model call"]
-    gate -- "yes" --> gen["Claude reads each chunk as a search_result block"]
+    gate -- "yes" --> gen["Claude writes the answer from search_result blocks<br/>(streamed as it is written on /v1/query/stream)"]
     gen --> cite["Citations mapped to stored passages"]
     cite --> answered["answered, with citations"]
     cite -- "nothing cited" --> abstain
@@ -93,9 +108,9 @@ flowchart TB
   sections (Markdown, HTML and DOCX headings, PDF pages) in an isolated parser process
   ([ADR-0007](docs/decisions/0007-isolated-document-parsing.md),
   [ADR-0009](docs/decisions/0009-docx-and-html-extraction.md)), chunks them without crossing
-  section boundaries, embeds
-  each chunk with its heading path, and writes the chunks in the transaction that marks the
-  document `ready`. A crashed worker's document is taken over once its lease lapses.
+  section boundaries, embeds each chunk with its heading path, and writes the chunks in the
+  transaction that marks the document `ready`. A crashed worker's document is taken over
+  once its lease lapses.
 - **Retrieval.** BM25 and exact cosine search each return 30 candidates; Reciprocal Rank
   Fusion merges them by rank, so their scores never need calibrating against each other.
 - **Reranking.** A local cross-encoder (`ms-marco-MiniLM-L-6-v2`) rescores the top 5 fused
@@ -105,6 +120,9 @@ flowchart TB
 - **Citations.** Claude receives each chunk as a `search_result` block with citations
   enabled. Each cited span maps back to a chunk by index; an answer that cites nothing is
   reported as `insufficient_evidence`, not `answered` ([ADR-0003](docs/decisions/0003-generation-provider-claude.md)).
+- **Streaming.** `POST /v1/query/stream` sends the retrieved passages, then the answer's text
+  and citations as Claude writes them, then exactly the `/v1/query` response. A client that
+  disconnects stops the generation ([ADR-0010](docs/decisions/0010-streaming-answers-over-sse.md)).
 
 ## Results
 
@@ -223,7 +241,7 @@ Deployment, monitoring, backups and troubleshooting: [docs/operations.md](docs/o
 ```bash
 make install     # uv sync --frozen --all-extras
 make check       # lock check, lint, mypy --strict, tests with coverage, retrieval gate
-make smoke       # start a real server; upload, wait for ingestion, search, ask
+make smoke       # start a real server; upload, wait for ingestion, search, ask, stream
 make help        # every target
 ```
 
@@ -253,6 +271,8 @@ the maintainer's approval; CI never makes paid calls.
   a timeout, no secrets and (on Linux and macOS) a memory limit, so a bad file fails only
   its own document. That process can still reach the network and filesystem, so keep
   uploads to trusted users ([ADR-0007](docs/decisions/0007-isolated-document-parsing.md)).
+- **Rate limits are per process.** Several workers multiply them, and a restart resets
+  them; rate-limit at the reverse proxy too ([operations.md](docs/operations.md#rate-limits)).
 - **Data sent to Anthropic.** With the Claude generator, questions and retrieved passages
   go to the Claude API. Logs never contain document text or questions.
 - **Small evaluation set.** 94 author-written questions; results are optimistic and coarse.
@@ -273,11 +293,14 @@ trade-offs are in the [ADRs](docs/decisions/README.md).
 ## Project layout
 
 ```text
-src/production_rag/   the package: api/, ingestion/, retrieval/, generation/, db/, evaluation/, cli.py
+src/production_rag/   the package: api/, ingestion/, parsing/, retrieval/, generation/, db/,
+                      evaluation/, rag.py, cli.py
 tests/                unit/ and integration/ (offline); live and paid tests are opt-in
-eval/                 synthetic corpus, golden datasets, regression thresholds
+eval/                 synthetic corpus, golden datasets, regression thresholds, reference reports
 docs/                 requirements, architecture, API, operations, security, evaluation, ADRs
-scripts/              smoke test and the configuration-comparison experiment
+scripts/              smoke test, reference reports, configuration comparison
+Dockerfile            the container image, published to ghcr.io for each release
+.github/workflows/    CI, and the container image's build, test and publish
 data/                 local working data and the default database (git-ignored)
 ```
 

@@ -1,6 +1,31 @@
 # Operations
 
-Running the backend outside a development laptop.
+Running the backend outside a development laptop: how to deploy, upgrade, size, monitor
+and back it up, and what to do when something goes wrong.
+
+## Reference deployment
+
+```mermaid
+flowchart LR
+    clients(["Clients"]) -- "HTTPS" --> proxy["Reverse proxy<br/>TLS, body limit, rate limits,<br/>no buffering for SSE"]
+    proxy -- "HTTP :8000" --> app["production-rag<br/>container or rag serve"]
+    app --- data[("Volume /data<br/>rag.db, SQLite in WAL mode<br/>downloaded models")]
+    app -- "HTTPS, only with Claude" --> claude{{"Claude API"}}
+    probes(["Orchestrator"]) -. "GET /health, /ready" .-> app
+    app -. "JSON logs on stderr" .-> logs(["Log pipeline"])
+    classDef external fill:#fff4e5,stroke:#c05621,color:#1a202c
+    classDef store fill:#e6f0ff,stroke:#2b6cb0,color:#1a202c
+    class claude external
+    class data store
+```
+
+- **One application instance per database.** SQLite allows a single writer, so the app runs
+  on one machine: one container, or one `rag serve` or `uvicorn` process group.
+- **A reverse proxy** terminates TLS, caps request bodies, rate-limits across processes and
+  must pass `POST /v1/query/stream` through unbuffered ([Streaming](#streaming)).
+- **The only outbound call** goes to the Claude API, and only with `RAG_GENERATOR=anthropic`.
+  The default configuration makes no network calls at all.
+- **State lives in one volume:** the database and, with fastembed, the downloaded models.
 
 ## Install and configure
 
@@ -47,8 +72,9 @@ docker run -d --name rag -p 8000:8000 -v rag-data:/data \
 
 ## Deploy sequence
 
-1. `uv run rag db upgrade`: apply migrations. This is an explicit step; the service doesn't
-   migrate on startup. `/ready` returns 503 until the schema is at head, and ingestion
+1. `uv run rag db upgrade`: apply migrations. The service doesn't migrate on its own unless
+   it is started with `rag serve --migrate`, as the container image is. `/ready` returns 503
+   until the schema is at head, and ingestion
    workers retry with a backoff (logging `ingest.worker_error`) until then. Revision 0002
    adds ingestion status; documents ingested before it become `ready`.
 2. Start the API: `uv run uvicorn --factory production_rag.api.app:app_factory --host 0.0.0.0
@@ -62,6 +88,35 @@ don't share the database file across machines or over network filesystems
 
 Put a reverse proxy in front for TLS and to cap request bodies at `RAG_MAX_UPLOAD_BYTES`. The
 app enforces the limit too, but only after the body has been received.
+
+## Upgrading and rolling back
+
+1. Read the release notes and the [changelog](../CHANGELOG.md) for new settings and
+   behaviour changes.
+2. Back up the database ([Backups](#backups)).
+3. Install the new version: `git pull && uv sync --frozen --all-extras --no-dev`, or pull the
+   new image tag.
+4. Apply migrations with `rag db upgrade`; the container image does this when it starts.
+   `rag db current` prints the schema revision and the latest one.
+5. Restart, then check that `/ready` returns 200 with `schema_revision` equal to
+   `expected_revision`, and ask one question.
+
+To roll back, run the previous version. If the upgrade applied a migration, restore the
+backup from step 2 first: there is no `rag db downgrade` command. 0.1.0 and 0.2.0 share
+schema revision 0003, so moving between them needs no migration.
+
+## Sizing
+
+| Resource | What drives it | Measured or estimated |
+| --- | --- | --- |
+| Memory | The in-memory vector matrix in each process: chunks × dimensions × 4 bytes (384 for bge-small, 512 for hashing), plus the ONNX models with fastembed | 100,000 bge-small chunks need about 150 MB per process |
+| Disk | Extracted text, chunks with overlap, embeddings and the FTS5 index; failed uploads until they are retried or deleted | Measured: 2,743 chunks of about 840 characters with bge-small took 14.8 MB, about 5.3 KiB per chunk, 7.5 times the extracted text |
+| CPU, ingestion | Embedding, which uses every core | Measured: about 20 chunks per second with bge-small on an 8-core laptop CPU |
+| CPU, queries | Exact vector search, BM25 and the optional reranker | Measured: about 0.5 ms of vector search per query at 10,000 chunks and 6 ms at 100,000; reranking 5 candidates about 30 ms |
+
+Vector search is exact, which stays comfortable to about 100,000 chunks per process. Beyond
+that, plan the move to PostgreSQL with pgvector
+([ADR-0002](decisions/0002-v0-storage-and-scope.md)).
 
 ## Streaming
 
@@ -168,12 +223,35 @@ Every log line within a request carries `request_id`, which is also returned as 
 `generation.completed` also logs `anthropic_request_id`; quote it when reporting an API problem
 to Anthropic. Question text and document contents are never logged.
 
+### Alerts worth setting
+
+Starting points; tune the thresholds to your traffic.
+
+| Alert | Condition | Usual cause |
+| --- | --- | --- |
+| Not ready | `/ready` isn't 200 for 2 minutes | Schema behind after an upgrade; database unreachable |
+| Ingestion backlog | `checks.ingestion.queued` keeps growing for 15 minutes | No process runs workers, or workers fail (`ingest.worker_error`) |
+| Stuck processing | `processing` stays above 0 with no `ingest.completed` for longer than `RAG_INGEST_LEASE_S` | A worker died; the lease hands the document over |
+| Server errors | 5xx above 1% of `http.request` over 5 minutes | Unexpected errors: look up the `request_id` |
+| Model unavailable | `generation.failed` with `retryable = true`, or 503 `generation_unavailable`, above your baseline | Claude rate limits or overload |
+| Abuse | Spikes of `security.auth_failed` or `security.rate_limited` | A misconfigured client, or key guessing |
+| Slow answers | p95 of `query.completed.timings_ms.total` above your target | Large corpus, reranking many candidates, or a slow model |
+
 ## Backups
 
-The database is a single SQLite file in WAL mode. Take consistent backups with the SQLite backup
-API or `sqlite3 rag.db ".backup 'rag-backup.db'"` (copying the file alone can miss WAL
-contents). Documents can be re-ingested from source, but the database is the only copy of
-extracted text and ingestion metadata.
+The database is a single SQLite file in WAL mode. Copying the file alone can miss what is in
+the write-ahead log, so take backups with SQLite's backup API. This works while the service
+runs, and inside the container image, which has Python but not the `sqlite3` shell:
+
+```bash
+python -c "import sqlite3; d = sqlite3.connect('rag-backup.db'); sqlite3.connect('/data/rag.db').backup(d); d.close()"
+docker exec rag python -c "..."          # the same command, inside a running container
+```
+
+To restore: stop the service, replace `rag.db` with the backup, delete any `rag.db-wal` and
+`rag.db-shm` left beside it, start the service and check `/ready`. Documents can be
+re-ingested from their sources, but the database is the only copy of the extracted text and
+the ingestion metadata.
 
 ## Security
 
@@ -194,5 +272,8 @@ checklist are in [security.md](security.md). All settings are listed in
 | HTTP 503 `generation_unavailable` | Rate limit, overload or network failure after SDK retries; retry later, check `generation.failed` logs |
 | Many `insufficient_evidence` answers | Check `best_vector_score` in `query.completed`: if it's low, the corpus may lack the content; if retrieval looks right, run `rag eval` and recalibrate the threshold |
 | fastembed fails with "Could not load model … from any source" | Often not the network: Hugging Face downloads large files through its Xet client, which writes to `~/.cache/huggingface`. If that isn't writable, set `HF_HOME` and `RAG_FASTEMBED_CACHE_DIR` to writable directories |
+| Streamed answers arrive all at once, at the end | A proxy buffers the response. Turn buffering off for `/v1/query/stream` ([Streaming](#streaming)) |
+| Clients get 429 `rate_limited` | Over a per-client limit; `Retry-After` says when to try again. Behind a proxy that isn't in `--forwarded-allow-ips`, all clients share one allowance. Raise `RAG_RATE_LIMIT_*_PER_MINUTE` if the limits are too low ([Rate limits](#rate-limits)) |
+| The container can't write to `/data` | A bind-mounted host directory owned by another user: the image runs as uid 10001. `chown 10001` the directory, or use a named volume |
 | `database is locked` | Concurrent writers beyond what SQLite handles; reduce concurrent ingestion or move to PostgreSQL ([ADR-0002](decisions/0002-v0-storage-and-scope.md)) |
 | Windows: "An Application Control policy has blocked this file" for `pytest.exe` | OS policy on unsigned launcher shims; run `uv run python -m pytest` instead |
