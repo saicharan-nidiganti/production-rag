@@ -11,7 +11,7 @@ measures itself against a versioned evaluation set on every commit.
 > **Status.** The v0 backend works end to end and is checked in CI: background ingestion,
 > hybrid retrieval with reranking, cited answers, abstention, an HTTP API, a CLI and
 > evaluation gates. Answers from Claude are implemented but **not yet measured live**:
-> the paid evaluation awaits the owner's approval and API credit. Accounts, streaming and
+> the paid evaluation is approved and waits for API credit. Accounts, streaming and
 > a web UI are planned. Details: [docs/status.md](docs/status.md).
 
 ## Why
@@ -253,7 +253,7 @@ vulnerabilities privately: [SECURITY.md](SECURITY.md).
 ## Roadmap
 
 1. The first paid Claude evaluation, focused on on-topic unanswerable questions and the
-   planted injection (prepared, with a cost preview; awaiting approval and credit).
+   planted injection (prepared and approved; waiting for API credit).
 2. Accounts and per-user isolation on PostgreSQL with pgvector.
 3. A web interface.
 

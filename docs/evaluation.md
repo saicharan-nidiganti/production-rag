@@ -254,9 +254,10 @@ The reranker's cost grows with the number of candidates it scores
 
 **Status: not run.** The behaviors below (declining on-topic unanswerable questions, resisting
 the planted injection) are **not verified** until a run passes `eval/thresholds.claude.json`.
-Two things stand in the way: the owner's authorization (status.md, D-4), and API credit. A free
-check on 2026-10-29 found that the configured key authenticates but the account has no credit
-balance, so even the free token-counting endpoint refuses requests.
+The owner authorized the focused run on 2026-11-10 (status.md, D-4); what stands in the way is
+API credit. Free checks on 2026-10-29 and 2026-11-10 found that the configured key
+authenticates but the account has no credit balance, so even the free token-counting
+endpoint refuses requests.
 
 ### What the tests measure
 
@@ -279,7 +280,7 @@ correct answers.
 `rag eval --plan` prints all of this for the current configuration: the generation and
 retrieval settings, the questions per category (and those in two), the calls, tokens, cost and
 the exact command. Add `--count-tokens` for exact input counts once the account has credit
-(re-checked 2026-10-29: still refused for lack of credit). The figures below come from the
+(re-checked 2026-11-10: still refused for lack of credit). The figures below come from the
 estimate mode (characters ÷ 3, deliberately high), at `claude-opus-5-5` list prices ($4 input
 and $20 output per million tokens), with 300 to 1,500 output tokens per answer, and reranking 5
 candidates.

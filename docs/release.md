@@ -31,12 +31,18 @@ report to the owner and in the GitHub release.
 
 - Item 9: the paid Claude evaluation hasn't run (no API credit, decision D-4), so the notes
   state what is unverified live, as for v0.1.0.
-- Items 10 and 11: the changelog is ready; the tag and the GitHub release wait for the
-  owner's approval of the final verification.
+- Items 1 to 8: all passed on `2ceb918`. CI passed on all six jobs; a fresh clone passed
+  the suite, lint, `mypy --strict`, the retrieval gate and the smoke test; the free live
+  gates passed; the wheel and sdist were built with `uv build` from a clean clone, twice,
+  with identical SHA-256, and the wheel installed on its own ingested HTML and streamed a
+  cited answer.
+- Items 10 and 11: done. The owner approved the final verification on 2026-11-10; the
+  annotated tag `v0.2.0` on `2ceb918` and its GitHub release, with the wheel, the sdist and
+  their SHA-256, were published that day.
 
 ## v0.2.0 release notes
 
-To be published with the `v0.2.0` tag.
+Published with the `v0.2.0` tag on 2026-11-10.
 
 > **Production RAG v0.2.0: streamed answers, DOCX and HTML, and rate limits.**
 >

@@ -17,8 +17,8 @@ resistance and, most importantly, whether Claude declines the on-topic
 unanswerable questions that no retrieval signal catches. Those behaviors of
 [ADR-0003](decisions/0003-generation-provider-claude.md) count as verified only
 once that run passes its acceptance gate (`eval/thresholds.claude.json`). It is
-prepared but blocked twice: the Anthropic account has no API credit, and the
-run needs the owner's explicit authorization (D-4). The
+prepared, and the owner authorized the focused run on 2026-11-10 (D-4), but the
+Anthropic account still has no API credit (re-checked 2026-11-10), so nothing has run. The
 [plan](evaluation.md#paid-evaluation-with-claude) gives the exact commands, call
 counts and costs.
 
@@ -40,6 +40,19 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 | Streaming (FR-9) | Met: `POST /v1/query/stream` (Server-Sent Events) and `rag ask --stream` ([ADR-0010](decisions/0010-streaming-answers-over-sse.md)); verified through the Claude SDK's stream parser with recorded events and a real-server smoke test, not yet live against Claude |
 
 ## Session log
+
+### Session 15 — Publication, the repository's new place, a credit check (2026-11-10)
+
+- The owner approved the final verification. The annotated tag `v0.2.0` on `2ceb918` and
+  its GitHub release were published, with the wheel and sdist built by `uv build` from a
+  clean clone (twice, identical SHA-256). Checklist results are in
+  [release.md](release.md#v020-status).
+- With the owner's approval, the repository moved from `Desktop\production-rag\production-rag`
+  to `Desktop\production-rag`, and the older skeleton clone around it was deleted: both of
+  its commits are on `main`, and its Session 0 bundle had been merged.
+- The owner authorized D-4's focused run. Its free first step, `rag eval --plan
+  --count-tokens`, was refused because the account still has no credit. Nothing ran and
+  nothing was billed.
 
 ### Session 14 — The v0.2.0 release commit (2026-11-10)
 
@@ -472,22 +485,21 @@ Checks at the end of the session:
 | D-1 | How changes reach GitHub | **Resolved 2026-10-29:** sessions on the developer PC commit and push verified changes directly to `main` | — |
 | D-2 | Generation model provider | **Resolved 2026-10-29:** Anthropic as the configurable hosted provider, offline mode kept ([ADR-0003](decisions/0003-generation-provider-claude.md), accepted). Live behavior is verified only once D-4's run passes | — |
 | D-3 | Storage for v0 | **Resolved 2026-10-29:** SQLite for v0 ([ADR-0002](decisions/0002-v0-storage-and-scope.md), accepted); PostgreSQL + pgvector arrives with accounts in Phase 5 | — |
-| D-4 | Authorize the first paid Claude evaluation. Focused run (on-topic unanswerable + injection): 13 calls, est. $0.14–0.45, worst case $4.22. Full golden v2: 86 calls, est. $0.91–2.97, worst case $27.91. Commands in [evaluation.md](evaluation.md#paid-evaluation-with-claude) | Add credit, then authorize the focused run; run the full set if it passes | Next milestone |
+| D-4 | Authorize the first paid Claude evaluation. Focused run (on-topic unanswerable + injection): 13 calls, est. $0.14–0.45, worst case $4.22. Full golden v2: 86 calls, est. $0.91–2.97, worst case $27.91. Commands in [evaluation.md](evaluation.md#paid-evaluation-with-claude) | **Focused run authorized 2026-11-10** (with one live streamed answer); waiting for API credit. Run the full set if it passes | Next milestone |
 
 ## Blockers and risks
 
 | Item | Impact | Resolution |
 | --- | --- | --- |
-| The Anthropic account has no API credit (checked 2026-10-29) | No Claude call can succeed, including free token counting | Owner: add credits under Plans & Billing in the Claude Console |
-| Paid evaluation not yet authorized | On-topic abstention, citation precision and injection resistance with Claude are unverified, and the abstention target can't be confirmed | D-4 |
+| The Anthropic account has no API credit (re-checked 2026-11-10) | No Claude call can succeed, including free token counting | Owner: add credits under Plans & Billing in the Claude Console |
+| Paid evaluation authorized but not run | On-topic abstention, citation precision, injection resistance and streaming with Claude are unverified, and the abstention target can't be confirmed | Add credit, then run D-4 |
 | On-topic unanswerable questions get past every retrieval signal | If Claude doesn't decline them reliably, the abstention target needs an answerability model | Measure first (D-4); [ADR-0005](decisions/0005-reranking-and-abstention.md) lists the next option |
 | No Docker on the PC | PostgreSQL can't run locally; not needed until Phase 5 (D-3) | Install Docker Desktop or PostgreSQL before Phase 5 |
 | The dataset is small and author-written | Results are optimistic and coarse | Add questions from real usage when available |
-| `Desktop\production-rag` is an older clone that contains this repository as an untracked folder | `git add .` in the outer folder would embed this repository | Work only in `Desktop\production-rag\production-rag`; move it out of the outer clone when convenient |
 
 ## Next priorities
 
-1. Owner: add API credit, then authorize D-4 (focused run first).
+1. Owner: add API credit; D-4's focused run is authorized and runs next.
 2. Before the run: `rag eval --plan --count-tokens` for exact input counts.
 3. Run the paid evaluation and record it in [evaluation.md](evaluation.md). If
    on-topic declines fall short, evaluate an answerability check.
