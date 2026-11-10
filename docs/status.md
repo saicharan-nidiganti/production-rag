@@ -72,7 +72,15 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
   takes an online backup while the server runs and verifies it; the container check does
   the same for sources that have the command.
 - Checks: 618 passed, 4 skipped; coverage 96.1%; ruff, mypy, markdownlint and the offline
-  evaluation gate clean.
+  evaluation gate clean (`f68f42d`, CI green).
+- New versions of a document: `POST /v1/documents?replaces={id}` deletes the old version
+  in the transaction that makes the new one ready, and keeps it if the new one fails.
+  Migration 0004 adds `documents.replaces_id`, in place (a table rebuild would cascade).
+  [data-lifecycle.md](data-lifecycle.md) gained its testing section. The architecture
+  doc no longer claims the extracted text is kept for re-chunking: that needs the heading
+  structure, which isn't stored.
+- Checks: 629 passed, 4 skipped; coverage 96.1%; the smoke test and the offline evaluation
+  gate pass.
 
 ### Session 16 — The container image (2026-11-10)
 

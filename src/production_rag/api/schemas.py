@@ -43,6 +43,11 @@ class DocumentOut(BaseModel):
     attempts: int = Field(description="Processing attempts since the document was last queued.")
     created_at: datetime
     updated_at: datetime = Field(description="When the status last changed.")
+    replaces: str | None = Field(
+        default=None,
+        description="The document this one is a new version of, deleted when this one "
+        "became ready; null for an original upload.",
+    )
 
     @classmethod
     def from_model(cls, doc: Document) -> DocumentOut:
@@ -63,6 +68,7 @@ class DocumentOut(BaseModel):
             attempts=doc.attempts,
             created_at=_utc(doc.created_at),
             updated_at=_utc(doc.updated_at),
+            replaces=doc.replaces_id,
         )
 
 

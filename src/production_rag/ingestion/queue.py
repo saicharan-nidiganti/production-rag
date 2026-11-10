@@ -149,9 +149,11 @@ class IngestionQueue:
         if not renewed:
             raise ClaimLost
 
-    def complete(self, claim: Claim, chunks: Sequence[Chunk], **fields: Any) -> None:
-        """Mark the document ready with ``fields``, insert its chunks and drop the upload,
-        in one transaction. Raises ClaimLost, writing nothing, if the claim was lost."""
+    def complete(self, claim: Claim, chunks: Sequence[Chunk], **fields: Any) -> str | None:
+        """Mark the document ready with ``fields``, insert its chunks, drop the upload and
+        delete the document it replaces, in one transaction, so searches see the old version
+        or the new one, never both or neither. Raises ClaimLost, writing nothing, if the
+        claim was lost. Returns the id of the replaced document, if one was deleted."""
         with self._sessions() as session:
             if not _transition(
                 session,
@@ -164,7 +166,19 @@ class IngestionQueue:
             session.execute(
                 delete(DocumentFile).where(DocumentFile.document_id == claim.document_id)
             )
+            replaced = session.scalar(
+                select(Document.replaces_id).where(Document.id == claim.document_id)
+            )
+            deleted = 0
+            if replaced is not None and replaced != claim.document_id:
+                # Chunks, full-text entries and the upload go with it (cascade, triggers).
+                result = cast(
+                    "CursorResult[Any]",
+                    session.execute(delete(Document).where(Document.id == replaced)),
+                )
+                deleted = result.rowcount
             session.commit()
+        return replaced if deleted else None
 
     def fail(self, claim: Claim, code: str, message: str) -> None:
         """Mark the document failed; the upload is kept so it can be retried."""

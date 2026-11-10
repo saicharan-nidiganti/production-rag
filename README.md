@@ -110,7 +110,8 @@ flowchart TB
   [ADR-0009](docs/decisions/0009-docx-and-html-extraction.md)), chunks them without crossing
   section boundaries, embeds each chunk with its heading path, and writes the chunks in the
   transaction that marks the document `ready`. A crashed worker's document is taken over
-  once its lease lapses.
+  once its lease lapses. An upload with `?replaces={id}` swaps in a new version in that same
+  transaction, so searches never see both versions or neither.
 - **Retrieval.** BM25 and exact cosine search each return 30 candidates; Reciprocal Rank
   Fusion merges them by rank, so their scores never need calibrating against each other.
 - **Reranking.** A local cross-encoder (`ms-marco-MiniLM-L-6-v2`) rescores the top 5 fused

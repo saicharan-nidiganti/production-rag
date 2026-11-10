@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 from typing import Literal
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -54,6 +54,10 @@ class DocumentStateError(ValueError):
 
 class UploadMissingError(RuntimeError):
     pass
+
+
+class ReplacedDocumentNotFoundError(LookupError):
+    """The document an upload is meant to replace doesn't exist."""
 
 
 class _Stopping(Exception):
@@ -111,11 +115,15 @@ class IngestionService:
 
     # --- Accepting documents ---
 
-    def submit(self, filename: str, data: bytes, *, notify: bool = True) -> IngestResult:
+    def submit(
+        self, filename: str, data: bytes, *, notify: bool = True, replaces: str | None = None
+    ) -> IngestResult:
         """Validate and queue a document, without processing it.
 
         Identical bytes are stored once (FR-4): the existing document is returned instead,
-        and queued again if it had failed.
+        and queued again if it had failed. ``replaces`` names a document this upload is a
+        new version of: it is deleted in the transaction that makes this one ready, and
+        stays if this one fails.
         """
         filename = safe_filename(filename)
         content_type_for(filename)  # reject unsupported types before reading the content
@@ -127,6 +135,10 @@ class IngestionService:
         content_hash = hashlib.sha256(data).hexdigest()
 
         with self._sessions() as session:
+            if replaces is not None and session.get(Document, replaces) is None:
+                raise ReplacedDocumentNotFoundError(
+                    f"the document to replace, {replaces}, doesn't exist"
+                )
             existing = self._find_by_hash(session, content_hash)
             if existing is None:
                 now = utcnow()
@@ -143,6 +155,7 @@ class IngestionService:
                     attempts=0,
                     created_at=now,
                     updated_at=now,
+                    replaces_id=replaces,
                 )
                 try:
                     session.add(document)
@@ -162,12 +175,15 @@ class IngestionService:
                             "document_id": document.id,
                             "content_type": content_type,
                             "size_bytes": len(data),
+                            "replaces_id": replaces,
                         },
                     )
                     if notify:
                         self.queue.work_available.set()
                     return IngestResult(document, created=True)
 
+            if replaces is not None and replaces != existing.id:
+                self._replace_with_existing(session, existing, replaces)
             if existing.status == "failed" and self.queue.requeue_failed(session, existing.id):
                 if session.get(DocumentFile, existing.id) is None:
                     session.add(DocumentFile(document_id=existing.id, data=data))
@@ -185,6 +201,24 @@ class IngestionService:
                     extra={"document_id": existing.id, "status": existing.status},
                 )
             return IngestResult(existing, created=False)
+
+    def _replace_with_existing(self, session: Session, existing: Document, replaces: str) -> None:
+        """An upload replacing ``replaces`` matched ``existing``'s content: that document
+        becomes the replacement. If it is ready, the old version goes now; otherwise when it
+        becomes ready."""
+        if existing.replaces_id not in (None, replaces):
+            raise DocumentStateError(
+                "identical content is already uploaded as the replacement of another document"
+            )
+        if existing.status == "ready":
+            session.execute(delete(Document).where(Document.id == replaces))
+            logger.info(
+                "ingest.replaced", extra={"document_id": existing.id, "replaced_id": replaces}
+            )
+        else:
+            existing.replaces_id = replaces
+        session.commit()
+        session.refresh(existing)
 
     def retry(self, document_id: str) -> Document | None:
         """Queue a failed document again; None when it doesn't exist."""
@@ -261,7 +295,7 @@ class IngestionService:
                     [embedding_input(span.text, span.heading) for span in batch]
                 )
                 vectors.extend(to_blob(vector) for vector in embedded)
-            self.queue.complete(
+            replaced = self.queue.complete(
                 claim,
                 [
                     self._chunk(claim.document_id, content_hash, i, span, vectors[i])
@@ -303,6 +337,10 @@ class IngestionService:
             metrics.observe_ingestion("failed", time.perf_counter() - start)
             return ProcessOutcome("failed", exc)
         elapsed = time.perf_counter() - start
+        if replaced is not None:
+            logger.info(
+                "ingest.replaced", extra={"document_id": claim.document_id, "replaced_id": replaced}
+            )
         logger.info(
             "ingest.completed",
             extra={

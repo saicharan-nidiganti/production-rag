@@ -24,6 +24,11 @@ record. Detailed per-session notes and verification results are in
   documents and their stored uploads.
 - **Lineage**: each document's `metadata.ingested_with` records the version and the chunk
   size and overlap that produced its chunks.
+- **New versions of a document**: `POST /v1/documents?replaces={id}` deletes the old
+  version in the transaction that makes the new one ready, so searches never see both or
+  neither; if the new version fails, the old one stays. Documents gain a `replaces` field.
+  Migration 0004 adds the column: run `rag db upgrade`, and back up first, since rolling
+  back to 0.2.0 afterwards means restoring that backup.
 - **docs/data-lifecycle.md**: data inventory and classification, storage, lineage,
   versioning, retention, deletion, backup, recovery procedures, privacy and growth.
 - **Prometheus metrics** at `GET /metrics`: requests and latency by route

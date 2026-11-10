@@ -131,6 +131,24 @@ checked and stored, then processed in the background (FR-3):
 curl -si localhost:8000/v1/documents -F "file=@eval/corpus/api-rate-limits.md"
 ```
 
+**A new version of a document.** Add `?replaces={id}` to name the document an upload
+replaces. The old version is deleted in the transaction that marks the new one `ready`,
+so a search finds the old version until then and the new one from then on, never both or
+neither. If the new version fails, the old one stays, and a retry that succeeds replaces it
+then. The new document's `replaces` field keeps the old id.
+
+- **404** `not_found`: no document has that id. Nothing is stored.
+- If the bytes match a document that is already `ready`, the old version is deleted at once
+  and the matching document is returned (200, `created: false`). If they match one that
+  isn't ready yet, that one becomes the replacement.
+- **409** `invalid_document_state`: the bytes match a document already uploaded as the
+  replacement of a different document.
+
+```bash
+curl -s "localhost:8000/v1/documents?replaces=37f7f8c9-44cd-463d-ab2d-94778be20085" \
+  -F "file=@api-rate-limits-v2.md"
+```
+
 ```http
 HTTP/1.1 202 Accepted
 location: /v1/documents/37f7f8c9-44cd-463d-ab2d-94778be20085
@@ -149,7 +167,8 @@ location: /v1/documents/37f7f8c9-44cd-463d-ab2d-94778be20085
     "error": null,
     "attempts": 0,
     "created_at": "2026-10-29T03:54:07.870544Z",
-    "updated_at": "2026-10-29T03:54:07.870544Z"
+    "updated_at": "2026-10-29T03:54:07.870544Z",
+    "replaces": null
   },
   "created": true
 }

@@ -102,8 +102,9 @@ app enforces the limit too, but only after the body has been received.
    `expected_revision`, and ask one question.
 
 To roll back, run the previous version. If the upgrade applied a migration, restore the
-backup from step 2 first with `rag db restore`: there is no `rag db downgrade` command. 0.1.0 and 0.2.0 share
-schema revision 0003, so moving between them needs no migration.
+backup from step 2 first with `rag db restore`: there is no `rag db downgrade` command.
+0.1.0 and 0.2.0 share schema revision 0003, so moving between them needs no migration; the
+next release adds 0004.
 
 ## Sizing
 

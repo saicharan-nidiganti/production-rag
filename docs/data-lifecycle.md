@@ -64,6 +64,7 @@ Every piece of evidence in an answer can be traced to the bytes it came from:
 | Chunk → document | `document_id` |
 | Chunk → text | `start_char`, `end_char` into the document's extracted text; `heading` and `page` |
 | Document → source version | `content_hash`: the SHA-256 of the uploaded bytes. `chunk_key` is derived from it and the chunk's span |
+| Document → the version it replaced | `replaces`: the replaced document's id, kept after that document is deleted |
 | Chunk → embedding model | `embedding_model` on every chunk |
 | Document → processing configuration | `metadata.ingested_with`: the version, `chunk_size` and `chunk_overlap` |
 | Evaluation case → evidence | A source file and heading, not chunk ids, so cases survive re-chunking |
@@ -73,9 +74,12 @@ Every piece of evidence in an answer can be traced to the bytes it came from:
 ## Versioning
 
 - **Source documents** are identified by content. Identical bytes are deduplicated into
-  one document, while changed bytes become a new document. Nothing is replaced silently: the
-  older version stays searchable until it is deleted. To update a document, upload the new
-  version, wait until it is `ready`, then delete the old one.
+  one document, while changed bytes become a new document. Nothing is replaced silently. To
+  update a document, upload the new version with `?replaces={id}`: the old version is
+  deleted in the transaction that makes the new one `ready`, and stays if the new one fails
+  ([api.md](api.md#post-v1documents)). Without `replaces`, both versions stay searchable
+  until the old one is deleted. History isn't kept: the replaced version's id survives as
+  the new document's `replaces`, its content doesn't.
 - **Processing configuration** applies when a document is processed, and is recorded in
   `metadata.ingested_with`. Changing `RAG_CHUNK_SIZE` or `RAG_CHUNK_OVERLAP` affects new
   uploads only. To re-chunk a document, delete it and upload it again.
@@ -207,13 +211,30 @@ copying the file twice: once for the pre-restore copy and once for the backup.
   private to the service user. Parsing writes no files. Backups and pre-restore copies are
   the only other copies, so manage their retention.
 
+## Testing
+
+Each requirement on this page has tests, all offline and on temporary databases:
+
+| Requirement | Tests |
+| --- | --- |
+| Backups are consistent, include the write-ahead log, are checked, and never overwrite | `tests/integration/test_maintenance.py` |
+| Verification finds a changed backup, a damaged or foreign file, an inconsistent full-text index, wrong chunk counts, partial chunks, misplaced uploads, mixed vector sizes and unknown schema revisions, without modifying the file | `tests/integration/test_maintenance.py` |
+| A restore refuses a bad backup and changes nothing; otherwise it keeps the replaced database, and a running process sees the restored index | `tests/integration/test_maintenance.py` |
+| Recovery onto new storage, from an older schema, ends with a service that answers | `tests/integration/test_maintenance.py` |
+| Retention deletes only old failed documents, with their uploads; a dry run deletes nothing | `tests/integration/test_maintenance.py` |
+| Lineage: `ingested_with` and `replaces` | `tests/integration/test_maintenance.py`, `tests/integration/test_replacement.py` |
+| Replacement is atomic, keeps the old version when the new one fails, and handles duplicates | `tests/integration/test_replacement.py` |
+| Deletion removes chunks, full-text entries and uploads, including while processing | `tests/integration/test_api.py`, `tests/integration/test_background_ingestion.py` |
+| Migrations keep existing data, up and down | `tests/integration/test_database.py` |
+| An online backup of a running server verifies | `scripts/smoke_test.py`, and the container image check |
+
 ## Growth
 
 | Driver | Estimate |
 | --- | --- |
 | Documents | About 7.5 times their extracted text with bge-small embeddings: 5.3 KiB per chunk of about 840 characters |
 | Failed uploads | Their full size, until pruned |
-| Superseded versions | Their full size, until the old version is deleted |
+| Superseded versions | None with `?replaces=`; otherwise their full size, until the old version is deleted |
 | Logs | About 0.7 KB per question offline (`http.request` and `query.completed`), about 1 KB with Claude (`generation.completed` too), and about 0.75 KB per ingested document |
 | Backups | N times the database with `--keep N`, plus off-host copies |
 | Evaluation history | About 1.4 MB per committed set of reference reports |

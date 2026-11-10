@@ -5,6 +5,7 @@ from production_rag.ingestion.pipeline import (
     IngestionService,
     IngestResult,
     ProcessOutcome,
+    ReplacedDocumentNotFoundError,
     embedding_input,
 )
 from production_rag.ingestion.queue import Claim, IngestionQueue
@@ -31,6 +32,7 @@ __all__ = [
     "IngestionService",
     "IngestionWorker",
     "ProcessOutcome",
+    "ReplacedDocumentNotFoundError",
     "UnsupportedDocumentError",
     "chunk_document",
     "discover_documents",

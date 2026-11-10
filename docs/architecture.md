@@ -167,7 +167,7 @@ sequenceDiagram
         W->>D: renew lease (or stop: back to queued)
         W->>E: embed heading path + chunk text
     end
-    W->>D: one transaction, if the token still matches: ready + chunks, drop upload
+    W->>D: one transaction, if the token still matches: ready + chunks, drop upload, delete a replaced version
     Note over D: triggers update chunks_fts and index_state.generation
     C->>A: GET /v1/documents/{id}
     A-->>C: status ready (or failed, with error)
@@ -246,10 +246,11 @@ A document fails with an error code and message, or with `interrupted` after
 7. **Embed** the chunk text, prefixed with its heading path for context, in
    batches of 64.
 8. **Complete** in one transaction: the document becomes `ready` with its
-   extracted text (kept for re-chunking and audit), its chunks are inserted, and
-   the stored upload is deleted. A failure marks the document `failed` with a
-   code and a message and writes no chunks (NFR-5). Its upload is kept so it can
-   be retried.
+   extracted text (which the chunk offsets point into), its chunks are inserted,
+   the stored upload is deleted, and the document it replaces, if the upload
+   named one with `?replaces=`, is deleted. A failure marks the document
+   `failed` with a code and a message and writes no chunks (NFR-5). Its upload
+   is kept so it can be retried, and a document it replaces stays.
 
 Raw uploads are stored in the database only until processing succeeds: while a
 document is queued, processing or failed. Deleting a document deletes its

@@ -52,6 +52,9 @@ class Document(Base):
         DateTime(timezone=True), nullable=True
     )
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # The document this one is a new version of; deleted when this one becomes ready. Not a
+    # foreign key: the id is kept as lineage after that document is gone.
+    replaces_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
 
     chunks: Mapped[list[Chunk]] = relationship(
         back_populates="document",

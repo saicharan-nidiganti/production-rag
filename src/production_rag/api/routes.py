@@ -93,7 +93,17 @@ def ready(request: Request, container: ContainerDep) -> JSONResponse:
     },
 )
 def upload_document(
-    container: ContainerDep, response: Response, file: Annotated[UploadFile, File()]
+    container: ContainerDep,
+    response: Response,
+    file: Annotated[UploadFile, File()],
+    replaces: Annotated[
+        str | None,
+        Query(
+            max_length=36,
+            description="The id of the document this upload is a new version of. It is "
+            "deleted when this one becomes ready; if this one fails, it stays.",
+        ),
+    ] = None,
 ) -> IngestResponse:
     """Queue a document for processing. Poll its `Location` until the status is final."""
     limit = container.settings.max_upload_bytes
@@ -102,7 +112,7 @@ def upload_document(
         raise DocumentTooLargeError(
             f"document exceeds the {limit}-byte limit (RAG_MAX_UPLOAD_BYTES)"
         )
-    result = container.ingestion.submit(file.filename or "untitled.txt", data)
+    result = container.ingestion.submit(file.filename or "untitled.txt", data, replaces=replaces)
     if result.document.status == "ready":
         response.status_code = status.HTTP_200_OK
     response.headers["Location"] = f"/v1/documents/{result.document.id}"
