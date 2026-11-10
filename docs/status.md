@@ -96,6 +96,14 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
   provenance for the image; Dependabot for the image's base; `RAG_API_DOCS_ENABLED` to
   remove the unauthenticated API docs. [security.md](security.md#audit-2026-11-10) records
   what was checked and the findings.
+- A build-only run of the container workflow (nothing published) found two things. A
+  manual rebuild of an older release kept files added since, so it now removes `src`
+  first. And the first image scan found two fixable high-severity `zlib1g`
+  vulnerabilities in the base image, so the image now takes the distribution's security
+  updates at build time and scans clean. The published 0.2.0 image predates that fix;
+  republishing it waits for the owner.
+- [runbooks.md](runbooks.md) (issue #38): severity levels, first steps, a procedure per
+  failure, rollback, verifying recovery, the incident record and the review.
 
 ### Session 16 — The container image (2026-11-10)
 

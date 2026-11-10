@@ -10,6 +10,7 @@ Each topic has one authoritative document. Start with the repository
 | [api.md](api.md) | Call the HTTP API: every endpoint, field, status code and error, with real responses | API users |
 | [configuration.md](configuration.md) | Look up any environment variable and its default (a test keeps it complete) | Operators, contributors |
 | [operations.md](operations.md) | Deploy, migrate, monitor, back up and troubleshoot, including background ingestion | Operators |
+| [runbooks.md](runbooks.md) | Respond to an incident: severity, first steps, a procedure per failure, rollback, verifying recovery, the incident record | Operators |
 | [observability.md](observability.md) | Find every log event and metric, correlate a request, set alerts, and see what is never recorded | Operators, reviewers |
 | [performance.md](performance.md) | See the performance targets, run the benchmark, read the measured results and capacity estimates, and understand the regression gate | Operators, contributors |
 | [data-lifecycle.md](data-lifecycle.md) | See what is stored and for how long, trace evidence to its source, back up, verify, restore and delete | Operators, reviewers |

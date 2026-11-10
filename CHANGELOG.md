@@ -12,6 +12,10 @@ record. Detailed per-session notes and verification results are in
 
 ### Added
 
+- **docs/runbooks.md**: incident severity levels, the first five minutes, runbooks for a
+  service that is down, provider failures, wrong or unsupported answers, slowness, stuck
+  ingestion, a damaged database and security incidents, plus rollback, verifying recovery,
+  the incident record and the review afterwards.
 - **Security scanning**: CodeQL analyzes the code on every push and weekly. The container
   workflow scans each image with Trivy and fails on a critical or high vulnerability that
   has a fix; published images carry an SBOM and build provenance. Dependabot watches the
@@ -63,6 +67,17 @@ record. Detailed per-session notes and verification results are in
   that it becomes ready, ingests, answers with citations and streams, and only
   then publishes it, for every release tag (or by hand for an earlier one).
   Published for 0.2.0 from that release's source.
+
+### Security
+
+- The container image applies the distribution's security updates when it is built. The
+  first image scan found two high-severity `zlib1g` vulnerabilities (CVE-2026-76844,
+  CVE-2026-85091) in the base image of 0.2.0.
+
+### Fixed
+
+- A manual container build of an earlier release used that release's files on top of the
+  current tree, keeping files added since. It now uses exactly the release's source.
 
 ## [0.2.0] - 2026-11-10
 

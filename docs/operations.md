@@ -278,6 +278,10 @@ checklist are in [security.md](security.md). All settings are listed in
 
 ## Troubleshooting
 
+Quick causes and fixes are below. For an incident, [runbooks.md](runbooks.md) has the
+severity levels, the first steps, a procedure for each kind of failure, rollback and how to
+confirm recovery.
+
 | Symptom | Cause and fix |
 | --- | --- |
 | `/ready` 503 with `schema: not at head` | Run `rag db upgrade` |
