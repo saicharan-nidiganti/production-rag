@@ -188,7 +188,9 @@ def test_growth_from_zero_fails() -> None:
 
 def test_a_metric_missing_from_either_run_is_a_warning() -> None:
     rules = {"pdf.seconds": {"worse": "higher", "warn_pct": 10, "fail_pct": 20}}
-    gate = evaluate(report(), {"regressions": rules}, report())
+    neither = evaluate(report(), {"regressions": rules}, report())
+    assert neither.outcome == "pass" and "either run" in neither.checks[0].detail
+    gate = evaluate(report(), {"regressions": rules}, report(pdf__seconds=5))
     assert gate.outcome == "warn" and "not measured in this run" in gate.checks[0].detail
     gate = evaluate(report(pdf__seconds=5), {"regressions": rules}, report())
     assert "not measured in the baseline" in gate.checks[0].detail

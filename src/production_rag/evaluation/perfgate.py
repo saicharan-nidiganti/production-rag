@@ -203,6 +203,8 @@ def _regression(
     soften: bool,
 ) -> Check:
     current, before = lookup(report, metric), lookup(baseline, metric)
+    if current is None and before is None:
+        return Check(metric, "pass", "not measured in either run")
     if current is None or before is None:
         missing = "this run" if current is None else "the baseline"
         return Check(metric, "warn", f"not measured in {missing}", current, before)

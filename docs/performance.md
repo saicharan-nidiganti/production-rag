@@ -171,17 +171,17 @@ Assumptions: one process, the recommended configuration, the hardware above.
 
 | Metric | Warns at | Fails at |
 | --- | --- | --- |
-| Total and retrieval p95; CPU per question | 25% worse | 100% worse |
-| Total p99, HTTP p99 | 50% | 150% |
-| HTTP p95; PDF ingestion time | 30% | 100% |
-| HTTP requests per second | 20% lower | 50% lower |
-| Ingestion chunks per second | 25% lower | 60% lower |
+| Latency (total, retrieval and HTTP, p95 and p99); CPU per question; PDF ingestion time | 100% worse | 300% worse |
+| HTTP requests per second; ingestion chunks per second | 50% lower | 75% lower |
 | Peak memory | 15% | 40% |
 | Bytes per chunk; tokens per question; estimated cost | 10% | 25% |
 
-Shared CI runners vary by tens of percent from run to run, so time-based rules fail only at
-changes that can't be noise, about twice as slow, and warn below that. Storage and tokens
-are deterministic, so their rules are tight.
+The time-based rules are loose on purpose. Two CI runs of the same code, on different
+shared runners, differed by 90% in latency and 36% in throughput, while memory moved by
+0.1% and bytes per chunk by one byte. So time-based rules warn at twice as slow and fail at
+four times, which catches an algorithmic blow-up rather than drift, and memory, storage
+and tokens are held tightly. A metric that neither run measured, such as tokens offline,
+passes.
 
 A baseline is only compared with a run of the same workload and configuration; otherwise
 the comparison is skipped with a note. If the machine differs (operating system,
