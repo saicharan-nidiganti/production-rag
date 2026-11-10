@@ -181,7 +181,9 @@ shared runners, differed by 90% in latency and 36% in throughput, while memory m
 0.1% and bytes per chunk by one byte. So time-based rules warn at twice as slow and fail at
 four times, which catches an algorithmic blow-up rather than drift, and memory, storage
 and tokens are held tightly. A metric that neither run measured, such as tokens offline,
-passes.
+passes. Across three CI runs of equivalent code, p95 for a
+question was 8.5, 16.1 and 17.3 ms; the baseline is the last of them, a typical runner
+rather than the fastest.
 
 A baseline is only compared with a run of the same workload and configuration; otherwise
 the comparison is skipped with a note. If the machine differs (operating system,

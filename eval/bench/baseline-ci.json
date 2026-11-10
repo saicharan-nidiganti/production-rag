@@ -1,6 +1,6 @@
 {
   "benchmark_version": 1,
-  "created_at": "2026-11-10T09:04:09.484307+00:00",
+  "created_at": "2026-11-10T09:09:41.074855+00:00",
   "environment": {
     "os": "Linux",
     "os_release": "7.0.0-1019-azure",
@@ -11,7 +11,7 @@
     "python_full": "3.12.16",
     "sqlite_version": "3.53.1",
     "version": "0.2.0",
-    "git_commit": "3a588d03fa77df335387f79404ed0cddd4117de4"
+    "git_commit": "bfebbdd86e52416f113d5737f5fa3897bcf8edb2"
   },
   "config": {
     "embedding_model": "hashing-v1-d512",
@@ -59,18 +59,18 @@
     "documents": 161,
     "chunks": 10002,
     "characters": 7547553,
-    "seconds": 11.827,
-    "documents_per_s": 13.61,
-    "chunks_per_s": 845.7,
-    "database_bytes": 56209408,
-    "bytes_per_chunk": 5620
+    "seconds": 16.718,
+    "documents_per_s": 9.63,
+    "chunks_per_s": 598.3,
+    "database_bytes": 56201216,
+    "bytes_per_chunk": 5619
   },
   "pdf": {
     "pages": 100,
     "size_bytes": 294460,
     "chunks": 305,
-    "seconds": 0.506,
-    "pages_per_s": 197.8
+    "seconds": 0.781,
+    "pages_per_s": 128.0
   },
   "query": {
     "questions": 94,
@@ -78,34 +78,34 @@
     "latency_ms": {
       "generation": {
         "count": 282,
-        "min": 0.11,
-        "max": 0.81,
-        "mean": 0.281,
-        "p50": 0.29,
-        "p95": 0.409,
-        "p99": 0.596
+        "min": 0.18,
+        "max": 2.27,
+        "mean": 0.529,
+        "p50": 0.52,
+        "p95": 0.709,
+        "p99": 1.961
       },
       "retrieval": {
         "count": 282,
-        "min": 0.99,
-        "max": 10.47,
-        "mean": 5.441,
-        "p50": 5.545,
-        "p95": 8.127,
-        "p99": 10.324
+        "min": 1.79,
+        "max": 38.74,
+        "mean": 10.146,
+        "p50": 10.125,
+        "p95": 16.67,
+        "p99": 28.516
       },
       "total": {
         "count": 282,
-        "min": 1.2,
-        "max": 10.96,
-        "mean": 5.736,
-        "p50": 5.835,
-        "p95": 8.487,
-        "p99": 10.682
+        "min": 2.03,
+        "max": 40.49,
+        "mean": 10.698,
+        "p50": 10.475,
+        "p95": 17.255,
+        "p99": 30.758
       }
     },
-    "queries_per_s": 173.2,
-    "cpu_ms_per_query": 23.005,
+    "queries_per_s": 93.0,
+    "cpu_ms_per_query": 42.142,
     "statuses": {
       "answered": 270,
       "insufficient_evidence": 12
@@ -117,38 +117,38 @@
     "answered": 20,
     "first_token_ms": {
       "count": 20,
-      "min": 2.46,
-      "max": 9.12,
-      "mean": 5.856,
-      "p50": 5.955,
-      "p95": 8.569,
-      "p99": 9.01
+      "min": 3.98,
+      "max": 16.2,
+      "mean": 10.593,
+      "p50": 10.735,
+      "p95": 15.526,
+      "p99": 16.065
     }
   },
   "http": {
     "requests": 200,
     "concurrency": 4,
     "errors": 0,
-    "seconds": 1.317,
-    "requests_per_s": 151.9,
+    "seconds": 1.76,
+    "requests_per_s": 113.7,
     "latency_ms": {
       "count": 200,
-      "min": 8.289,
-      "max": 53.909,
-      "mean": 25.98,
-      "p50": 25.661,
-      "p95": 39.613,
-      "p99": 47.986
+      "min": 9.541,
+      "max": 64.637,
+      "mean": 34.679,
+      "p50": 35.321,
+      "p95": 50.021,
+      "p99": 58.024
     },
     "server": {
       "available": true,
-      "cpu_ms_per_request": 26.75,
-      "rss_bytes": 166088704
+      "cpu_ms_per_request": 35.85,
+      "rss_bytes": 165552128
     }
   },
   "resources": {
-    "peak_rss_bytes": 189300736,
-    "cpu_seconds": 11.002
+    "peak_rss_bytes": 189083648,
+    "cpu_seconds": 18.405
   },
   "tokens": {
     "available": false,
