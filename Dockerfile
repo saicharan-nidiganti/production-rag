@@ -8,7 +8,7 @@
 # The web interface is served at /.
 
 # The web interface: static files, built once and copied into the image.
-FROM node:24-slim AS web
+FROM node:26-slim AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci
