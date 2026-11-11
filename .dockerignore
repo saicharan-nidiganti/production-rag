@@ -6,4 +6,7 @@
 !README.md
 !LICENSE
 !src/
+!web/
+web/node_modules
+web/dist
 **/__pycache__

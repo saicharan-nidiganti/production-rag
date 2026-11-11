@@ -14,8 +14,11 @@ measures itself against a versioned evaluation set on every commit.
 > ingestion of five document formats, hybrid retrieval with reranking, cited answers,
 > abstention, streamed answers, per-client rate limits, an HTTP API, a CLI, a container
 > image and evaluation gates. Answers from Claude are implemented but **not yet measured
-> live**: the paid evaluation is approved and waits for API credit. Accounts and a web UI
-> come next. Details: [docs/status.md](docs/status.md).
+> live**: the paid evaluation is approved and waits for API credit. On `main`, not yet
+> released: a web interface, metrics, backups and a performance gate. Accounts come next.
+> Details: [docs/status.md](docs/status.md).
+
+![The web interface: a streamed answer with numbered sources, and the cited passage highlighted in its section](docs/images/web-ask.png)
 
 ## Why
 
@@ -46,7 +49,8 @@ documents, and as a worked example of taking RAG from prototype to an engineered
 | Answers streamed as they are written (`POST /v1/query/stream`, Server-Sent Events; `rag ask --stream`), ending with the same response as `/v1/query` | **Implemented and verified**: tests through the Claude SDK's stream parser with recorded events, and a real-server smoke test in CI; not yet run live against Claude |
 | Grounded answers from Claude with native citations | **Implemented, not verified live**: tested offline against a fake client; the paid evaluation hasn't run |
 | Declining on-topic questions the documents can't answer; resisting a planted prompt injection | **Not verified**: both depend on Claude and are what the pending paid evaluation measures |
-| Accounts and per-user isolation, web UI | **Planned** ([roadmap](docs/roadmap.md)) |
+| A web interface: upload and manage documents, ask, read streamed answers, open each source's passage | **Implemented and verified**: 33 component tests, and a walkthrough in a real browser against a real server. On `main`, in the next release |
+| Accounts and per-user isolation | **Planned** ([roadmap](docs/roadmap.md)) |
 
 ## Architecture
 
@@ -124,6 +128,10 @@ flowchart TB
 - **Streaming.** `POST /v1/query/stream` sends the retrieved passages, then the answer's text
   and citations as Claude writes them, then exactly the `/v1/query` response. A client that
   disconnects stops the generation ([ADR-0010](docs/decisions/0010-streaming-answers-over-sse.md)).
+- **Web interface.** A single page served by the backend on the same origin
+  ([ADR-0011](docs/decisions/0011-web-interface-served-by-the-backend.md)): a document
+  library with upload, status, retry, replace and delete, and an ask page where the answer
+  streams in and each numbered source opens its passage, highlighted in context.
 - **Observability.** JSON logs correlated by request id, and Prometheus metrics at `/metrics`
   for request and stage latency, answer outcomes, tokens, the ingestion queue and security
   refusals. Neither records questions, documents or answers ([docs/observability.md](docs/observability.md)).
@@ -163,6 +171,13 @@ uv run rag db upgrade             # create the SQLite schema in data/rag.db
 uv run rag ingest eval/corpus     # ingest the sample handbook
 uv run rag ask "How long does the canary run?"
 uv run rag serve                  # http://127.0.0.1:8000, interactive docs at /docs
+```
+
+For the web interface, build it once (Node 22 or later) and point the server at it:
+
+```bash
+(cd web && npm ci && npm run build)
+RAG_WEB_DIR=web/dist uv run rag serve   # the interface at http://127.0.0.1:8000/
 ```
 
 With no configuration this runs fully offline: lexical `hashing` embeddings and the
@@ -289,8 +304,9 @@ vulnerabilities privately: [SECURITY.md](SECURITY.md).
 
 1. The first paid Claude evaluation, focused on on-topic unanswerable questions and the
    planted injection (prepared and approved; waiting for API credit).
-2. Accounts and per-user isolation on PostgreSQL with pgvector.
-3. A web interface.
+2. Accounts and per-user isolation on PostgreSQL with pgvector, with sign-in in the web
+   interface.
+3. The v1.0 release.
 
 The phase-by-phase plan is in [docs/roadmap.md](docs/roadmap.md); decisions and their
 trade-offs are in the [ADRs](docs/decisions/README.md).
@@ -303,6 +319,7 @@ src/production_rag/   the package: api/, ingestion/, parsing/, retrieval/, gener
 tests/                unit/ and integration/ (offline); live and paid tests are opt-in
 eval/                 synthetic corpus, golden datasets, regression thresholds, reference reports
 docs/                 requirements, architecture, API, operations, security, evaluation, ADRs
+web/                  the web interface: React, TypeScript, Vite, Tailwind CSS
 scripts/              smoke test, reference reports, configuration comparison
 Dockerfile            the container image, published to ghcr.io for each release
 .github/workflows/    CI, and the container image's build, test and publish

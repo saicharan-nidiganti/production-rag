@@ -76,10 +76,13 @@ src/production_rag/
   rag.py             query orchestration and abstention
   container.py       component wiring
   api/               FastAPI app, request guard (API key, rate limits, body size), routes,
-                     Server-Sent Events, /metrics, schemas, error mapping (transport only)
+                     Server-Sent Events, /metrics, the web interface's files, schemas,
+                     error mapping (transport only)
   cli.py             rag command (transport only)
   evaluation/        golden dataset, metrics, runner, regression gate; the performance
                      benchmark and its gate
+web/                 the web interface (React, TypeScript, Vite): a typed API client, an SSE
+                     parser, and the sign-in, documents and ask screens
 eval/                corpus, golden dataset, gate thresholds (versioned evaluation inputs)
 scripts/             smoke test, reference reports, configuration comparison
 tests/               unit/ and integration/ (offline), plus live tests behind a flag

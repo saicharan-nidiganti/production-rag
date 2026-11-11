@@ -76,11 +76,11 @@ the item notes the proposed decision.
 
 ## Phase 6 — Frontend
 
-- [ ] Authentication screens
-- [ ] Upload with progress and ingestion status
-- [ ] Document library
-- [ ] Streaming question answering with clickable citations
-- [ ] Loading, empty and error states; accessibility pass
+- [ ] Authentication screens — an API-key screen exists for the static key; sign-in comes with accounts (Phase 5)
+- [x] Upload with ingestion status — drag and drop or a picker, status per document polled while it changes; no byte-level progress bar
+- [x] Document library — status, failure reasons, retry, replace with a new version, delete
+- [x] Streaming question answering with clickable citations
+- [ ] Loading, empty and error states; accessibility pass — the states are done and tested; the WCAG 2.1 AA audit is pending (NFR-8)
 
 ## Phase 7 — Advanced Retrieval and Evaluation
 

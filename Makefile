@@ -10,7 +10,7 @@ UV ?= uv
 BENCH_BASELINE ?= eval/bench/baseline-ci.json
 .DEFAULT_GOAL := help
 
-.PHONY: help install lock-check lint format typecheck test eval-gate smoke bench package \
+.PHONY: help install lock-check lint format typecheck test eval-gate smoke bench web package \
 	check live-test docs-lint serve clean
 
 help: ## List the targets
@@ -59,6 +59,9 @@ bench: ## Performance benchmark (10,000 chunks, offline), gated by eval/bench_th
 	RAG_EMBEDDING_PROVIDER=hashing RAG_RERANKER=none RAG_GENERATOR=extractive $(UV) run rag bench \
 	  --thresholds eval/bench_thresholds.json --output eval/reports/bench \
 	  $(if $(wildcard $(BENCH_BASELINE)),--baseline $(BENCH_BASELINE))
+
+web: ## The web interface: install, lint, type-check, test and build into web/dist
+	cd web && npm ci && npm run check
 
 check: lock-check lint typecheck test eval-gate ## Everything the CI quality job checks, except the smoke test
 

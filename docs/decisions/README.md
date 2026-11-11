@@ -25,6 +25,7 @@ ADRs document important technical decisions, including:
 | [0008](0008-architecture-style.md) | Architecture style: a local-first modular monolith behind an API and a CLI | Accepted (owner, issue #2) |
 | [0009](0009-docx-and-html-extraction.md) | Extract DOCX and HTML with the standard library | Accepted |
 | [0010](0010-streaming-answers-over-sse.md) | Stream answers over Server-Sent Events | Accepted |
+| [0011](0011-web-interface-served-by-the-backend.md) | A web interface served by the backend, on the same origin | Accepted |
 
 Open decisions that these ADRs depend on are tracked in
 [status.md](../status.md#open-decisions).

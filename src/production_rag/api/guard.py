@@ -37,6 +37,7 @@ from production_rag.api.ratelimit import (
     retry_after_header,
 )
 from production_rag.api.security import key_matches, supplied_key
+from production_rag.api.web import is_open
 from production_rag.config import Settings
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,7 @@ class RequestGuard:
             return
         headers = Headers(scope=scope)
         refusal = None
-        if scope["path"] not in OPEN_PATHS:
+        if scope["path"] not in OPEN_PATHS and not is_open(scope["path"]):
             client = client_key(client_address(scope))
             refusal = self._authenticate(scope, headers, client) or self._rate_limit(scope, client)
         refusal = refusal or self._check_declared_size(scope, headers)

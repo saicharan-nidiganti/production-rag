@@ -41,6 +41,30 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 
 ## Session log
 
+### Session 18 — The web interface (2026-11-11)
+
+- With the owner's go-ahead, roadmap Phase 6 without accounts: `web/` (React,
+  TypeScript, Vite, Tailwind CSS) with a typed API client, a Server-Sent Events parser
+  for the streamed answer, an API-key screen, a document library and an ask page with
+  numbered sources that open the cited passage in context (FR-10).
+- The backend serves the build at `/` when `RAG_WEB_DIR` is set, on the same origin, with
+  a strict Content-Security-Policy; the request guard lets the page's files through
+  without the key and nothing else
+  ([ADR-0011](decisions/0011-web-interface-served-by-the-backend.md)). The image builds
+  it in a Node stage.
+- Verified in Edge against a real server: wrong key rejected, upload of two documents to
+  Ready, a streamed answer, a source opened with its sentence highlighted, a question
+  with no evidence, phone width and dark mode. Looking at the screens led to two fixes:
+  hard-wrapped source lines are joined in the passage, and the document title is no
+  longer repeated in the sources list. The tests found two buttons both named "Ask".
+- Checks: 33 web tests (Vitest, Testing Library), ESLint with accessibility rules, `tsc`,
+  the production build; 14 new backend tests for serving. CI gains a `web` job.
+- Not done: a WCAG 2.1 AA audit (NFR-8 stays partial), end-to-end tests in CI, and
+  per-user sign-in, which needs accounts.
+- The Production Readiness milestone has no open issues. Closing it, and republishing
+  the 0.2.0 image with the zlib fix, were blocked by the session's permissions and wait
+  for the owner.
+
 ### Session 17 — Production readiness: metrics, backups (2026-11-10)
 
 - The README, the operations guide and the architecture document were reworked, with new

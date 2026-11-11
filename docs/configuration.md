@@ -130,6 +130,7 @@ Changing the provider, model or dimensions requires `rag reindex`
 | `RAG_RATE_LIMIT_SEARCH_PER_MINUTE` | `120` | Searches (`POST /v1/search`) per client per minute. |
 | `RAG_RATE_LIMIT_READ_PER_MINUTE` | `600` | Every other `/v1` request per client per minute. |
 | `RAG_RATE_LIMIT_AUTH_FAILURES_PER_MINUTE` | `10` | Missing or wrong API keys per client per minute, when `RAG_API_KEY` is set. Past it, the client gets 429 without its key being checked, even a correct one, until an attempt refills. |
+| `RAG_WEB_DIR` | unset | The directory holding the built web interface (`web/dist`). When set, the interface is served at `/`; its files need no API key, and everything it shows comes from `/v1`. The container image sets it to `/app/web`. |
 | `RAG_API_DOCS_ENABLED` | `true` | Serve the interactive API docs (`/docs`, `/redoc`) and the OpenAPI schema (`/openapi.json`), which need no API key. `false` removes all three; they answer 404. |
 | `RAG_METRICS_ENABLED` | `true` | Serve Prometheus metrics at `GET /metrics`, behind the API key when one is set. `false` makes the route answer 404. The metrics are in [observability.md](observability.md). |
 | `RAG_LOG_LEVEL` | `INFO` | Root log level for the JSON logs on stderr. The configured secrets are replaced by `[REDACTED]` wherever they would appear in a log line. |

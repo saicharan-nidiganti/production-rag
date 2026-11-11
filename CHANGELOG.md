@@ -12,6 +12,14 @@ record. Detailed per-session notes and verification results are in
 
 ### Added
 
+- **Web interface** (FR-10, roadmap Phase 6). A single page in `web/` (React, TypeScript,
+  Vite, Tailwind CSS), served by the backend at `/` when `RAG_WEB_DIR` points at its build;
+  the container image includes it. A document library (upload by drag and drop or a
+  picker, status, failure reasons, retry, replace, delete) and an ask page where the answer
+  streams in, each claim carries a numbered source, and a source opens its passage with
+  the cited text highlighted and its file, section, page and position. It asks for the API
+  key only when the server needs one. Served with a same-origin Content-Security-Policy
+  ([ADR-0011](docs/decisions/0011-web-interface-served-by-the-backend.md)).
 - **docs/deployment.md**: the supported deployment targets, hardware requirements measured
   by the benchmark, environments, the release process and reliability requirements.
 - **docs/runbooks.md**: incident severity levels, the first five minutes, runbooks for a

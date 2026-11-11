@@ -40,7 +40,7 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould.
 | FR-7 | Answers are generated only from retrieved evidence and carry inline citations that identify the document, the page (where the format has pages) and the passage. | M | 4 | Done: document, heading path, page, passage |
 | FR-8 | When the evidence is insufficient, the system states that the documents do not contain the answer. Partially supported answers identify which parts are unsupported. | M | 4 | Partial: retrieval-level abstention catches off-topic questions; on-topic unanswerable ones rely on the generator; partial-support marking relies on the model prompt |
 | FR-9 | Answers stream to the client as they are generated. | S | 4 | Met: `POST /v1/query/stream` (Server-Sent Events) and `rag ask --stream` ([ADR-0010](decisions/0010-streaming-answers-over-sse.md)); not yet run live against Claude |
-| FR-10 | Selecting a citation shows the cited passage and its location in the source document. | M | 6 | Partial: the API returns cited text and offsets; UI in Phase 6 |
+| FR-10 | Selecting a citation shows the cited passage and its location in the source document. | M | 6 | Met: in the web interface, each numbered source opens its passage with the cited text highlighted, and its file, section, page and character position ([ADR-0011](decisions/0011-web-interface-served-by-the-backend.md)) |
 | FR-11 | Follow-up questions can use the earlier turns of the same conversation. | S | 4 | Not started |
 | FR-12 | Scanned (image-only) PDFs are processed with OCR. Until then they fail with a clear "no extractable text" message. | S | 8 | Interim behavior done (clear error); OCR not started |
 | FR-13 | Users can see their recent questions and answers. | C | 6 | Not started |
@@ -56,7 +56,7 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould.
 | NFR-5 | Reliability | A failed ingestion leaves no partial chunks or vectors behind. Reprocessing a document is idempotent. | Met: chunks are written in the transaction that marks a document ready; a worker that lost its claim discards its work; idempotent by hash |
 | NFR-6 | Traceability | Every answer records which chunks were retrieved and cited, with the retrieval configuration and model versions used. | Partial: responses carry retrieved and cited chunks and the model; answers aren't stored |
 | NFR-7 | Performance | Initial targets in §7. They are measured on a reference dataset, not assumed. | Met offline: `rag bench` measures them at 10,000 chunks and CI gates them ([performance.md](performance.md)); time to first token with Claude waits for the paid run |
-| NFR-8 | Accessibility | The web interface meets WCAG 2.1 AA for core flows (sign in, upload, ask, read citations). | Not started (no UI) |
+| NFR-8 | Accessibility | The web interface meets WCAG 2.1 AA for core flows (sign in, upload, ask, read citations). | Partial: semantic structure, labelled controls, full keyboard operation, visible focus, live regions for streamed answers and status changes, a skip link, light and dark themes, reduced motion, and accessibility lint in CI. Not yet audited against WCAG 2.1 AA with a screen reader and a contrast checker |
 | NFR-9 | Reproducibility | A new developer can run the full stack locally from the README. Evaluation runs are repeatable from a versioned dataset and configuration. | Met |
 | NFR-10 | Maintainability | Typed code, automated lint/type/test checks in CI, and ADRs for significant decisions. | Met |
 

@@ -5,6 +5,16 @@
 # Dependencies come from uv.lock, exactly as locked. The service runs as an unprivileged
 # user, keeps its SQLite database (and downloaded models) in /data, and applies migrations
 # when it starts. With no settings it runs offline: hashing embeddings, extractive answers.
+# The web interface is served at /.
+
+# The web interface: static files, built once and copied into the image.
+FROM node:24-slim AS web
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci
+COPY web ./
+RUN npm run build
+
 
 FROM python:3.12-slim AS build
 
@@ -38,10 +48,12 @@ RUN apt-get update && apt-get upgrade -y --no-install-recommends \
     && useradd --uid 10001 --create-home --shell /usr/sbin/nologin rag \
     && mkdir /data && chown rag:rag /data
 COPY --from=build /app/.venv /app/.venv
+COPY --from=web /web/dist /app/web
 
 ENV PATH=/app/.venv/bin:$PATH \
     PYTHONUNBUFFERED=1 \
     RAG_DATABASE_URL=sqlite:////data/rag.db \
+    RAG_WEB_DIR=/app/web \
     RAG_FASTEMBED_CACHE_DIR=/data/models
 
 USER rag

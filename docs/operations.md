@@ -270,6 +270,28 @@ both commands from a scheduler, such as cron or a Kubernetes CronJob.
 [data-lifecycle.md](data-lifecycle.md) covers what each piece of data is, how long it is
 kept, how to rebuild it and the recovery procedure for each kind of failure.
 
+## Web interface
+
+The container image serves the interface at `/`. From source, build it and set
+`RAG_WEB_DIR`:
+
+```bash
+cd web && npm ci && npm run build      # writes web/dist
+RAG_WEB_DIR=web/dist rag serve
+```
+
+- The page loads without the API key; when `RAG_API_KEY` is set it asks for the key, keeps
+  it for the browser tab, and sends it with each request.
+- It calls its own origin, so serve it and the API from one host name. Behind a proxy,
+  forward `/`, `/assets/` and the API paths to the service, and keep buffering off for
+  `/v1/query/stream` ([Streaming](#streaming)).
+- `index.html` is revalidated on each load, and the files under `/assets/` are cached for a
+  year under names that change with their content, so an upgrade needs no cache clearing.
+- To serve the files from the proxy instead, point it at `web/dist` and leave
+  `RAG_WEB_DIR` unset.
+- For development, `npm run dev` in `web/` serves the interface with hot reload and
+  forwards API calls to `http://127.0.0.1:8000` (`RAG_API_URL` changes that).
+
 ## Security
 
 Security controls, data flows to the model provider, known gaps and an operator
@@ -285,6 +307,7 @@ confirm recovery.
 | Symptom | Cause and fix |
 | --- | --- |
 | `/ready` 503 with `schema: not at head` | Run `rag db upgrade` |
+| `/` answers 404 | `RAG_WEB_DIR` is unset, or has no `index.html` (`web.not_found` in the logs): build the interface, or use the container image |
 | `rag db verify` fails `search_index`, or searches miss text that is in a document | The full-text index is out of step with the chunks: `rag db rebuild-search-index` |
 | `rag db verify` fails `sqlite_integrity`, or SQLite reports "database disk image is malformed" | Stop the service and restore the newest backup that verifies ([data-lifecycle.md](data-lifecycle.md#recovery)) |
 | Documents stay `queued` | No process runs workers (`checks.ingestion.workers` is 0 everywhere), or workers log `ingest.worker_error`. Start a process with `RAG_INGEST_WORKERS` ≥ 1, or fix the database error |

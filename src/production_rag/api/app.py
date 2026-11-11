@@ -16,6 +16,7 @@ from production_rag.api.errors import error_response, register_error_handlers
 from production_rag.api.guard import RequestGuard
 from production_rag.api.monitoring import metrics_router
 from production_rag.api.routes import api_router, health_router
+from production_rag.api.web import mount_web
 from production_rag.config import ConfigurationError, Settings, get_settings
 from production_rag.container import Container, build_container
 from production_rag.db.migrate import is_at_head
@@ -132,6 +133,7 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
     app.include_router(health_router)
     app.include_router(api_router)
     app.include_router(metrics_router)
+    mount_web(app, settings.web_dir)
     return app
 
 

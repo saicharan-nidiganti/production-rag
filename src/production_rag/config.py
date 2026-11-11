@@ -163,6 +163,10 @@ class Settings(BaseSettings):
         ge=0,
         description="Wrong or missing API keys per client per minute before 429.",
     )
+    web_dir: str | None = Field(
+        default=None,
+        description="Directory with the built web interface (web/dist); unset serves none.",
+    )
     api_docs_enabled: bool = Field(
         default=True,
         description="Serve the interactive API docs and the OpenAPI schema, without the key.",

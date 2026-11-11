@@ -12,6 +12,16 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: ci
+  # The web interface's packages, grouped into one pull request.
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: monthly
+    groups:
+      web:
+        patterns: ["*"]
+    commit-message:
+      prefix: build
   # The image's base (python:3.12-slim) and the uv image it copies from.
   - package-ecosystem: docker
     directory: /

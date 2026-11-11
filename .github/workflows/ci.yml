@@ -128,6 +128,29 @@ jobs:
             --format requirements-txt -o "$RUNNER_TEMP/requirements.txt"
           uvx pip-audit@2.10.1 -r "$RUNNER_TEMP/requirements.txt" --disable-pip --no-deps --strict
 
+  web:
+    name: Web interface (lint, types, tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint (ESLint with accessibility rules), types, tests, build
+        run: npm run check
+
+      - name: Audit the dependencies that ship to the browser
+        run: npm audit --omit=dev
+
   docs:
     name: Markdown lint
     runs-on: ubuntu-latest
