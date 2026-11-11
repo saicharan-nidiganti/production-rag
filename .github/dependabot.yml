@@ -27,5 +27,9 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    # The Python and Node lines are chosen on purpose (CI tests them); only take patches.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     commit-message:
       prefix: build
