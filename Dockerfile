@@ -16,7 +16,7 @@ COPY web ./
 RUN npm run build
 
 
-FROM python:3.12-slim AS build
+FROM python:3.15-slim AS build
 
 COPY --from=ghcr.io/astral-sh/uv:0.13.5 /uv /bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
@@ -35,7 +35,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --extra local-embeddings --no-editable
 
 
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 LABEL org.opencontainers.image.title="Production RAG" \
       org.opencontainers.image.description="Self-hosted RAG backend: hybrid retrieval with reranking, cited answers, abstention, streamed answers." \
