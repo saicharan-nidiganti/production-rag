@@ -48,7 +48,7 @@ the item notes the proposed decision.
 - [x] Implement embedding pipeline — `hashing` and `fastembed` providers
 - [x] Implement vector retrieval
 - [x] Implement keyword (full-text) retrieval, so hybrid retrieval can be evaluated — SQLite FTS5 BM25
-- [ ] Enforce owner and metadata filters inside retrieval queries — v0 is single tenant
+- [x] Enforce owner filters inside retrieval queries — in both searches, with accounts on ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)); metadata filters aren't built
 - [x] Create retrieval evaluation dataset — `eval/golden_v1.jsonl`
 - [x] Measure retrieval quality (baseline) — [evaluation.md](evaluation.md)
 - [x] Add retrieval tests
@@ -68,15 +68,16 @@ the item notes the proposed decision.
 
 ## Phase 5 — Security and Multi-User Isolation
 
-- [ ] User accounts and session authentication — v0 has an optional static API key
-- [ ] Server-side document ownership checks on every endpoint
-- [ ] Cross-tenant isolation test suite
+- [x] User accounts and session authentication — Argon2id passwords, cookie sessions with CSRF tokens, personal API tokens, administrators ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md))
+- [x] Server-side document ownership checks on every endpoint
+- [x] Cross-tenant isolation test suite — `tests/integration/test_isolation.py`, checked by breaking the filters on purpose
+- [ ] PostgreSQL with pgvector — accounts run on SQLite today; the schema is portable
 - [x] Rate limiting and upload hardening — size and page limits, parsing in an isolated, resource-limited process ([ADR-0007](decisions/0007-isolated-document-parsing.md)), and per-client rate limits, kept per process until a shared store exists
 - [ ] Security review
 
 ## Phase 6 — Frontend
 
-- [ ] Authentication screens — an API-key screen exists for the static key; sign-in comes with accounts (Phase 5)
+- [x] Authentication screens — email and password sign-in with accounts, or an API-key screen for the static key; user management is by API and CLI, without a screen
 - [x] Upload with ingestion status — drag and drop or a picker, status per document polled while it changes; no byte-level progress bar
 - [x] Document library — status, failure reasons, retry, replace with a new version, delete
 - [x] Streaming question answering with clickable citations

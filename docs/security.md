@@ -6,10 +6,15 @@ open a public issue.
 
 ## Scope of v0
 
-v0 is **single tenant**. Everyone who holds the API key can read, upload and
-delete every document. Don't expose it to mutually untrusted users. Accounts
-and per-user isolation (FR-1, NFR-1) arrive in Phase 5
-([ADR-0002](decisions/0002-v0-storage-and-scope.md)).
+The service runs in one of three modes:
+
+- **Open** (the default): no authentication. For a laptop or a trusted network only.
+- **A static key** (`RAG_API_KEY`): **single tenant**. Everyone who holds the key can read,
+  upload and delete every document. Don't share it between people who shouldn't see each
+  other's documents.
+- **Accounts** (`RAG_ACCOUNTS_ENABLED`): each user signs in and reads only their own
+  documents ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)). On `main`, in
+  the next release.
 
 ## Assets and data flows
 
@@ -29,6 +34,9 @@ policy before enabling the Claude generator.
 | --- | --- | --- |
 | Unauthenticated access | Optional static API key (at least 16 characters), compared in constant time. It is checked before the request body is read, and every path needs it except `/health`, `/ready` and the API docs. Failures are logged as `security.auth_failed` (missing or invalid, with the client address, never the key) | [guard.py](../src/production_rag/api/guard.py), [security.py](../src/production_rag/api/security.py), [config.py](../src/production_rag/config.py) |
 | Excessive use and key guessing | Per-client rate limits (token buckets) for uploads and retries, questions, searches and other `/v1` requests, checked after the key and before the body is read; over one, 429 with `Retry-After`. Failed API-key attempts have their own limit: a client out of attempts gets 429 without its key being compared. Logged as `security.rate_limited` (operation and client address). The limits are per process ([operations.md](operations.md#rate-limits)) | [ratelimit.py](../src/production_rag/api/ratelimit.py), [guard.py](../src/production_rag/api/guard.py) |
+| One user reading another's documents | With accounts, every document has an owner, and every listing, lookup, search, answer and citation is limited to the caller's. The filter is inside both searches (in the same statement as the full-text match; over only the owner's rows of the vector matrix) and is checked again when chunks are loaded. Another user's document answers 404, like a missing one, and uploading a file someone else has isn't reported as a duplicate. A test calls every route that takes a document id as another user | [documents.py](../src/production_rag/db/documents.py), [retriever.py](../src/production_rag/retrieval/retriever.py), [test_isolation.py](../tests/integration/test_isolation.py) |
+| Stolen or guessed passwords | Argon2id (64 MiB, 3 passes), at least 12 characters, re-hashed when parameters change. Unknown address, wrong password and disabled account take the same work and get the same answer. Failed sign-ins lock the client out through the failed-attempt allowance | [accounts.py](../src/production_rag/accounts.py) |
+| Stolen sessions and tokens | The session cookie is `HttpOnly`, `SameSite=Strict` and `Secure`, so scripts and other sites can't use it; state-changing requests also need the session's CSRF token. The database holds only SHA-256 digests of session and API tokens. Sign-out, a password change and disabling an account end sessions at once. An API token can't create tokens or change the password | [guard.py](../src/production_rag/api/guard.py), [auth_routes.py](../src/production_rag/api/auth_routes.py) |
 | The web interface | Served on the API's own origin, so no CORS is configured. Its files are public and hold no data; everything shown comes from `/v1` behind the key. The page is sent with `Content-Security-Policy: default-src 'self'` (no inline or third-party scripts, no framing), `nosniff` and `no-referrer`, and makes no third-party requests. The key is kept in `sessionStorage` for the tab only, sent as a bearer header, never in a URL. Answers and passages are rendered as text, never as HTML ([ADR-0011](decisions/0011-web-interface-served-by-the-backend.md)) | [web.py](../src/production_rag/api/web.py), [client.ts](../web/src/api/client.ts) |
 | Information exposed through monitoring | `GET /metrics` needs the API key like `/v1`, and draws from the `read` rate limit. Metric labels take values from fixed sets (route templates, status codes, models, stages), never questions, file names, document ids or client addresses; logs carry no content ([observability.md](observability.md#sensitive-data)) | [metrics.py](../src/production_rag/metrics.py), [monitoring.py](../src/production_rag/api/monitoring.py) |
 | Oversized requests | Bodies are limited as they arrive: a declared `Content-Length` over the limit gets 413 before anything is read, and a body without one is counted and cut off at the limit. Uploads may be `RAG_MAX_UPLOAD_BYTES` plus 64 KiB of framing, other bodies `RAG_MAX_REQUEST_BYTES` (64 KiB). Logged as `security.request_too_large` | [guard.py](../src/production_rag/api/guard.py) |
@@ -112,18 +120,21 @@ No critical or high finding remains open in code. The open items are the known g
 
 | Gap | Requirement | Plan |
 | --- | --- | --- |
-| No accounts or per-user isolation | FR-1, NFR-1 | Phase 5, with PostgreSQL ([ADR-0001](decisions/0001-technology-stack.md) §10) |
+| Accounts have no self-service sign-up, password reset by email or second factor; an administrator creates users and sets lost passwords | FR-1 | Add before exposing the service to people the operator doesn't know ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)) |
+| Users can't share documents with each other | — | Groups or per-document grants, when needed |
 | Rate limits are per process and in memory: `--workers N` allows a client N times a limit, a restart resets them, and clients behind a proxy that isn't in `--forwarded-allow-ips` share one allowance | NFR-2 | Rate-limit at the reverse proxy for a limit across processes; a shared store comes with PostgreSQL in Phase 5 |
 | Uploads over 1 MB pass through a temporary file while they are received | — | Keep the temp directory private to the service user (for example systemd `PrivateTmp=true`) |
 | Prompt-injection cases exist (`partner-integrations.md` in the corpus, `t-par-*` in golden v2) but are only informative with an LLM generator | NFR-3, requirements §7 | Run them with Claude once the owner authorizes a paid evaluation |
 | The parser process is isolated from the service but not sandboxed: it can reach the network and the filesystem, and on Windows has no memory limit | NFR-2 | Add a sandbox (no network, read-only filesystem) before accepting anonymous uploads ([ADR-0007](decisions/0007-isolated-document-parsing.md)) |
-| Single static API key, no rotation overlap | — | Replaced by sessions in Phase 5 |
+| In static-key mode, one key with no rotation overlap | — | Use accounts, where each user has their own revocable tokens |
 | The application doesn't encrypt the database or its backups | Data at rest | Put `/data` on an encrypted volume and encrypt backups before they leave the host ([data-lifecycle.md](data-lifecycle.md#privacy-and-security)) |
 | Deleted content stays in free database pages and in backups until they are rewritten or expire | Erasure | `VACUUM` with the service stopped, and backup retention ([data-lifecycle.md](data-lifecycle.md#deletion)) |
 
 ## Operator checklist
 
-1. Set `RAG_API_KEY` to a random value:
+1. Choose who may call the service. For several people, set `RAG_ACCOUNTS_ENABLED=true`
+   and create the first administrator with `rag users create --admin`. For one trusted
+   client, set `RAG_API_KEY` to a random value:
    `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
 2. Put a TLS-terminating reverse proxy in front, with a request-body limit and
    rate limits that hold across processes, and list it in uvicorn's

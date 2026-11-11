@@ -8,7 +8,8 @@ machine-readable schema at `/openapi.json` and interactive documentation at
 
 ## Conventions
 
-- **Authentication:** when `RAG_API_KEY` is set, every request needs
+- **Authentication:** with `RAG_ACCOUNTS_ENABLED`, see [Accounts](#accounts). Otherwise,
+  when `RAG_API_KEY` is set, every request needs
   `Authorization: Bearer <key>` or `X-API-Key: <key>`, except `/health` and
   `/ready` (for probes) and the API docs (`/docs`, `/redoc`, `/openapi.json`).
   The key is checked before the request body is read, so an unauthenticated
@@ -108,6 +109,46 @@ rag_query_stage_seconds_bucket{le="0.5",stage="total"} 11.0
 rag_documents{status="ready"} 4.0
 rag_ingestion_oldest_queued_seconds 0.0
 ```
+
+## Accounts
+
+With `RAG_ACCOUNTS_ENABLED=true`, every `/v1` request acts as a user, and documents,
+searches and answers are limited to that user's own documents
+([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)). Another user's document
+answers 404, exactly like one that doesn't exist. With accounts off, every route in this
+section except `GET /v1/auth/status` answers 404.
+
+A request is authenticated in one of two ways:
+
+- **A browser session.** `POST /v1/auth/login` sets the `rag_session` cookie (`HttpOnly`,
+  `SameSite=Strict`, `Secure`). Requests that change something (`POST`, `PATCH`, `DELETE`)
+  must also send the session's CSRF token as `X-CSRF-Token`, or get 403 `csrf_failed`.
+- **A personal API token**, sent as `Authorization: Bearer rag_…`. No CSRF token is needed.
+
+| Route | Who | What it does |
+| --- | --- | --- |
+| `GET /v1/auth/status` | Anyone | `{"accounts_enabled", "user", "csrf_token"}`. Never 401: `user` is null when nobody is signed in |
+| `POST /v1/auth/login` | Anyone | Body `{"email", "password"}`. 200 with the same shape as `status`, and the cookie. 401 for a wrong password, an unknown address or a disabled account, all with the same message. Failures count against the client's allowance (`RAG_RATE_LIMIT_AUTH_FAILURES_PER_MINUTE`); past it, 429 |
+| `POST /v1/auth/logout` | A user | Ends the session. 204 |
+| `POST /v1/auth/password` | A session | Body `{"current_password", "new_password"}`. 204, and every other session of the user is signed out. 403 if the current password is wrong; 422 if the new one is too short |
+| `GET /v1/auth/tokens` | A user | The user's tokens: `id`, `name`, `created_at`, `last_used_at`. Never the token itself |
+| `POST /v1/auth/tokens` | A session | Body `{"name"}`. 201 with `token`, shown this once. A token can't create tokens |
+| `DELETE /v1/auth/tokens/{id}` | A user | Revokes one of the user's own tokens. 204, or 404 |
+| `GET /v1/users` | An administrator | Every account: `id`, `email`, `role`, `is_active`, `created_at` |
+| `POST /v1/users` | An administrator | Body `{"email", "password", "role"}`. 201; 409 if the address is taken; 422 for a bad address or password |
+| `PATCH /v1/users/{id}` | An administrator | Any of `{"is_active", "role", "password"}`. Disabling signs the user out. 409 for the last working administrator |
+| `DELETE /v1/users/{id}` | An administrator | Deletes the account **and every document it owns**. 204; 409 for yourself or the last working administrator |
+
+```bash
+curl -s -c jar localhost:8000/v1/auth/login -H "Content-Type: application/json" \
+  -d '{"email": "ada@example.com", "password": "..."}'      # note csrf_token in the reply
+curl -s -b jar -H "X-CSRF-Token: $CSRF" localhost:8000/v1/auth/tokens \
+  -H "Content-Type: application/json" -d '{"name": "nightly import"}'
+curl -s -H "Authorization: Bearer rag_..." localhost:8000/v1/documents
+```
+
+An administrator manages accounts but can't read other users' documents. `/metrics` needs an
+administrator. `/health` and `/ready` stay open.
 
 ## Documents
 

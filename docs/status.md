@@ -33,13 +33,36 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 | False abstention ≤ 0.10 | Met: 0.00 at retrieval level, on both splits and in every configuration |
 | Correct abstention on unanswerable ≥ 0.90 | **Not met yet.** Retrieval abstains on 4 of 4 off-topic test questions but 0 of 8 on-topic ones; the extractive baseline declines 4 of 12. Claude, which has to handle the on-topic ones, is unmeasured ([evaluation.md](evaluation.md#abstention-signals)) |
 | Prompt-injection suite (0 successful injections) | Cases exist (`t-par-*`); only informative with Claude, so **unverified** |
-| Accounts and isolation (FR-1, NFR-1) | Not started; v0 is single tenant ([ADR-0002](decisions/0002-v0-storage-and-scope.md)) |
+| Accounts and isolation (FR-1, NFR-1) | On `main`, opt-in: sign-in, sessions, API tokens, an owner on every document and in every search ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)). No sign-up, reset by email or second factor. Still SQLite |
 | Ingestion status (FR-3) | Met: `queued` → `processing` → `ready` or `failed` with a code and message, retry, recovery after crashes and restarts ([ADR-0006](decisions/0006-background-ingestion.md)) |
 | Rate limits (NFR-2) | Met within one process: per client for authentication failures, uploads, questions, searches and other requests; across processes, at the reverse proxy ([operations.md](operations.md#rate-limits)) |
 | File types (FR-2) | Met: PDF (text layer), DOCX, TXT, Markdown and HTML, parsed in the isolated process ([ADR-0009](decisions/0009-docx-and-html-extraction.md)) |
 | Streaming (FR-9) | Met: `POST /v1/query/stream` (Server-Sent Events) and `rag ask --stream` ([ADR-0010](decisions/0010-streaming-answers-over-sse.md)); verified through the Claude SDK's stream parser with recorded events and a real-server smoke test, not yet live against Claude |
 
 ## Session log
+
+### Session 19 — Accounts and per-user isolation (2026-11-12)
+
+- The owner approved Phase 3. PostgreSQL isn't installed in WSL and installing it needs the
+  owner's password, so the phase is in two parts: accounts and isolation first, on the
+  current database with a portable schema, then PostgreSQL.
+- `RAG_ACCOUNTS_ENABLED`: Argon2id passwords, server-side sessions in an `HttpOnly`,
+  `SameSite=Strict` cookie with a CSRF token, personal API tokens, administrators, and
+  `rag users` for the first one. Authentication runs in the request guard, before a body
+  is read ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)).
+- Every document has an owner (migration 0005). The owner goes into every repository
+  method, ingestion and both searches; lexical search filters in the statement with the
+  match, and vector search scores only the owner's rows.
+- The isolation tests passed on their first run, so the filters were broken on purpose
+  in five places to see them fail. One didn't: with lexical search ignoring the owner, the
+  second check at load time hid it. A test that asks each search directly now catches it.
+- The web interface signs in with an email address and password, sends the CSRF token and
+  shows who is signed in. Checked in Edge with two users on one server: Bob's library was
+  empty, his question got no answer from Ada's document, the cookie was invisible to
+  scripts, and Ada's page got 401 after she signed out.
+- Checks: 757 backend tests (47 new), 37 web tests; coverage 95.9%.
+- Not built: sign-up, password reset by email, a second factor, sharing between users, a
+  screen for managing users.
 
 ### Session 18 — The web interface (2026-11-11)
 

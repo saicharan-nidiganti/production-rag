@@ -15,8 +15,10 @@ v1 target defined in [ADR-0001](decisions/0001-technology-stack.md) and
    retrieval and generation sit behind interfaces, so each can be evaluated
    and replaced on its own.
 4. **Few moving parts.** v0 is one process type and one database file.
-5. **Isolation at the data layer** (v1). Ownership filters will be part of
-   every query that reads documents, chunks or vectors. v0 is single tenant.
+5. **Isolation at the data layer.** With accounts on, the owner is part of every
+   query that reads documents, chunks or vectors, inside both searches
+   ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)). With them off,
+   there is one shared space.
 
 ## 2. Components (v0)
 
@@ -73,6 +75,7 @@ src/production_rag/
                      processing (pipeline.py), worker threads
   retrieval/         vector index, FTS5 search, RRF fusion, cross-encoder reranking, retriever
   generation/        Generator protocol: Claude and extractive generators, answer types
+  accounts.py        users, Argon2id passwords, sessions, personal API tokens
   rag.py             query orchestration and abstention
   container.py       component wiring
   api/               FastAPI app, request guard (API key, rate limits, body size), routes,
@@ -467,7 +470,7 @@ and the remaining gaps.
 | Area | v0 (implemented) | v1 target | Phase |
 | --- | --- | --- | --- |
 | Storage | SQLite, FTS5 BM25, exact in-memory vectors (owner decision, ADR-0002) | PostgreSQL + pgvector + full-text search (ADR-0001 §2) | 5, with accounts |
-| Tenancy | Single tenant, optional API key | Accounts, Argon2id, cookie sessions, `owner_id` in every query (ADR-0001 §10) | 5 |
+| Tenancy | Open, a static key (single tenant), or accounts: Argon2id, cookie sessions, API tokens, `owner_id` in every query ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)) | Sharing between users; sign-up and a second factor | 5 |
 | Ingestion | In the background, on a SQLite-backed queue served by worker threads in each API process ([ADR-0006](decisions/0006-background-ingestion.md)) | A PostgreSQL job queue with workers on several machines | 5 |
 | Deployment | One machine: `rag serve`, or the container image on ghcr.io | Several instances behind a load balancer, sharing PostgreSQL | 5 |
 | File types | PDF, TXT, Markdown, DOCX, HTML (FR-2) | OCR for scanned PDFs (FR-12) | 8 |

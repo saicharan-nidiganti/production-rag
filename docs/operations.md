@@ -270,6 +270,36 @@ both commands from a scheduler, such as cron or a Kubernetes CronJob.
 [data-lifecycle.md](data-lifecycle.md) covers what each piece of data is, how long it is
 kept, how to rebuild it and the recovery procedure for each kind of failure.
 
+## Accounts
+
+To give several people their own documents, turn accounts on and create the first
+administrator from the server's shell. The password is typed at a prompt, or read from
+stdin with `--password-stdin`; it is never a command-line argument.
+
+```bash
+export RAG_ACCOUNTS_ENABLED=true          # not together with RAG_API_KEY
+rag db upgrade
+rag users create --admin ada@example.com
+rag users list
+docker exec -it rag rag users create --admin ada@example.com   # in the container
+```
+
+- The administrator creates other users with `POST /v1/users`, or `rag users create`.
+  There is no sign-up page.
+- A user who lost their password: `rag users set-password EMAIL`, or `PATCH /v1/users/{id}`.
+  That signs them out everywhere.
+- A user who should lose access: `rag users disable EMAIL`. It takes effect at once, for
+  sessions and API tokens. `rag users delete EMAIL --yes` also deletes their documents.
+- If every administrator is locked out, `rag users` on the server still works: it needs
+  access to the database, not a sign-in.
+- Serve over HTTPS: the session cookie is `Secure` and browsers won't send it over plain
+  HTTP. For a test on `http://localhost`, set `RAG_SESSION_COOKIE_SECURE=false`.
+- Scripts use personal API tokens (`POST /v1/auth/tokens`), sent as a bearer token.
+- Documents uploaded before accounts were turned on belong to no user and aren't visible
+  to anyone. Upload them again as the user who should own them.
+- Turning accounts off again returns to the shared space; users' documents stay in the
+  database but aren't visible there.
+
 ## Web interface
 
 The container image serves the interface at `/`. From source, build it and set
@@ -280,8 +310,8 @@ cd web && npm ci && npm run build      # writes web/dist
 RAG_WEB_DIR=web/dist rag serve
 ```
 
-- The page loads without the API key; when `RAG_API_KEY` is set it asks for the key, keeps
-  it for the browser tab, and sends it with each request.
+- The page loads without credentials. With accounts it asks for an email address and
+  password; with `RAG_API_KEY` it asks for the key and keeps it for the browser tab.
 - It calls its own origin, so serve it and the API from one host name. Behind a proxy,
   forward `/`, `/assets/` and the API paths to the service, and keep buffering off for
   `/v1/query/stream` ([Streaming](#streaming)).

@@ -41,10 +41,22 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * With accounts, the browser's session cookie identifies the user, and the server wants this
+ * token back on every request that changes something. It is kept in memory only: after a
+ * reload, the status call returns it again.
+ */
+let csrfToken: string | null = null;
+
+const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
+
 async function request(path: string, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   const key = apiKey.get();
   if (key) headers.set("Authorization", `Bearer ${key}`);
+  if (csrfToken && !SAFE.has((init.method ?? "GET").toUpperCase())) {
+    headers.set("X-CSRF-Token", csrfToken);
+  }
   let response: Response;
   try {
     response = await fetch(path, { ...init, headers });
@@ -83,7 +95,60 @@ const post = (body: unknown, signal?: AbortSignal): RequestInit => ({
   signal,
 });
 
+export interface User {
+  id: string;
+  email: string;
+  role: "admin" | "user";
+}
+
+/** What the page needs before it can show anything. */
+export type Access =
+  | { state: "granted"; user: User | null }
+  | { state: "key-needed" }
+  | { state: "password-needed" };
+
+interface AuthStatus {
+  accounts_enabled: boolean;
+  user: User | null;
+  csrf_token: string | null;
+}
+
+function signedIn(status: AuthStatus): Access {
+  csrfToken = status.csrf_token;
+  return { state: "granted", user: status.user };
+}
+
 export const api = {
+  /** Who, if anyone, is signed in, and what the server wants from someone who isn't. */
+  async access(): Promise<Access> {
+    let status: AuthStatus;
+    try {
+      status = await json<AuthStatus>("/v1/auth/status");
+    } catch (error) {
+      if (error instanceof ApiError && error.unauthorized) return { state: "key-needed" };
+      // A server from before accounts has no such route: fall back to trying a request.
+      if (error instanceof ApiError && error.status === 404) {
+        return (await api.checkAccess()) ? { state: "granted", user: null } : { state: "key-needed" };
+      }
+      throw error;
+    }
+    if (status.accounts_enabled && !status.user) return { state: "password-needed" };
+    return signedIn(status);
+  },
+
+  /** Sign in with an email address and password; rejects with a 401 ApiError if wrong. */
+  async login(email: string, password: string): Promise<Access> {
+    return signedIn(await json<AuthStatus>("/v1/auth/login", post({ email, password })));
+  },
+
+  async logout(): Promise<void> {
+    try {
+      await request("/v1/auth/logout", { method: "POST" });
+    } finally {
+      csrfToken = null;
+    }
+  },
+
   /** True when the server accepts the stored key, or needs none. */
   async checkAccess(): Promise<boolean> {
     try {

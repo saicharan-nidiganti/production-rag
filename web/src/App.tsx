@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, apiKey } from "./api/client";
+import { api, apiKey, type Access, type User } from "./api/client";
 import { AskPage } from "./components/AskPage";
 import { DocumentsPage } from "./components/DocumentsPage";
 import { SignIn } from "./components/SignIn";
 import { Button, ErrorNotice, Spinner } from "./components/ui";
 
-type Access = "checking" | "granted" | "key-needed" | "unreachable";
+type Screen = "checking" | "unreachable" | Access["state"];
 type Page = "ask" | "documents";
 
 const PAGES: { id: Page; label: string }[] = [
@@ -14,18 +14,24 @@ const PAGES: { id: Page; label: string }[] = [
 ];
 
 export function App() {
-  const [access, setAccess] = useState<Access>("checking");
+  const [access, setAccess] = useState<Screen>("checking");
+  const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [page, setPage] = useState<Page>("ask");
 
+  const enter = useCallback((result: Access) => {
+    setUser(result.state === "granted" ? result.user : null);
+    setAccess(result.state);
+  }, []);
+
   const check = useCallback(async () => {
     try {
-      setAccess((await api.checkAccess()) ? "granted" : "key-needed");
+      enter(await api.access());
     } catch (caught) {
       setError(caught);
       setAccess("unreachable");
     }
-  }, []);
+  }, [enter]);
 
   // The first check: state starts as "checking", and is set only once the server answers.
   useEffect(() => {
@@ -38,10 +44,14 @@ export function App() {
     void check();
   };
 
+  // Also where a 401 from any page lands: the session ended, or the key stopped working.
   const signOut = useCallback(() => {
+    const hadAccount = user !== null;
     apiKey.clear();
-    setAccess("key-needed");
-  }, []);
+    setUser(null);
+    setAccess(hadAccount ? "password-needed" : "key-needed");
+    if (hadAccount) void api.logout().catch(() => undefined); // already signed out is fine
+  }, [user]);
 
   if (access === "checking") {
     return (
@@ -58,7 +68,8 @@ export function App() {
       </main>
     );
   }
-  if (access === "key-needed") return <SignIn onSignedIn={() => setAccess("granted")} />;
+  if (access === "key-needed") return <SignIn mode="key" onSignedIn={enter} />;
+  if (access === "password-needed") return <SignIn mode="password" onSignedIn={enter} />;
 
   return (
     <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4">
@@ -87,10 +98,18 @@ export function App() {
             </button>
           ))}
         </nav>
-        {apiKey.get() ? (
-          <Button variant="ghost" onClick={signOut}>
-            Sign out
-          </Button>
+        {user || apiKey.get() ? (
+          <div className="flex items-center gap-2">
+            {user && (
+              <span className="text-sm text-slate-600 dark:text-slate-300">
+                <span className="sr-only">Signed in as </span>
+                {user.email}
+              </span>
+            )}
+            <Button variant="ghost" onClick={signOut}>
+              Sign out
+            </Button>
+          </div>
         ) : (
           <span />
         )}

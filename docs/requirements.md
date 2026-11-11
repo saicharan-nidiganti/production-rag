@@ -31,7 +31,7 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould.
 
 | ID | Requirement | Priority | Phase | v0 status |
 | --- | --- | --- | --- | --- |
-| FR-1 | Users can register, sign in and sign out. All data is scoped to the signed-in user. | M | 5 | Not started (v0 is single tenant) |
+| FR-1 | Users can register, sign in and sign out. All data is scoped to the signed-in user. | M | 5 | Met, except self-service registration: with `RAG_ACCOUNTS_ENABLED`, users sign in and out and all data is scoped to the signed-in user; an administrator creates accounts ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)) |
 | FR-2 | Upload documents in PDF (text-based), DOCX, TXT, Markdown and HTML. *Assumption:* default limit 25 MB per file, configurable. | M | 2 | Met: PDF (text layer), DOCX, TXT, Markdown and HTML; 25 MiB default |
 | FR-3 | Each document shows an ingestion status: `queued`, `processing`, `ready` or `failed`, with an actionable reason on failure. Failed documents can be retried. | M | 2 | Done: background workers, failure code and message, retry endpoint; survives restarts ([ADR-0006](decisions/0006-background-ingestion.md)) |
 | FR-4 | Re-uploading identical content (same SHA-256) for the same user does not create a duplicate. The existing document is returned. | M | 2 | Done (across all documents, not yet per user) |
@@ -49,8 +49,8 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould.
 
 | ID | Area | Requirement | v0 status |
 | --- | --- | --- | --- |
-| NFR-1 | Isolation | A user can never retrieve, view or be cited content from another user's documents. Ownership filters are applied inside retrieval queries, not after them. | Not met (single tenant) |
-| NFR-2 | Security | Uploaded files are validated by content (not extension), stored under generated names, and never executed. Passwords are hashed with a memory-hard algorithm. Rate limits apply to authentication, upload and question endpoints. | Partial: content-validated, never stored or executed; per-client rate limits on authentication failures, uploads, questions and searches, kept per process; no passwords yet (no accounts until Phase 5) |
+| NFR-1 | Isolation | A user can never retrieve, view or be cited content from another user's documents. Ownership filters are applied inside retrieval queries, not after them. | Met with accounts on: the owner filter is inside lexical and vector search and repeated when chunks are loaded; `tests/integration/test_isolation.py` |
+| NFR-2 | Security | Uploaded files are validated by content (not extension), stored under generated names, and never executed. Passwords are hashed with a memory-hard algorithm. Rate limits apply to authentication, upload and question endpoints. | Partial: content-validated, never stored or executed; per-client rate limits on authentication failures, uploads, questions and searches, kept per process; passwords hashed with Argon2id |
 | NFR-3 | Prompt injection | Document text is treated as untrusted data. Instructions inside documents must not change system behavior, leak data or alter citation rules. | Partial: untrusted-data framing; injection cases in golden v2, not yet measured with an LLM |
 | NFR-4 | Privacy | Document contents, questions and answers are not written to application logs. Documents are sent only to the model providers configured by the operator. | Met |
 | NFR-5 | Reliability | A failed ingestion leaves no partial chunks or vectors behind. Reprocessing a document is idempotent. | Met: chunks are written in the transaction that marks a document ready; a worker that lost its claim discards its work; idempotent by hash |

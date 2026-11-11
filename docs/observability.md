@@ -77,6 +77,9 @@ included, as a backstop: no code logs them.
 | `reindex.completed` | INFO | `rag reindex` finished | `chunks` (re-embedded) |
 | `security.auth_failed` | WARNING | A missing or wrong API key | `reason` (`missing` or `invalid`), `client`, `method`, `path` |
 | `security.rate_limited` | WARNING | A request over a rate limit | `operation`, `retry_after_s`, `client`, `method`, `path` |
+| `security.login_failed` | WARNING | A sign-in with a wrong password, an unknown address or a disabled account | `client`; never the address or the password |
+| `security.csrf_failed` | WARNING | A session request that changes state without the right `X-CSRF-Token` | `client`, `method`, `path` |
+| `account.created`, `account.signed_in`, `account.password_changed`, `account.enabled`, `account.disabled`, `account.role_changed`, `account.deleted`, `account.token_created`, `account.token_revoked` | INFO | An account changed | `user_id`, and `role` or `token_id` where it applies; never an email address, password or token |
 | `security.request_too_large` | WARNING | A body over its size limit | `limit_bytes`, `declared_bytes` or `received_bytes`, `client`, `method`, `path` |
 | `metrics.database_unavailable` | WARNING | A scrape couldn't read the database | `error` (the exception type) |
 

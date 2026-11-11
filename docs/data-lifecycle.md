@@ -15,6 +15,8 @@ models, logs and metrics.
 | Uploaded file bytes | `document_files` | Sensitive | While the document is `queued`, `processing` or `failed`; deleted in the transaction that marks it `ready` | The operator's original | Yes |
 | Extracted text | `documents.text` | Sensitive | As long as the document | Re-uploading the original | Yes |
 | Document record: file name, title, type, size, content hash, status, error, timestamps, `metadata` | `documents` | Sensitive: file names can carry personal information | As long as the document | Re-uploading the original | Yes |
+| Accounts: email address, Argon2id password hash, role | `users` | Sensitive: personal data | Until an administrator deletes the account, which deletes its documents too | | Yes |
+| Sessions and API tokens | `auth_sessions`, `api_tokens` | Internal: only SHA-256 digests, which can't be replayed | Sessions for `RAG_SESSION_TTL_HOURS`, cleared when a new one starts; tokens until revoked | Sign in again; create a new token | Yes |
 | Chunks: text, offsets, heading path, page | `chunks` | Sensitive | As long as the document | Re-uploading the original; chunking needs the section structure, which isn't stored | Yes |
 | Embeddings | `chunks.embedding`, with `embedding_model` | Sensitive, derived | As long as the chunk | `rag reindex`, from the chunk text, deterministic for a given model | Yes: re-embedding takes about 50 seconds per thousand chunks with bge-small on a laptop CPU |
 | Full-text index | `chunks_fts` | Derived | As long as the chunks | `rag db rebuild-search-index` | Yes |
@@ -63,6 +65,7 @@ Every piece of evidence in an answer can be traced to the bytes it came from:
 | Citation → chunk | `chunk_id`, and `chunk_key`, which stays the same when identical content is re-ingested |
 | Chunk → document | `document_id` |
 | Chunk → text | `start_char`, `end_char` into the document's extracted text; `heading` and `page` |
+| Document → owner | `owner_id`: the user it belongs to, or `''` in the shared space; set at upload and never changed |
 | Document → source version | `content_hash`: the SHA-256 of the uploaded bytes. `chunk_key` is derived from it and the chunk's span |
 | Document → the version it replaced | `replaces`: the replaced document's id, kept after that document is deleted |
 | Chunk → embedding model | `embedding_model` on every chunk |

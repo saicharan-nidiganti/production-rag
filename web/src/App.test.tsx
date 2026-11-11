@@ -18,6 +18,11 @@ const json = (body: unknown, status = 200, headers: Record<string, string> = {})
 const problem = (status: number, code: string, message: string): Response =>
   json({ error: { code, message, request_id: "req-123" } }, status);
 
+const NO_ACCOUNTS = { accounts_enabled: false, user: null, csrf_token: null };
+const ADA = { id: "u1", email: "ada@example.com", role: "admin" };
+const SIGNED_IN = { accounts_enabled: true, user: ADA, csrf_token: "csrf-abc" };
+const SIGNED_OUT = { accounts_enabled: true, user: null, csrf_token: null };
+
 function serve(routes: Record<string, Handler>) {
   const calls: { key: string; url: URL; init: RequestInit }[] = [];
   const mock = vi.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
@@ -25,6 +30,11 @@ function serve(routes: Record<string, Handler>) {
     const key = `${init.method ?? "GET"} ${url.pathname}`;
     calls.push({ key, url, init });
     const handler = routes[key];
+    if (!handler && key === "GET /v1/auth/status") {
+      // A server without accounts: the status route needs the key exactly as the others do.
+      const probe = await routes["GET /v1/documents"]?.({ url, init });
+      return probe?.status === 401 ? probe : json(NO_ACCOUNTS);
+    }
     if (!handler) throw new Error(`no fake for ${key}`);
     return handler({ url, init });
   });
@@ -155,6 +165,99 @@ describe("access", () => {
     up = true;
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByRole("heading", { name: "Ask" })).toBeVisible();
+  });
+});
+
+describe("accounts", () => {
+  it("signs in with an email address and password, and shows who is signed in", async () => {
+    const user = userEvent.setup();
+    let signedIn = false;
+    const calls = serve({
+      "GET /v1/auth/status": () => json(signedIn ? SIGNED_IN : SIGNED_OUT),
+      "POST /v1/auth/login": ({ init }) => {
+        const body = JSON.parse(init.body as string);
+        if (body.password !== "correct horse battery") {
+          return problem(401, "unauthorized", "wrong email address or password");
+        }
+        signedIn = true;
+        return json(SIGNED_IN);
+      },
+      "GET /v1/documents": () => list(),
+      "POST /v1/documents": () => json({ document: doc({ status: "queued" }), created: true }, 202),
+      "POST /v1/auth/logout": () => new Response(null, { status: 204 }),
+    });
+    render(<App />);
+    const email = await screen.findByLabelText("Email address");
+    expect(email).toHaveAttribute("autocomplete", "username");
+    expect(screen.getByLabelText("Password")).toHaveAttribute("autocomplete", "current-password");
+
+    await user.type(email, "ada@example.com");
+    await user.type(screen.getByLabelText("Password"), "a guess");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(await screen.findByText("Wrong email address or password")).toBeVisible();
+
+    await user.clear(screen.getByLabelText("Password"));
+    await user.type(screen.getByLabelText("Password"), "correct horse battery");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(await screen.findByText("ada@example.com")).toBeVisible();
+    expect(apiKey.get()).toBeNull(); // the session is a cookie the page can't read
+    expect(sessionStorage.length).toBe(0);
+
+    // Changes carry the CSRF token; reads don't need it.
+    await user.click(screen.getByRole("button", { name: "Documents" }));
+    await user.upload(await screen.findByLabelText("Choose files to upload"), new File(["# x"], "x.md"));
+    await waitFor(() => {
+      const upload = calls.find((call) => call.key === "POST /v1/documents");
+      expect(new Headers(upload?.init.headers).get("X-CSRF-Token")).toBe("csrf-abc");
+    });
+    const read = calls.find((call) => call.key === "GET /v1/documents");
+    expect(new Headers(read?.init.headers).has("X-CSRF-Token")).toBe(false);
+
+    await user.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByLabelText("Email address")).toBeVisible();
+    const logout = calls.find((call) => call.key === "POST /v1/auth/logout");
+    expect(new Headers(logout?.init.headers).get("X-CSRF-Token")).toBe("csrf-abc");
+  });
+
+  it("goes straight in when the browser is already signed in", async () => {
+    serve({ "GET /v1/auth/status": () => json(SIGNED_IN), "GET /v1/documents": () => list() });
+    render(<App />);
+    expect(await screen.findByText("ada@example.com")).toBeVisible();
+    expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+  });
+
+  it("shows a lockout as it is, with when to try again", async () => {
+    const user = userEvent.setup();
+    serve({
+      "GET /v1/auth/status": () => json(SIGNED_OUT),
+      "POST /v1/auth/login": () =>
+        json({ error: { code: "rate_limited", message: "too many failed attempts" } }, 429, {
+          "Retry-After": "40",
+        }),
+    });
+    render(<App />);
+    await user.type(await screen.findByLabelText("Email address"), "ada@example.com");
+    await user.type(screen.getByLabelText("Password"), "whatever it is");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+    expect(await screen.findByText("Too many requests")).toBeVisible();
+    expect(screen.getByText("Try again in 40 seconds.")).toBeVisible();
+  });
+
+  it("returns to sign-in when the session ends", async () => {
+    const user = userEvent.setup();
+    let alive = true;
+    serve({
+      "GET /v1/auth/status": () => json(SIGNED_IN),
+      "GET /v1/documents": () => (alive ? list(doc()) : problem(401, "unauthorized", "sign in")),
+      "DELETE /v1/documents/d1": () => problem(401, "unauthorized", "sign in"),
+      "POST /v1/auth/logout": () => problem(401, "unauthorized", "sign in"),
+    });
+    render(<App />);
+    await user.click(await screen.findByRole("button", { name: "Documents" }));
+    await user.click(await screen.findByRole("button", { name: "Delete runbook.md" }));
+    alive = false;
+    await user.click(screen.getByRole("button", { name: "Delete runbook.md" }));
+    expect(await screen.findByLabelText("Email address")).toBeVisible();
   });
 });
 

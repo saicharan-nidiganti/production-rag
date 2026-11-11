@@ -15,7 +15,8 @@ measures itself against a versioned evaluation set on every commit.
 > abstention, streamed answers, per-client rate limits, an HTTP API, a CLI, a container
 > image and evaluation gates. Answers from Claude are implemented but **not yet measured
 > live**: the paid evaluation is approved and waits for API credit. On `main`, not yet
-> released: a web interface, metrics, backups and a performance gate. Accounts come next.
+> released: a web interface, accounts with per-user isolation, metrics, backups and a
+> performance gate. PostgreSQL comes next.
 > Details: [docs/status.md](docs/status.md).
 
 ![The web interface: a streamed answer with numbered sources, and the cited passage highlighted in its section](docs/images/web-ask.png)
@@ -50,7 +51,7 @@ documents, and as a worked example of taking RAG from prototype to an engineered
 | Grounded answers from Claude with native citations | **Implemented, not verified live**: tested offline against a fake client; the paid evaluation hasn't run |
 | Declining on-topic questions the documents can't answer; resisting a planted prompt injection | **Not verified**: both depend on Claude and are what the pending paid evaluation measures |
 | A web interface: upload and manage documents, ask, read streamed answers, open each source's passage | **Implemented and verified**: 33 component tests, and a walkthrough in a real browser against a real server. On `main`, in the next release |
-| Accounts and per-user isolation | **Planned** ([roadmap](docs/roadmap.md)) |
+| Accounts and per-user isolation: sign-in, sessions, personal API tokens, and every document, search and answer limited to its owner | **Implemented and verified**: 47 tests, including every document route called as another user and each search asked directly; the filters were broken on purpose to check the tests fail. On `main`, in the next release; still on SQLite |
 
 ## Architecture
 
@@ -128,6 +129,10 @@ flowchart TB
 - **Streaming.** `POST /v1/query/stream` sends the retrieved passages, then the answer's text
   and citations as Claude writes them, then exactly the `/v1/query` response. A client that
   disconnects stops the generation ([ADR-0010](docs/decisions/0010-streaming-answers-over-sse.md)).
+- **Accounts.** Optional. Each user signs in (Argon2id passwords, an `HttpOnly` session
+  cookie with a CSRF token) or uses a personal API token, and every listing, search, answer
+  and citation is limited to their own documents, with the filter inside both searches
+  ([ADR-0012](docs/decisions/0012-accounts-and-per-user-isolation.md)).
 - **Web interface.** A single page served by the backend on the same origin
   ([ADR-0011](docs/decisions/0011-web-interface-served-by-the-backend.md)): a document
   library with upload, status, retry, replace and delete, and an ask page where the answer
@@ -282,8 +287,10 @@ the maintainer's approval; CI never makes paid calls.
 
 ## Security and limitations
 
-- **Single tenant.** Anyone with the API key can read and delete every document. Accounts
-  and isolation arrive with PostgreSQL in Phase 5.
+- **A static key is single tenant.** Anyone with `RAG_API_KEY` can read and delete every
+  document. For several people, turn on accounts (on `main`, in the next release): each
+  user then sees only their own documents. There is no sign-up, password reset by email or
+  second factor; an administrator creates users.
 - **Unverified generation.** Claude's citation quality, declining of unanswerable
   questions and prompt-injection resistance are designed for and tested offline, but not
   yet measured.
@@ -304,8 +311,7 @@ vulnerabilities privately: [SECURITY.md](SECURITY.md).
 
 1. The first paid Claude evaluation, focused on on-topic unanswerable questions and the
    planted injection (prepared and approved; waiting for API credit).
-2. Accounts and per-user isolation on PostgreSQL with pgvector, with sign-in in the web
-   interface.
+2. PostgreSQL with pgvector, so more than one instance can serve.
 3. The v1.0 release.
 
 The phase-by-phase plan is in [docs/roadmap.md](docs/roadmap.md); decisions and their
