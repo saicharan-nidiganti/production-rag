@@ -29,15 +29,28 @@ class DocumentRepository:
     def __init__(self, sessions: sessionmaker[Session]) -> None:
         self._sessions = sessions
 
-    def get(self, document_id: str) -> Document | None:
+    # ``owner`` scopes a call to one owner's documents; ``None`` means every owner's, which
+    # is for operator tools (the CLI, the workers). API routes always pass the caller's.
+
+    def get(self, document_id: str, owner: str | None = None) -> Document | None:
         with self._sessions() as session:
-            return session.get(Document, document_id)
+            document = session.get(Document, document_id)
+        if document is None or (owner is not None and document.owner_id != owner):
+            return None  # someone else's document looks exactly like one that doesn't exist
+        return document
 
     def list_documents(
-        self, *, limit: int, offset: int, status: DocumentStatus | None = None
+        self,
+        *,
+        limit: int,
+        offset: int,
+        status: DocumentStatus | None = None,
+        owner: str | None = None,
     ) -> DocumentPage:
         """Newest first."""
         where = [Document.status == status] if status else []
+        if owner is not None:
+            where.append(Document.owner_id == owner)
         with self._sessions() as session:
             total = session.scalar(select(func.count()).select_from(Document).where(*where))
             items = session.scalars(
@@ -49,7 +62,7 @@ class DocumentRepository:
             ).all()
         return DocumentPage(list(items), total or 0)
 
-    def delete(self, document_id: str) -> bool:
+    def delete(self, document_id: str, owner: str | None = None) -> bool:
         """Delete a document in any status, with its chunks and stored upload (cascade).
 
         Deleting one that is being processed is safe: the worker's completion finds the row
@@ -57,7 +70,7 @@ class DocumentRepository:
         """
         with self._sessions() as session:
             document = session.get(Document, document_id)
-            if document is None:
+            if document is None or (owner is not None and document.owner_id != owner):
                 return False
             session.delete(document)
             session.commit()

@@ -12,6 +12,15 @@ record. Detailed per-session notes and verification results are in
 
 ### Added
 
+- **Accounts and per-user isolation** (FR-1, NFR-1), with `RAG_ACCOUNTS_ENABLED=true`
+  ([ADR-0012](docs/decisions/0012-accounts-and-per-user-isolation.md)). Users sign in with
+  an email address and password (Argon2id) and get an `HttpOnly`, `SameSite=Strict` session
+  cookie with a CSRF token, or use personal API tokens from scripts. Every document has an
+  owner, and listings, lookups, searches, answers and citations are limited to the caller's
+  own documents, with the filter inside both searches. Administrators manage users
+  (`/v1/users`, `rag users`). Off by default; with it off nothing changes. Migration 0005
+  adds the tables and `documents.owner_id`; run `rag db upgrade`. Adds the `argon2-cffi`
+  dependency.
 - **Web interface** (FR-10, roadmap Phase 6). A single page in `web/` (React, TypeScript,
   Vite, Tailwind CSS), served by the backend at `/` when `RAG_WEB_DIR` points at its build;
   the container image includes it. A document library (upload by drag and drop or a

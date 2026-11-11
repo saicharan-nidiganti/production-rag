@@ -10,12 +10,17 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
+from starlette.datastructures import Headers
 
 from production_rag import __version__, metrics
+from production_rag.accounts import Principal
+from production_rag.api.auth_routes import auth_router, users_router
 from production_rag.api.errors import error_response, register_error_handlers
 from production_rag.api.guard import RequestGuard
 from production_rag.api.monitoring import metrics_router
+from production_rag.api.ratelimit import RateLimiter
 from production_rag.api.routes import api_router, health_router
+from production_rag.api.security import resolve_principal
 from production_rag.api.web import mount_web
 from production_rag.config import ConfigurationError, Settings, get_settings
 from production_rag.container import Container, build_container
@@ -66,6 +71,7 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
                 "generator": app.state.container.rag.generator.model_id,
                 "embedding_model": app.state.container.embedder.model_id,
                 "auth_enabled": settings.api_key is not None,
+                "accounts_enabled": settings.accounts_enabled,
                 "ingest_workers": settings.ingest_workers,
                 # Per client and per process: with N workers a client gets up to N times.
                 "rate_limits_per_minute": {
@@ -95,7 +101,14 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
     )
     # Added before request_context, so it runs inside it: refusals get a request id and are
     # logged like any other response.
-    app.add_middleware(RequestGuard, settings=settings)
+    limiter = RateLimiter()
+    app.state.rate_limiter = limiter  # the sign-in route counts failures against it too
+
+    def authenticate(headers: Headers) -> Principal | None:
+        # Looked up per request: the container is built when the app starts.
+        return resolve_principal(headers, app.state.container.accounts)
+
+    app.add_middleware(RequestGuard, settings=settings, limiter=limiter, authenticator=authenticate)
 
     @app.middleware("http")
     async def request_context(
@@ -133,6 +146,8 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
     app.include_router(health_router)
     app.include_router(api_router)
     app.include_router(metrics_router)
+    app.include_router(auth_router)
+    app.include_router(users_router)
     mount_web(app, settings.web_dir)
     return app
 

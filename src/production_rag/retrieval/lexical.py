@@ -22,16 +22,29 @@ def build_fts_query(query: str) -> str | None:
     return " OR ".join(f'"{term}"' for term in terms)
 
 
-def lexical_search(session: Session, query: str, k: int) -> list[tuple[int, float]]:
+def lexical_search(
+    session: Session, query: str, k: int, owner: str | None = None
+) -> list[tuple[int, float]]:
+    """The ``k`` best BM25 matches. With ``owner``, the filter is part of the query, so the
+    limit applies to that owner's chunks, not to everyone's."""
     fts_query = build_fts_query(query)
     if fts_query is None:
         return []
-    rows = session.execute(
-        text(
+    if owner is None:
+        statement = (
             "SELECT rowid, bm25(chunks_fts) AS rank FROM chunks_fts "
             "WHERE chunks_fts MATCH :query ORDER BY rank LIMIT :k"
-        ),
-        {"query": fts_query, "k": k},
-    ).all()
+        )
+        parameters: dict[str, object] = {"query": fts_query, "k": k}
+    else:
+        statement = (
+            "SELECT chunks_fts.rowid AS rowid, bm25(chunks_fts) AS rank FROM chunks_fts "
+            "JOIN chunks ON chunks.id = chunks_fts.rowid "
+            "JOIN documents ON documents.id = chunks.document_id "
+            "WHERE chunks_fts MATCH :query AND documents.owner_id = :owner "
+            "ORDER BY rank LIMIT :k"
+        )
+        parameters = {"query": fts_query, "k": k, "owner": owner}
+    rows = session.execute(text(statement), parameters).all()
     # FTS5's bm25() is negative, and more negative means more relevant.
     return [(int(row.rowid), -float(row.rank)) for row in rows]

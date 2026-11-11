@@ -12,14 +12,14 @@ import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from prometheus_client.core import GaugeMetricFamily
 from prometheus_client.metrics_core import Metric
 from sqlalchemy import text
 
 from production_rag import metrics
 from production_rag.api.errors import NotFoundError
-from production_rag.api.security import require_api_key
+from production_rag.api.security import PrincipalDep, require_api_key
 from production_rag.container import Container
 from production_rag.db.migrate import current_revision, head_revision
 from production_rag.ingestion import IngestionWorker
@@ -34,9 +34,12 @@ metrics_router = APIRouter(tags=["monitoring"], dependencies=[Depends(require_ap
     response_class=Response,
     responses={200: {"content": {metrics.CONTENT_TYPE: {}}, "description": "Prometheus text"}},
 )
-def prometheus_metrics(request: Request) -> Response:
+def prometheus_metrics(request: Request, principal: PrincipalDep) -> Response:
     """Prometheus metrics in the text exposition format (docs/observability.md)."""
     container: Container = request.app.state.container
+    if principal is not None and not principal.is_admin:
+        # With accounts, the service's totals are for administrators.
+        raise HTTPException(403, "metrics need an administrator")
     if not container.settings.metrics_enabled:
         raise NotFoundError("metrics are turned off (RAG_METRICS_ENABLED=false)")
     worker: IngestionWorker | None = getattr(request.app.state, "ingest_worker", None)

@@ -64,7 +64,12 @@ class Retriever:
         self._reranker = reranker
         self._rerank_candidates = rerank_candidates
 
-    def search(self, query: str, *, top_k: int, mode: RetrievalMode) -> SearchResult:
+    def search(
+        self, query: str, *, top_k: int, mode: RetrievalMode, owner: str | None = None
+    ) -> SearchResult:
+        """Search one owner's chunks; ``owner=None`` searches everyone's, for operator
+        tools only. The owner is applied inside both searches and again when the chunks
+        are loaded (NFR-1), never as a filter on results already found."""
         # With a reranker, more fused candidates are hydrated so it can promote one from
         # below the top_k cut.
         depth = max(top_k, self._rerank_candidates) if self._reranker else top_k
@@ -74,9 +79,9 @@ class Retriever:
             lexical_hits: list[tuple[int, float]] = []
             if mode in ("vector", "hybrid"):
                 query_vector = self._embedder.embed_query(query)
-                vector_hits = self._index.search(session, query_vector, pool)
+                vector_hits = self._index.search(session, query_vector, pool, owner)
             if mode in ("lexical", "hybrid"):
-                lexical_hits = lexical_search(session, query, pool)
+                lexical_hits = lexical_search(session, query, pool, owner)
 
             if mode == "vector":
                 ranked = vector_hits[:depth]
@@ -87,7 +92,7 @@ class Retriever:
                     [[i for i, _ in vector_hits], [i for i, _ in lexical_hits]], k=self._rrf_k
                 )[:depth]
 
-            chunks = self._hydrate(session, ranked, dict(vector_hits), dict(lexical_hits))
+            chunks = self._hydrate(session, ranked, dict(vector_hits), dict(lexical_hits), owner)
 
         best_vector = vector_hits[0][1] if vector_hits else None
         if self._reranker is None or not chunks:
@@ -113,15 +118,19 @@ class Retriever:
         ranked: list[tuple[int, float]],
         vector_scores: dict[int, float],
         lexical_scores: dict[int, float],
+        owner: str | None = None,
     ) -> list[RetrievedChunk]:
         if not ranked:
             return []
         ids = [chunk_id for chunk_id, _ in ranked]
-        rows = session.execute(
+        statement = (
             select(Chunk, Document.title, Document.source_name)
             .join(Document, Chunk.document_id == Document.id)
             .where(Chunk.id.in_(ids))
-        ).all()
+        )
+        if owner is not None:  # a second check: nothing is loaded that isn't the owner's
+            statement = statement.where(Document.owner_id == owner)
+        rows = session.execute(statement).all()
         by_id = {chunk.id: (chunk, title, source) for chunk, title, source in rows}
         results: list[RetrievedChunk] = []
         for chunk_id, score in ranked:

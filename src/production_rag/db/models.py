@@ -10,11 +10,25 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, LargeBinary, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    true,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # queued -> processing -> ready | failed. Only ready documents have chunks.
 DocumentStatus = Literal["queued", "processing", "ready", "failed"]
+Role = Literal["admin", "user"]
+# The owner of every document while accounts are off: one shared space.
+SHARED_OWNER = ""
 
 
 def utcnow() -> datetime:
@@ -27,13 +41,20 @@ class Base(DeclarativeBase):
 
 class Document(Base):
     __tablename__ = "documents"
-    __table_args__ = (Index("ix_documents_status_updated_at", "status", "updated_at"),)
+    __table_args__ = (
+        Index("ix_documents_status_updated_at", "status", "updated_at"),
+        # The same bytes are one document per owner; two owners may each have them.
+        Index("ix_documents_owner_content_hash", "owner_id", "content_hash", unique=True),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     source_name: Mapped[str] = mapped_column(String(512))
     title: Mapped[str] = mapped_column(String(512))
     content_type: Mapped[str] = mapped_column(String(64))
-    content_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    # The user the document belongs to; SHARED_OWNER while accounts are off. Every query
+    # that reads documents or chunks filters on it (NFR-1).
+    owner_id: Mapped[str] = mapped_column(String(36), default=SHARED_OWNER, server_default="")
     size_bytes: Mapped[int] = mapped_column(Integer)
     num_chunks: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text)
@@ -81,6 +102,10 @@ class DocumentFile(Base):
 
 class Chunk(Base):
     __tablename__ = "chunks"
+    # Unique within a document: the key comes from the content, which two owners may share.
+    __table_args__ = (
+        Index("ix_chunks_document_chunk_key", "document_id", "chunk_key", unique=True),
+    )
 
     # INTEGER PRIMARY KEY aliases SQLite's rowid, which keeps it stable across VACUUM;
     # the external-content FTS5 index relies on that.
@@ -90,7 +115,7 @@ class Chunk(Base):
     )
     # Stable across re-ingestion of identical content (ingestion/chunking.py: chunk_key);
     # `id` is a database row id and changes when a document is deleted and re-ingested.
-    chunk_key: Mapped[str] = mapped_column(String(32), index=True, unique=True)
+    chunk_key: Mapped[str] = mapped_column(String(32), index=True)
     ordinal: Mapped[int] = mapped_column(Integer)
     text: Mapped[str] = mapped_column(Text)
     start_char: Mapped[int] = mapped_column(Integer)
@@ -101,6 +126,44 @@ class Chunk(Base):
     embedding_model: Mapped[str] = mapped_column(String(128), index=True)
 
     document: Mapped[Document] = relationship(back_populates="chunks")
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    # Stored lower-cased; the address is the sign-in name.
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))  # Argon2id, with its parameters
+    role: Mapped[str] = mapped_column(String(16), default="user", server_default="user")
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class AuthSession(Base):
+    """A signed-in browser. ``id`` is the SHA-256 of the cookie's token, never the token."""
+
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    csrf_token: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class ApiToken(Base):
+    """A personal token for scripts. Only its SHA-256 is stored; it is shown once."""
+
+    __tablename__ = "api_tokens"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class IndexState(Base):

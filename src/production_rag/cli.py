@@ -259,6 +259,68 @@ def cmd_reindex(_: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+def cmd_users(args: argparse.Namespace, settings: Settings) -> int:
+    """Manage accounts from the server's own shell: this is how the first administrator is
+    made. Passwords are read from a prompt or from stdin, never from the command line, where
+    they would be left in the shell's history and visible to other processes."""
+    from production_rag.accounts import AccountError, AccountService
+    from production_rag.db import create_db_engine, session_factory
+
+    engine = create_db_engine(settings.database_url)
+    accounts = AccountService(session_factory(engine), settings)
+    try:
+        if args.action == "list":
+            for user in accounts.list_users():
+                print(json.dumps({
+                    "id": user.id,
+                    "email": user.email,
+                    "role": user.role,
+                    "active": user.is_active,
+                }))  # fmt: skip
+            return 0
+        if args.action == "create":
+            created = accounts.create_user(
+                args.email, _read_password(args), "admin" if args.admin else "user"
+            )
+            print(json.dumps({"id": created.id, "email": created.email, "role": created.role}))
+            return 0
+        found = accounts.find_user(args.email)
+        if found is None:
+            print(f"error: no account for {args.email}", file=sys.stderr)
+            return 1
+        if args.action == "set-password":
+            accounts.set_password(found.id, _read_password(args))
+        elif args.action in ("enable", "disable"):
+            accounts.set_active(found.id, args.action == "enable")
+        elif not args.yes:
+            print(
+                f"error: this deletes {found.email} and every document they own; "
+                "run again with --yes",
+                file=sys.stderr,
+            )
+            return 2
+        else:
+            accounts.delete_user(found.id)
+        print(json.dumps({"email": found.email, "done": args.action}))
+        return 0
+    except AccountError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    finally:
+        engine.dispose()
+
+
+def _read_password(args: argparse.Namespace) -> str:
+    if args.password_stdin:
+        return sys.stdin.readline().rstrip("\r\n")
+    import getpass
+
+    password = getpass.getpass("Password: ")
+    if getpass.getpass("Again: ") != password:
+        raise SystemExit("error: the two passwords differ")
+    return password
+
+
 def cmd_bench(args: argparse.Namespace, settings: Settings) -> int:
     """Exit 0 when the gate passes (or only warns), 1 when it fails, 2 when the run is refused
     and 3 when the benchmark couldn't run, so CI can tell a slow build from a broken one."""
@@ -601,6 +663,26 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--mode", choices=modes)
     ev.add_argument("--top-k", type=int)
     ev.set_defaults(func=cmd_eval)
+
+    users = sub.add_parser("users", help="manage accounts (with RAG_ACCOUNTS_ENABLED)")
+    user_actions = users.add_subparsers(dest="action", required=True)
+    user_actions.add_parser("list", help="list accounts")
+    create = user_actions.add_parser("create", help="create an account")
+    create.add_argument("email")
+    create.add_argument("--admin", action="store_true", help="make it an administrator")
+    set_password = user_actions.add_parser("set-password", help="set an account's password")
+    for with_password in (create, set_password):
+        with_password.add_argument(
+            "--password-stdin", action="store_true", help="read the password from stdin"
+        )
+    set_password.add_argument("email")
+    for name, text in (("enable", "let an account sign in again"),
+                       ("disable", "stop an account signing in, and sign it out")):  # fmt: skip
+        user_actions.add_parser(name, help=text).add_argument("email")
+    remove = user_actions.add_parser("delete", help="delete an account and its documents")
+    remove.add_argument("email")
+    remove.add_argument("--yes", action="store_true", help="confirm the deletion")
+    users.set_defaults(func=cmd_users)
 
     bench = sub.add_parser(
         "bench", help="measure latency, throughput and resources on a temporary index"

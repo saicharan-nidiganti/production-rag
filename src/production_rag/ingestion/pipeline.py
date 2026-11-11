@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from production_rag import __version__, metrics
 from production_rag.config import Settings
 from production_rag.db.documents import DocumentRepository
-from production_rag.db.models import Chunk, Document, DocumentFile, utcnow
+from production_rag.db.models import SHARED_OWNER, Chunk, Document, DocumentFile, utcnow
 from production_rag.embeddings import Embedder, to_blob
 from production_rag.ingestion.chunking import ChunkSpan, chunk_document, chunk_key
 from production_rag.ingestion.queue import Claim, ClaimLost, IngestionQueue
@@ -116,7 +116,13 @@ class IngestionService:
     # --- Accepting documents ---
 
     def submit(
-        self, filename: str, data: bytes, *, notify: bool = True, replaces: str | None = None
+        self,
+        filename: str,
+        data: bytes,
+        *,
+        notify: bool = True,
+        replaces: str | None = None,
+        owner: str = SHARED_OWNER,
     ) -> IngestResult:
         """Validate and queue a document, without processing it.
 
@@ -135,11 +141,14 @@ class IngestionService:
         content_hash = hashlib.sha256(data).hexdigest()
 
         with self._sessions() as session:
-            if replaces is not None and session.get(Document, replaces) is None:
-                raise ReplacedDocumentNotFoundError(
-                    f"the document to replace, {replaces}, doesn't exist"
-                )
-            existing = self._find_by_hash(session, content_hash)
+            if replaces is not None:
+                replaced = session.get(Document, replaces)
+                # Another owner's document is reported exactly like a missing one.
+                if replaced is None or replaced.owner_id != owner:
+                    raise ReplacedDocumentNotFoundError(
+                        f"the document to replace, {replaces}, doesn't exist"
+                    )
+            existing = self._find_by_hash(session, content_hash, owner)
             if existing is None:
                 now = utcnow()
                 document = Document(
@@ -156,6 +165,7 @@ class IngestionService:
                     created_at=now,
                     updated_at=now,
                     replaces_id=replaces,
+                    owner_id=owner,
                 )
                 try:
                     session.add(document)
@@ -165,7 +175,7 @@ class IngestionService:
                 except IntegrityError:
                     # A concurrent request submitted the same bytes first.
                     session.rollback()
-                    existing = self._find_by_hash(session, content_hash)
+                    existing = self._find_by_hash(session, content_hash, owner)
                     if existing is None:
                         raise
                 else:
@@ -220,11 +230,11 @@ class IngestionService:
         session.commit()
         session.refresh(existing)
 
-    def retry(self, document_id: str) -> Document | None:
-        """Queue a failed document again; None when it doesn't exist."""
+    def retry(self, document_id: str, owner: str | None = None) -> Document | None:
+        """Queue a failed document again; None when it doesn't exist (for this owner)."""
         with self._sessions() as session:
             document = session.get(Document, document_id)
-            if document is None:
+            if document is None or (owner is not None and document.owner_id != owner):
                 return None
             if document.status != "failed" or not self.queue.requeue_failed(session, document_id):
                 raise DocumentStateError(
@@ -236,12 +246,12 @@ class IngestionService:
         self.queue.work_available.set()
         return document
 
-    def ingest(self, filename: str, data: bytes) -> IngestResult:
+    def ingest(self, filename: str, data: bytes, owner: str = SHARED_OWNER) -> IngestResult:
         """Submit and process a document in the calling thread (CLI and evaluation).
 
         Raises the processing error when processing fails; the document stays, as failed.
         """
-        submitted = self.submit(filename, data, notify=False)
+        submitted = self.submit(filename, data, notify=False, owner=owner)
         if submitted.document.status != "queued":
             return submitted
         claim = self.queue.claim(submitted.document.id)
@@ -403,5 +413,10 @@ class IngestionService:
         )
 
     @staticmethod
-    def _find_by_hash(session: Session, content_hash: str) -> Document | None:
-        return session.scalar(select(Document).where(Document.content_hash == content_hash))
+    def _find_by_hash(session: Session, content_hash: str, owner: str) -> Document | None:
+        # Per owner: the same bytes uploaded by two users are two documents.
+        return session.scalar(
+            select(Document).where(
+                Document.content_hash == content_hash, Document.owner_id == owner
+            )
+        )

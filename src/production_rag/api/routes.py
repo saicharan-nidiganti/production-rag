@@ -22,7 +22,7 @@ from production_rag.api.schemas import (
     SearchRequest,
     SearchResponse,
 )
-from production_rag.api.security import require_api_key
+from production_rag.api.security import OwnerDep, require_api_key
 from production_rag.container import Container
 from production_rag.db.migrate import current_revision, head_revision
 from production_rag.db.models import DocumentStatus
@@ -96,6 +96,7 @@ def upload_document(
     container: ContainerDep,
     response: Response,
     file: Annotated[UploadFile, File()],
+    owner: OwnerDep,
     replaces: Annotated[
         str | None,
         Query(
@@ -112,7 +113,9 @@ def upload_document(
         raise DocumentTooLargeError(
             f"document exceeds the {limit}-byte limit (RAG_MAX_UPLOAD_BYTES)"
         )
-    result = container.ingestion.submit(file.filename or "untitled.txt", data, replaces=replaces)
+    result = container.ingestion.submit(
+        file.filename or "untitled.txt", data, replaces=replaces, owner=owner
+    )
     if result.document.status == "ready":
         response.status_code = status.HTTP_200_OK
     response.headers["Location"] = f"/v1/documents/{result.document.id}"
@@ -122,18 +125,21 @@ def upload_document(
 @api_router.get("/documents", response_model=DocumentList)
 def list_documents(
     container: ContainerDep,
+    owner: OwnerDep,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     status_filter: Annotated[DocumentStatus | None, Query(alias="status")] = None,
 ) -> DocumentList:
-    page = container.documents.list_documents(limit=limit, offset=offset, status=status_filter)
+    page = container.documents.list_documents(
+        limit=limit, offset=offset, status=status_filter, owner=owner
+    )
     items = [DocumentOut.from_model(d) for d in page.items]
     return DocumentList(items=items, total=page.total, limit=limit, offset=offset)
 
 
 @api_router.get("/documents/{document_id}", response_model=DocumentOut, responses=_ERRORS)
-def get_document(container: ContainerDep, document_id: str) -> DocumentOut:
-    doc = container.documents.get(document_id)
+def get_document(container: ContainerDep, owner: OwnerDep, document_id: str) -> DocumentOut:
+    doc = container.documents.get(document_id, owner)
     if doc is None:
         raise NotFoundError(f"document {document_id} not found")
     return DocumentOut.from_model(doc)
@@ -145,9 +151,9 @@ def get_document(container: ContainerDep, document_id: str) -> DocumentOut:
     status_code=status.HTTP_202_ACCEPTED,
     responses=_ERRORS,
 )
-def retry_document(container: ContainerDep, document_id: str) -> DocumentOut:
+def retry_document(container: ContainerDep, owner: OwnerDep, document_id: str) -> DocumentOut:
     """Queue a failed document for processing again (409 in any other status)."""
-    doc = container.ingestion.retry(document_id)
+    doc = container.ingestion.retry(document_id, owner)
     if doc is None:
         raise NotFoundError(f"document {document_id} not found")
     return DocumentOut.from_model(doc)
@@ -156,25 +162,25 @@ def retry_document(container: ContainerDep, document_id: str) -> DocumentOut:
 @api_router.delete(
     "/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT, responses=_ERRORS
 )
-def delete_document(container: ContainerDep, document_id: str) -> Response:
-    if not container.documents.delete(document_id):
+def delete_document(container: ContainerDep, owner: OwnerDep, document_id: str) -> Response:
+    if not container.documents.delete(document_id, owner):
         raise NotFoundError(f"document {document_id} not found")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @api_router.post("/search", response_model=SearchResponse, responses=_ERRORS)
-def search(container: ContainerDep, body: SearchRequest) -> SearchResponse:
+def search(container: ContainerDep, owner: OwnerDep, body: SearchRequest) -> SearchResponse:
     timer = Timer()
     with timer.stage("retrieval"):
-        result = container.rag.search(body.query, top_k=body.top_k, mode=body.mode)
+        result = container.rag.search(body.query, top_k=body.top_k, mode=body.mode, owner=owner)
     if result.rerank_ms is not None:
         timer.timings_ms["rerank"] = result.rerank_ms  # included in "retrieval"
     return SearchResponse.from_result(result, timer.timings_ms)
 
 
 @api_router.post("/query", response_model=QueryResponse, responses=_ERRORS)
-def query(container: ContainerDep, body: QueryRequest) -> QueryResponse:
-    result = container.rag.answer(body.question, top_k=body.top_k, mode=body.mode)
+def query(container: ContainerDep, owner: OwnerDep, body: QueryRequest) -> QueryResponse:
+    result = container.rag.answer(body.question, top_k=body.top_k, mode=body.mode, owner=owner)
     return QueryResponse.from_result(result)
 
 
@@ -190,9 +196,11 @@ def query(container: ContainerDep, body: QueryRequest) -> QueryResponse:
         **_ERRORS,
     },
 )
-def query_stream(container: ContainerDep, body: QueryRequest) -> StreamingResponse:
+def query_stream(container: ContainerDep, owner: OwnerDep, body: QueryRequest) -> StreamingResponse:
     """`/v1/query`, streamed as the answer is written (FR-9). See docs/api.md."""
-    events = container.rag.stream_answer(body.question, top_k=body.top_k, mode=body.mode)
+    events = container.rag.stream_answer(
+        body.question, top_k=body.top_k, mode=body.mode, owner=owner
+    )
     first = next(events)  # retrieval runs here, so its errors are ordinary HTTP errors
     stream = streaming.sse_events(first, events, request_id_var.get())
     return StreamingResponse(

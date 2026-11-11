@@ -124,6 +124,10 @@ Changing the provider, model or dimensions requires `rag reindex`
 | Variable | Default | Description |
 | --- | --- | --- |
 | `RAG_API_KEY` | unset | When set, every route except `/health`, `/ready` and the API docs (`/docs`, `/redoc`, `/openapi.json`) requires `Authorization: Bearer <key>` or `X-API-Key: <key>`, checked before the request body is read. At least 16 characters. |
+| `RAG_ACCOUNTS_ENABLED` | `false` | Require a signed-in user for every `/v1` route, and keep each user's documents, searches and answers apart. Users sign in with an email address and password, or send a personal API token. Can't be combined with `RAG_API_KEY`. Create the first administrator with `rag users create --admin`. |
+| `RAG_SESSION_TTL_HOURS` | `12` | How long a browser sign-in lasts (1 to 720). |
+| `RAG_SESSION_COOKIE_SECURE` | `true` | Send the session cookie over HTTPS only. Set `false` only to test over plain HTTP. |
+| `RAG_PASSWORD_MIN_LENGTH` | `12` | Shortest password accepted (8 to 128). |
 | `RAG_MAX_REQUEST_BYTES` | `65536` (64 KiB) | Largest request body outside uploads (search and question JSON; minimum 1024). Uploads are limited by `RAG_MAX_UPLOAD_BYTES` plus 64 KiB for multipart framing. Both are enforced while the body arrives: a larger declared `Content-Length` gets 413 before anything is read. |
 | `RAG_RATE_LIMIT_UPLOAD_PER_MINUTE` | `30` | Uploads and retries (`POST /v1/documents`, `POST /v1/documents/{id}/retry`) per client per minute. |
 | `RAG_RATE_LIMIT_QUERY_PER_MINUTE` | `60` | Questions (`POST /v1/query` and `/v1/query/stream`, which can call a paid model) per client per minute. |

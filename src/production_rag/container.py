@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from production_rag.accounts import AccountService
 from production_rag.config import Settings
 from production_rag.db import create_db_engine, session_factory
 from production_rag.db.documents import DocumentRepository
@@ -25,6 +26,7 @@ class Container:
     sessions: sessionmaker[Session]
     embedder: Embedder
     documents: DocumentRepository
+    accounts: AccountService
     ingestion: IngestionService
     rag: RagService
 
@@ -53,6 +55,7 @@ def build_container(settings: Settings, *, generator: Generator | None = None) -
         sessions=sessions,
         embedder=embedder,
         documents=DocumentRepository(sessions),
+        accounts=AccountService(sessions, settings),
         ingestion=IngestionService(sessions, embedder, settings),
         rag=RagService(retriever, generator or build_generator(settings), settings),
     )

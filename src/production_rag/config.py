@@ -140,6 +140,18 @@ class Settings(BaseSettings):
     api_key: SecretStr | None = Field(
         default=None, description="When set, every non-health endpoint requires this key."
     )
+    accounts_enabled: bool = Field(
+        default=False,
+        description="Require a signed-in user for /v1, and keep each user's documents apart.",
+    )
+    session_ttl_hours: int = Field(
+        default=12, ge=1, le=24 * 30, description="How long a browser sign-in lasts."
+    )
+    session_cookie_secure: bool = Field(
+        default=True,
+        description="Send the session cookie over HTTPS only; false for plain-HTTP testing.",
+    )
+    password_min_length: int = Field(default=12, ge=8, le=128)
     max_request_bytes: int = Field(
         default=64 * 1024,
         ge=1024,
@@ -206,6 +218,15 @@ class Settings(BaseSettings):
                 'with: python -c "import secrets; print(secrets.token_urlsafe(32))"'
             )
         return value
+
+    @model_validator(mode="after")
+    def _check_one_kind_of_authentication(self) -> Settings:
+        if self.accounts_enabled and self.api_key is not None:
+            raise ValueError(
+                "RAG_ACCOUNTS_ENABLED and RAG_API_KEY can't both be set: with accounts, "
+                "each user signs in or uses a personal token"
+            )
+        return self
 
     @model_validator(mode="after")
     def _check_chunking(self) -> Settings:

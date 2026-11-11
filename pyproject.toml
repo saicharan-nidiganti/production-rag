@@ -8,6 +8,7 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.14",
     "anthropic>=2.0",  # 2.x sends API version 2026-10-21, which this code targets
+    "argon2-cffi>=25.1",
     "fastapi>=0.115",
     "numpy>=2.1",
     "prometheus-client>=0.26",

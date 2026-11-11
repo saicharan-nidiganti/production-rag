@@ -452,7 +452,7 @@ def test_a_concurrent_identical_upload_returns_the_winner(
     monkeypatch.setattr(
         IngestionService,
         "_find_by_hash",
-        staticmethod(lambda session, h: next(lookups, original(session, h))),
+        staticmethod(lambda session, h, owner: next(lookups, original(session, h, owner))),
     )
     second = container.ingestion.submit("copy.md", GUIDE)
     assert not second.created and second.document.id == first.id

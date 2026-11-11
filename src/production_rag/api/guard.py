@@ -22,11 +22,13 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable
 
+import anyio
 from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from production_rag import metrics
+from production_rag.accounts import Principal, csrf_matches
 from production_rag.api.errors import error_response
 from production_rag.api.ratelimit import (
     Operation,
@@ -36,7 +38,13 @@ from production_rag.api.ratelimit import (
     per_minute,
     retry_after_header,
 )
-from production_rag.api.security import key_matches, supplied_key
+from production_rag.api.security import (
+    CSRF_HEADER,
+    SAFE_METHODS,
+    key_matches,
+    presented_credentials,
+    supplied_key,
+)
 from production_rag.api.web import is_open
 from production_rag.config import Settings
 
@@ -46,6 +54,13 @@ logger = logging.getLogger(__name__)
 OPEN_PATHS = frozenset(
     {"/health", "/ready", "/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"}
 )
+
+# With accounts on: signing in can't need a signed-in user, and the status route answers
+# either way, so the web interface can ask who, if anyone, is signed in.
+LOGIN_PATH = "/v1/auth/login"
+STATUS_PATH = "/v1/auth/status"
+
+Authenticator = Callable[[Headers], Principal | None]
 
 UPLOAD_ROUTE = ("POST", "/v1/documents")
 # Multipart framing around the file: boundaries and part headers, well under this.
@@ -68,8 +83,13 @@ def client_address(scope: Scope) -> str | None:
 
 class RequestGuard:
     def __init__(
-        self, app: ASGIApp, settings: Settings, limiter: RateLimiter | None = None
+        self,
+        app: ASGIApp,
+        settings: Settings,
+        limiter: RateLimiter | None = None,
+        authenticator: Authenticator | None = None,
     ) -> None:
+        self.authenticator = authenticator
         self.app = app
         # Read on every request, not copied here: tests change settings on a live app.
         self.settings = settings
@@ -83,7 +103,11 @@ class RequestGuard:
         refusal = None
         if scope["path"] not in OPEN_PATHS and not is_open(scope["path"]):
             client = client_key(client_address(scope))
-            refusal = self._authenticate(scope, headers, client) or self._rate_limit(scope, client)
+            if self.settings.accounts_enabled:
+                refusal = await self._authenticate_user(scope, headers, client)
+            else:
+                refusal = self._authenticate(scope, headers, client)
+            refusal = refusal or self._rate_limit(scope, client)
         refusal = refusal or self._check_declared_size(scope, headers)
         if refusal is not None:
             await refusal(scope, receive, send)
@@ -115,6 +139,46 @@ class RequestGuard:
         response = error_response(401, "unauthorized", "missing or invalid API key")
         response.headers["WWW-Authenticate"] = "Bearer"
         return response
+
+    async def _authenticate_user(
+        self, scope: Scope, headers: Headers, client: str
+    ) -> ASGIApp | None:
+        """Accounts: find the user from the session cookie or a personal token, and require
+        the session's CSRF token on anything that changes state."""
+        limit = per_minute(self.settings, "auth_failure")
+        if wait := self.limiter.wait_s(client, "auth_failure", limit, take=False):
+            return self._too_many(scope, "auth_failure", wait)
+        path = scope["path"]
+        if path == LOGIN_PATH:
+            return None  # the route checks the password, and counts a failure against the client
+        principal = None
+        if self.authenticator is not None:
+            # A database read: off the event loop.
+            principal = await anyio.to_thread.run_sync(self.authenticator, headers)
+        if principal is None:
+            if path == STATUS_PATH:
+                return None
+            presented = any(presented_credentials(headers))
+            if presented:  # a first visit with no credentials isn't a failed attempt
+                self.limiter.wait_s(client, "auth_failure", limit, take=True)
+            logger.warning(
+                "security.auth_failed",
+                extra={"reason": "invalid" if presented else "missing", **_where(scope)},
+            )
+            metrics.count_security_refusal("auth_failed")
+            response = error_response(401, "unauthorized", "sign in, or send a valid API token")
+            response.headers["WWW-Authenticate"] = "Bearer"
+            return response
+        if (
+            principal.via == "session"
+            and scope["method"] not in SAFE_METHODS
+            and not csrf_matches(headers.get(CSRF_HEADER), principal.csrf_token)
+        ):
+            logger.warning("security.csrf_failed", extra=_where(scope))
+            metrics.count_security_refusal("csrf_failed")
+            return error_response(403, "csrf_failed", "missing or wrong X-CSRF-Token header")
+        scope.setdefault("state", {})["principal"] = principal
+        return None
 
     # --- Rate limits ---
 

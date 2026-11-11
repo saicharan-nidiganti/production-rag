@@ -58,12 +58,18 @@ class RagService:
         self._settings = settings
 
     def search(
-        self, query: str, *, top_k: int | None = None, mode: RetrievalMode | None = None
+        self,
+        query: str,
+        *,
+        top_k: int | None = None,
+        mode: RetrievalMode | None = None,
+        owner: str | None = None,
     ) -> SearchResult:
         return self.retriever.search(
             query,
             top_k=top_k or self._settings.top_k,
             mode=mode or self._settings.retrieval_mode,
+            owner=owner,
         )
 
     def should_abstain(self, result: SearchResult) -> bool:
@@ -83,12 +89,17 @@ class RagService:
         return rerank is not None and rerank_threshold is not None and rerank < rerank_threshold
 
     def answer(
-        self, question: str, *, top_k: int | None = None, mode: RetrievalMode | None = None
+        self,
+        question: str,
+        *,
+        top_k: int | None = None,
+        mode: RetrievalMode | None = None,
+        owner: str | None = None,
     ) -> QueryResult:
         timer = Timer()
         with timer.stage("total"):
             with timer.stage("retrieval"):
-                retrieval = self.search(question, top_k=top_k, mode=mode)
+                retrieval = self.search(question, top_k=top_k, mode=mode, owner=owner)
             if retrieval.rerank_ms is not None:
                 timer.timings_ms["rerank"] = retrieval.rerank_ms  # included in "retrieval"
             abstain = self.should_abstain(retrieval)
@@ -103,7 +114,12 @@ class RagService:
         return result
 
     def stream_answer(
-        self, question: str, *, top_k: int | None = None, mode: RetrievalMode | None = None
+        self,
+        question: str,
+        *,
+        top_k: int | None = None,
+        mode: RetrievalMode | None = None,
+        owner: str | None = None,
     ) -> Iterator[QueryEvent]:
         """``answer``, as it happens (FR-9).
 
@@ -116,7 +132,7 @@ class RagService:
         start = time.perf_counter()
         timer = Timer()
         with timer.stage("retrieval"):
-            retrieval = self.search(question, top_k=top_k, mode=mode)
+            retrieval = self.search(question, top_k=top_k, mode=mode, owner=owner)
         if retrieval.rerank_ms is not None:
             timer.timings_ms["rerank"] = retrieval.rerank_ms  # included in "retrieval"
         abstain = self.should_abstain(retrieval)

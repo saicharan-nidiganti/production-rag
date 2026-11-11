@@ -317,13 +317,17 @@ def test_api_key_is_required_when_configured(secured_client: TestClient) -> None
 
 def test_every_route_but_the_probes_requires_the_api_key(secured_client: TestClient) -> None:
     """Walks the OpenAPI schema, so an endpoint added later can't skip authentication."""
+    # Twenty refusals in a row would otherwise trip the failed-key lockout (tested elsewhere).
+    secured_client.app.state.container.settings.rate_limit_auth_failures_per_minute = 0  # type: ignore[attr-defined]
     paths: dict[str, dict[str, object]] = secured_client.get("/openapi.json").json()["paths"]
     operations = [(method.upper(), path) for path, ops in paths.items() for method in ops]
     protected = [(m, p) for m, p in operations if p not in ("/health", "/ready")]
-    # documents: upload, list, get, retry, delete; search; query; query/stream; metrics
-    assert len(protected) == 9, protected
+    # documents: upload, list, get, retry, delete; search; query; query/stream; metrics;
+    # and the 11 account routes, which answer 404 with accounts off but still need the key
+    assert len(protected) == 20, protected
     for method, path in protected:
-        response = secured_client.request(method, path.replace("{document_id}", "some-id"))
+        concrete = path.replace("{document_id}", "some-id").replace("{user_id}", "some-id")
+        response = secured_client.request(method, concrete.replace("{token_id}", "some-id"))
         assert response.status_code == 401, f"{method} {path} answered without the API key"
     assert {p for _, p in operations if not p.startswith("/v1/")} == {
         "/health",

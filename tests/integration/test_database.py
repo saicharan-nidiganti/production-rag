@@ -36,7 +36,7 @@ def test_upgrade_creates_schema_fts_and_triggers(migrated_settings: Settings) ->
         assert generation == 0
         assert fk == 1
         assert is_at_head(engine)
-        assert current_revision(engine) == head_revision() == "0004"
+        assert current_revision(engine) == head_revision() == "0005"
     finally:
         engine.dispose()
 
@@ -178,5 +178,49 @@ def test_the_replacement_column_is_added_and_removed_in_place(settings: Settings
             columns = {c["name"] for c in inspect(conn).get_columns("documents")}
             chunks = conn.execute(text("SELECT count(*) FROM chunks")).scalar()
         assert "replaces_id" not in columns and chunks == 1
+    finally:
+        engine.dispose()
+
+
+def test_accounts_migration_keeps_documents_and_scopes_uniqueness_to_the_owner(
+    settings: Settings,
+) -> None:
+    """0005: existing documents stay, in the shared space; the same content may then belong
+    to two owners, but not twice to one."""
+    config = alembic_config(settings.database_url)
+    command.upgrade(config, "0004")
+    engine = create_db_engine(settings.database_url)
+    document = (
+        "INSERT INTO documents (id, source_name, title, content_type, content_hash, size_bytes,"
+        " num_chunks, text, metadata, created_at, status, attempts, updated_at{extra}) VALUES"
+        " (:id, 'a.md', 'A', 'text/markdown', 'same-hash', 5, 1, 'hello', '{{}}',"
+        " '2026-11-01 10:00:00', 'ready', 1, '2026-11-01 10:00:00'{value})"
+    )
+    chunk = (
+        "INSERT INTO chunks (document_id, chunk_key, ordinal, text, start_char, end_char,"
+        " embedding, embedding_model) VALUES (:id, 'same-key', 0, 'hello', 0, 5, x'00', 'm')"
+    )
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(document.format(extra="", value="")), {"id": "old"})
+            conn.execute(text(chunk), {"id": "old"})
+        command.upgrade(config, "0005")
+        owned = document.format(extra=", owner_id", value=", :owner")
+        with engine.begin() as conn:
+            assert conn.execute(text("SELECT owner_id FROM documents")).scalar() == ""
+            assert conn.execute(text("SELECT count(*) FROM chunks")).scalar() == 1
+            # Another owner may hold the same content, with the same chunk keys.
+            conn.execute(text(owned), {"id": "ada-copy", "owner": "ada"})
+            conn.execute(text(chunk), {"id": "ada-copy"})
+        with pytest.raises(IntegrityError), engine.begin() as conn:
+            conn.execute(text(owned), {"id": "ada-again", "owner": "ada"})
+        with pytest.raises(IntegrityError), engine.begin() as conn:
+            conn.execute(text(chunk), {"id": "ada-copy"})  # twice in one document
+
+        command.downgrade(config, "0004")  # only the shared space exists there
+        with engine.connect() as conn:
+            assert [row[0] for row in conn.execute(text("SELECT id FROM documents"))] == ["old"]
+            assert conn.execute(text("SELECT count(*) FROM chunks")).scalar() == 1
+            assert "users" not in inspect(conn).get_table_names()
     finally:
         engine.dispose()
