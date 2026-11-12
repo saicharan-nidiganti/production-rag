@@ -195,9 +195,17 @@ def test_cli_writes_reports_and_a_baseline_then_compares(
     assert "measurements" not in json.loads(baseline.read_text(encoding="utf-8"))
     assert "**Gate: WARN**" in capsys.readouterr().out
 
-    # Against its own baseline on the same machine, nothing regressed by 2x.
-    assert main([*cli_args, "--thresholds", str(THRESHOLDS), "--baseline", str(baseline)]) == 0
-    assert "no baseline" not in capsys.readouterr().out
+    # Compared with its own baseline. Only deterministic metrics are compared here: timings
+    # and peak memory vary between two runs in one process, and peak memory only grows.
+    stable = tmp_path / "stable.json"
+    stable.write_text(json.dumps({"regressions": {
+        "ingestion.bytes_per_chunk": {"worse": "higher", "warn_pct": 10, "fail_pct": 25},
+        "query.measured": {"worse": "lower", "warn_pct": 1, "fail_pct": 2},
+    }}))  # fmt: skip
+    assert main([*cli_args, "--thresholds", str(stable), "--baseline", str(baseline)]) == 0
+    compared = capsys.readouterr().out
+    assert "no baseline" not in compared and "**Gate: PASS**" in compared
+    assert "`ingestion.bytes_per_chunk` | pass" in compared
 
 
 def test_cli_exit_codes_separate_failures_from_errors(
