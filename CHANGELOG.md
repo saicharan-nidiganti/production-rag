@@ -10,6 +10,8 @@ record. Detailed per-session notes and verification results are in
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-12
+
 ### Added
 
 - **Approximate vector search on PostgreSQL** (`RAG_VECTOR_SEARCH=approximate`,
@@ -28,11 +30,24 @@ record. Detailed per-session notes and verification results are in
   10,000 chunks (`eval/bench_thresholds.approximate.json`, release criterion
   `vector-index`).
 - `RAG_HNSW_EF_SEARCH` sets how many candidates the index search keeps (default 200).
+- **The container workflow builds and scans a commit before it is tagged**: run by hand
+  without a release, it builds, tests and scans the current commit, and never publishes.
+  Every build also keeps a full vulnerability report, at every severity and fixed or not,
+  as its `image-vulnerabilities` artifact.
 
 ### Changed
 
 - Benchmark and evaluation reports record `vector_search` and `hnsw_ef_search` in their
   configuration; the CI baseline records `vector_search: exact`.
+
+### Security
+
+- The image no longer includes the base image's pip, which the service never uses and
+  which had five medium and one low advisory with fixes. A fresh build has no finding
+  with a fix at any severity; the high-severity advisories without one are assessed in
+  [docs/security.md](docs/security.md#review-for-110-2026-11-12).
+- Documented a known gap: on SQLite, keyword scores are computed with statistics from
+  every user's documents.
 
 ### Fixed
 
@@ -314,7 +329,8 @@ record. Detailed per-session notes and verification results are in
 - Third-party GitHub Actions are pinned to commit SHAs and kept current by
   Dependabot.
 
-[Unreleased]: https://github.com/saicharan-nidiganti/production-rag/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/saicharan-nidiganti/production-rag/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/saicharan-nidiganti/production-rag/releases/tag/v1.1.0
 [1.0.0]: https://github.com/saicharan-nidiganti/production-rag/releases/tag/v1.0.0
 [0.2.0]: https://github.com/saicharan-nidiganti/production-rag/releases/tag/v0.2.0
 [0.1.0]: https://github.com/saicharan-nidiganti/production-rag/releases/tag/v0.1.0

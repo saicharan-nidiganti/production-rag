@@ -16,8 +16,9 @@ To cut a release:
 2. Add a `vX.Y.Z release notes` section here: a block quote whose first bold line is the
    title, stating what is new, how to upgrade, what was measured and what wasn't.
 3. Commit, push, and wait for CI.
-4. Run the release workflow by hand as a dry run: `gh workflow run release.yml`. Fix
-   anything that fails.
+4. Run the release workflow by hand as a dry run: `gh workflow run release.yml`. Build
+   and scan the image too, without publishing: `gh workflow run container.yml`, with no
+   release. Fix anything that fails.
 5. Tag and push: `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`.
 
 The checklist below was the manual process for 0.1.0 and 0.2.0.
@@ -39,6 +40,56 @@ Run against the exact commit to be tagged.
 | 9 | Live-model behaviour is either verified or stated as unverified in the release notes | [evaluation.md](evaluation.md#paid-evaluation-with-claude) |
 | 10 | CHANGELOG: `[Unreleased]` becomes `[X.Y.Z] - date`, with a new empty `[Unreleased]` above it | Edit, commit, wait for CI |
 | 11 | Tag and release | `git tag -a vX.Y.Z -m "..." <commit> && git push origin vX.Y.Z`, then create the GitHub release from the tag with the notes; attach the wheel and sdist from `uv build`. Pushing the tag also builds, tests and publishes the container image ([container.yml](../.github/workflows/container.yml)) |
+
+## v1.1.0: status
+
+The release commit moves the changelog's `[Unreleased]` section to `[1.1.0] - 2026-11-12`
+and adds these notes. Before it, a build-only run of the container workflow built and
+scanned the image from the same source (`47849c8`, run 43228976778): no vulnerability with
+a fix available at any severity, and the image's own checks passed. The release workflow
+checks the tagged commit again and attaches its checklist to the GitHub release.
+
+## v1.1.0 release notes
+
+> **Production RAG v1.1.0: approximate vector search, and faster retrieval on SQLite.**
+>
+> **What's new**
+>
+> - **Approximate vector search on PostgreSQL** (`RAG_VECTOR_SEARCH=approximate`): an HNSW
+>   index per embedding model, built with `rag db create-vector-index` while uploads and
+>   searches carry on. A search limited to one owner still returns that owner's best
+>   chunks, and one that comes up short is redone exactly. Needs pgvector 0.8 or later;
+>   off by default.
+> - **A fix for retrieval on SQLite.** Since 1.0.0, every search through the API (limited
+>   to an owner, the shared owner while accounts are off) took a slow path in both
+>   searches, about four times slower. With the fix, CI's HTTP p95 at four clients is back
+>   to 53 ms, from 75 to 135, and throughput is 123 requests/s, from about 51.
+> - **Image security**: the image no longer carries the base image's unused pip, which had
+>   six advisories with fixes. The container workflow can now build and scan a commit
+>   before it is tagged, and keeps a full report of every finding with each build.
+>
+> **Measured.** At 100,045 chunks on PostgreSQL, retrieval p95 was 380 ms with exact search
+> and 197 ms with approximate search. With bge-small embeddings the index returned 0.98 of
+> exact search's top 30 and found the same answers in hybrid retrieval on golden v2; with
+> the hashing embedder, 0.90. Ingestion is 9% slower with the index and bge-small. Details:
+> [ADR-0014](https://github.com/saicharan-nidiganti/production-rag/blob/v1.1.0/docs/decisions/0014-approximate-vector-search.md).
+>
+> **Upgrading from 1.0.0**: no migration; the schema stays at revision 0005. Install 1.1.0
+> and restart. To use approximate search on PostgreSQL, run `rag db create-vector-index`,
+> then set `RAG_VECTOR_SEARCH=approximate` and restart. Benchmark and evaluation reports now
+> record `vector_search` in their configuration. To return to 1.0.0, install it again: it
+> ignores the new settings. Drop the index first if you built one, since 1.0.0 doesn't use
+> it and every new chunk would still be added to it.
+>
+> **Not verified live**, as in 1.0.0: Claude's answers. The paid evaluation is prepared and
+> waits for API credit.
+>
+> **Known limitations**: those of 1.0.0, and two more. On SQLite, keyword scores count
+> every user's documents, so they can hint at how common a word is in other users'
+> documents. The image's base system has advisories that Debian hasn't fixed yet; as
+> assessed in
+> [security.md](https://github.com/saicharan-nidiganti/production-rag/blob/v1.1.0/docs/security.md#review-for-110-2026-11-12),
+> none reaches the service.
 
 ## v1.0.0: status
 

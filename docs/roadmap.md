@@ -22,7 +22,7 @@ the item notes the proposed decision.
 
 - [x] Python project with pinned dependencies (uv), Ruff, mypy, pytest
 - [x] FastAPI application with settings, structured logging and health checks
-- [ ] PostgreSQL + pgvector via Docker Compose — v0 uses SQLite by owner decision ([ADR-0002](decisions/0002-v0-storage-and-scope.md)); moves to Phase 5
+- [x] PostgreSQL + pgvector — v0 used SQLite by owner decision ([ADR-0002](decisions/0002-v0-storage-and-scope.md)); PostgreSQL came in Phase 5, alongside SQLite. There is no Docker Compose file: the container image and [operations.md](operations.md#postgresql) cover a deployment
 - [x] Initial database schema and migrations (Alembic)
 - [x] `.env.example` and reproducible local setup instructions
 - [x] GitHub Actions CI (lint, type-check, tests, secret scan, dependency audit) — plus the eval gate and Markdown lint; the audit also runs weekly
@@ -73,7 +73,7 @@ the item notes the proposed decision.
 - [x] Cross-tenant isolation test suite — `tests/integration/test_isolation.py`, checked by breaking the filters on purpose
 - [x] PostgreSQL with pgvector — alongside SQLite, chosen by `RAG_DATABASE_URL`; the suite and the retrieval gate run on both in CI ([ADR-0013](decisions/0013-postgresql-with-pgvector.md))
 - [x] Rate limiting and upload hardening — size and page limits, parsing in an isolated, resource-limited process ([ADR-0007](decisions/0007-isolated-document-parsing.md)), and per-client rate limits, kept per process until a shared store exists
-- [ ] Security review
+- [x] Security review — the [audit of 2026-11-10](security.md#audit-2026-11-10) and the [review for 1.1.0](security.md#review-for-110-2026-11-12)
 
 ## Phase 6 — Frontend
 
@@ -97,6 +97,8 @@ the item notes the proposed decision.
 - [x] Implement citation evaluation — citation precision
 - [x] Add regression evaluation — threshold gate in CI
 - [x] Generate evaluation reports
+- [x] Approximate vector search on PostgreSQL (HNSW), measured against exact search and gated in CI ([ADR-0014](decisions/0014-approximate-vector-search.md))
+- [ ] Faster keyword search on PostgreSQL — with approximate vector search, it is the slower half of retrieval in a large library: about 160 ms at 100,000 chunks
 - [ ] LLM-as-judge groundedness and answer correctness
 - [ ] Abstention on on-topic unanswerable questions — no retrieval signal separates them; measure Claude's declines, then consider an answerability model
 
@@ -114,10 +116,19 @@ the item notes the proposed decision.
 
 ## Phase 9 — Release
 
-- [ ] Final evaluation
-- [ ] Architecture documentation
+- [ ] Final evaluation — retrieval, citations and performance are gated on every release; Claude's answers wait for the paid evaluation
+- [x] Architecture documentation — [architecture.md](architecture.md) and the [ADRs](decisions/README.md)
 - [x] Methodology documentation — the principles are in [evaluation.md](evaluation.md#principles)
-- [ ] README completion
-- [ ] Demo preparation
-- [ ] Final cleanup
-- [ ] Release
+- [x] README completion
+- [x] Demo preparation — screenshots in the README and the [case study](case-study.md)
+- [x] Final cleanup
+- [x] Release — 1.0.0 and 1.1.0 on 2026-11-12, each checked against [release-criteria.md](release-criteria.md) ([release.md](release.md))
+
+## Next
+
+The same list as the [README's roadmap](../README.md#roadmap):
+
+1. The first paid Claude evaluation (prepared and approved; waiting for API credit).
+2. Faster keyword search on PostgreSQL.
+3. A larger evaluation set, written by someone other than the corpus's author.
+4. Sign-up with email verification, password reset and a second factor.

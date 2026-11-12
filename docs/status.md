@@ -1,15 +1,16 @@
 # Project Status
 
-Last updated: 2026-11-10
+Last updated: 2026-11-12
 
 ## Current state
 
-**v1.0.0, released 2026-11-12; on `main` since: approximate vector search on PostgreSQL
-([ADR-0014](decisions/0014-approximate-vector-search.md)).** A web interface, accounts
-with per-user isolation,
-SQLite or PostgreSQL with pgvector, metrics, backups, a performance gate and an automated
-release checked against [release-criteria.md](release-criteria.md), on top of the v0
-backend: background ingestion (PDF, DOCX,
+**v1.1.0, released 2026-11-12.** Approximate vector search on PostgreSQL
+([ADR-0014](decisions/0014-approximate-vector-search.md)), and a fix for retrieval on
+SQLite, which 1.0.0 had made about four times slower. Since 1.0.0: a web interface,
+accounts with per-user isolation, SQLite or PostgreSQL with pgvector, metrics, backups,
+a performance gate and an automated release checked against
+[release-criteria.md](release-criteria.md). On top of the v0 backend: background
+ingestion (PDF, DOCX,
 HTML, TXT, Markdown) with a status per document, hybrid retrieval (BM25 + vectors with
 RRF) with optional cross-encoder reranking, grounded generation with Claude
 search-result citations, an HTTP API, the `rag` CLI, and an evaluation suite of
@@ -38,13 +39,31 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 | False abstention ≤ 0.10 | Met: 0.00 at retrieval level, on both splits and in every configuration |
 | Correct abstention on unanswerable ≥ 0.90 | **Not met yet.** Retrieval abstains on 4 of 4 off-topic test questions but 0 of 8 on-topic ones; the extractive baseline declines 4 of 12. Claude, which has to handle the on-topic ones, is unmeasured ([evaluation.md](evaluation.md#abstention-signals)) |
 | Prompt-injection suite (0 successful injections) | Cases exist (`t-par-*`); only informative with Claude, so **unverified** |
-| Accounts and isolation (FR-1, NFR-1) | On `main`, opt-in: sign-in, sessions, API tokens, an owner on every document and in every search ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)). No sign-up, reset by email or second factor. Still SQLite |
+| Accounts and isolation (FR-1, NFR-1) | Met, opt-in, since 1.0.0: sign-in, sessions, API tokens, an owner on every document and in every search, on SQLite and PostgreSQL ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)). No sign-up, reset by email or second factor |
+| Retrieval p95 under 300 ms (requirements §7) | Met at 10,000 chunks on both databases (SQLite 12 ms in CI). At 100,000 chunks on PostgreSQL, met with approximate search (197 ms), not with exact search (380 ms) ([performance.md](performance.md)) |
 | Ingestion status (FR-3) | Met: `queued` → `processing` → `ready` or `failed` with a code and message, retry, recovery after crashes and restarts ([ADR-0006](decisions/0006-background-ingestion.md)) |
 | Rate limits (NFR-2) | Met within one process: per client for authentication failures, uploads, questions, searches and other requests; across processes, at the reverse proxy ([operations.md](operations.md#rate-limits)) |
 | File types (FR-2) | Met: PDF (text layer), DOCX, TXT, Markdown and HTML, parsed in the isolated process ([ADR-0009](decisions/0009-docx-and-html-extraction.md)) |
 | Streaming (FR-9) | Met: `POST /v1/query/stream` (Server-Sent Events) and `rag ask --stream` ([ADR-0010](decisions/0010-streaming-answers-over-sse.md)); verified through the Claude SDK's stream parser with recorded events and a real-server smoke test, not yet live against Claude |
 
 ## Session log
+
+### Session 23 — Release 1.1.0, image scan, documentation (2026-11-12)
+
+- The owner asked for the 1.1.0 release, a fresh image with its vulnerability scan
+  verified, and README, status, security and roadmap brought into line.
+- The container workflow could build only an existing release by hand; it now also builds,
+  tests and scans the commit it runs on, never publishing, and keeps a full scan report at
+  every severity, fixed or not.
+- The first fresh build (d2deb9d) passed the gate. Its full report's only findings with a
+  fix were six in the base image's own pip, which the service never uses; it is removed
+  (47849c8), and the rebuilt image has none at any severity. What remains are 11 distinct
+  high-severity advisories in Debian 13.7 packages with no fix yet, assessed in
+  [security.md](security.md#review-for-110-2026-11-12).
+- The security review for 1.1.0 found one new gap, now listed: on SQLite, keyword scores
+  are computed with statistics from every user's documents.
+- The roadmap's release phase, security review and PostgreSQL items were out of date, as
+  were the security document's "v0" scope and its audit's single-tenant note.
 
 ### Session 22 — Approximate vector search on PostgreSQL (2026-11-12)
 

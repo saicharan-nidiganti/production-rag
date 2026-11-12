@@ -1,10 +1,10 @@
 # Security
 
-How v0 protects data, what it doesn't protect yet, and how the supply chain is
-checked. To report a vulnerability, follow [SECURITY.md](../SECURITY.md); don't
+How the service protects data, what it doesn't protect yet, and how the supply chain
+is checked. To report a vulnerability, follow [SECURITY.md](../SECURITY.md); don't
 open a public issue.
 
-## Scope of v0
+## Modes
 
 The service runs in one of three modes:
 
@@ -19,7 +19,7 @@ The service runs in one of three modes:
 
 | Asset | Where it lives | Leaves the host? |
 | --- | --- | --- |
-| Uploaded documents | The extracted text, in the SQLite database. The raw upload is stored there too (`document_files`) until processing succeeds; a failed document keeps it until it's retried successfully or deleted. The application never writes raw files to the filesystem, but while an upload is being received, Starlette spools anything over 1 MB to a temporary file in the OS temp directory, deleted when the request ends (a crash can leave one behind). | Retrieved chunks are sent to the Claude API on each query when `RAG_GENERATOR=anthropic` |
+| Uploaded documents | The extracted text, in the database (SQLite or PostgreSQL). The raw upload is stored there too (`document_files`) until processing succeeds; a failed document keeps it until it's retried successfully or deleted. The application never writes raw files to the filesystem, but while an upload is being received, Starlette spools anything over 1 MB to a temporary file in the OS temp directory, deleted when the request ends (a crash can leave one behind). | Retrieved chunks are sent to the Claude API on each query when `RAG_GENERATOR=anthropic` |
 | Questions | Request memory only; never logged | Sent to the Claude API with the chunks |
 | `RAG_API_KEY`, Claude API key | Environment or `.env` (git-ignored) | The Claude key goes only to the Claude API |
 | Logs | stderr, JSON | Wherever the operator ships them. They contain ids, counts and timings, never document text or questions (NFR-4). Security events (`security.*`) also record the client address. |
@@ -33,7 +33,7 @@ policy before enabling the Claude generator.
 | --- | --- | --- |
 | Unauthenticated access | Optional static API key (at least 16 characters), compared in constant time. It is checked before the request body is read, and every path needs it except `/health`, `/ready` and the API docs. Failures are logged as `security.auth_failed` (missing or invalid, with the client address, never the key) | [guard.py](../src/production_rag/api/guard.py), [security.py](../src/production_rag/api/security.py), [config.py](../src/production_rag/config.py) |
 | Excessive use and key guessing | Per-client rate limits (token buckets) for uploads and retries, questions, searches and other `/v1` requests, checked after the key and before the body is read; over one, 429 with `Retry-After`. Failed API-key attempts have their own limit: a client out of attempts gets 429 without its key being compared. Logged as `security.rate_limited` (operation and client address). The limits are per process ([operations.md](operations.md#rate-limits)) | [ratelimit.py](../src/production_rag/api/ratelimit.py), [guard.py](../src/production_rag/api/guard.py) |
-| One user reading another's documents | With accounts, every document has an owner, and every listing, lookup, search, answer and citation is limited to the caller's. The filter is inside both searches (in the same statement as the full-text match; over only the owner's rows of the vector matrix) and is checked again when chunks are loaded. Another user's document answers 404, like a missing one, and uploading a file someone else has isn't reported as a duplicate. A test calls every route that takes a document id as another user | [documents.py](../src/production_rag/db/documents.py), [retriever.py](../src/production_rag/retrieval/retriever.py), [test_isolation.py](../tests/integration/test_isolation.py) |
+| One user reading another's documents | With accounts, every document has an owner, and every listing, lookup, search, answer and citation is limited to the caller's. The filter is inside both searches: in the same statement as the full-text match, and over only the owner's range of the vector matrix, or in the pgvector query itself, the approximate one included. It is checked again when chunks are loaded. Another user's document answers 404, like a missing one, and uploading a file someone else has isn't reported as a duplicate. A test calls every route that takes a document id as another user | [documents.py](../src/production_rag/db/documents.py), [retriever.py](../src/production_rag/retrieval/retriever.py), [test_isolation.py](../tests/integration/test_isolation.py) |
 | Stolen or guessed passwords | Argon2id (64 MiB, 3 passes), at least 12 characters, re-hashed when parameters change. Unknown address, wrong password and disabled account take the same work and get the same answer. Failed sign-ins lock the client out through the failed-attempt allowance | [accounts.py](../src/production_rag/accounts.py) |
 | Stolen sessions and tokens | The session cookie is `HttpOnly`, `SameSite=Strict` and `Secure`, so scripts and other sites can't use it; state-changing requests also need the session's CSRF token. The database holds only SHA-256 digests of session and API tokens. Sign-out, a password change and disabling an account end sessions at once. An API token can't create tokens or change the password | [guard.py](../src/production_rag/api/guard.py), [auth_routes.py](../src/production_rag/api/auth_routes.py) |
 | The web interface | Served on the API's own origin, so no CORS is configured. Its files are public and hold no data; everything shown comes from `/v1` behind the key. The page is sent with `Content-Security-Policy: default-src 'self'` (no inline or third-party scripts, no framing), `nosniff` and `no-referrer`, and makes no third-party requests. The key is kept in `sessionStorage` for the tab only, sent as a bearer header, never in a URL. Answers and passages are rendered as text, never as HTML ([ADR-0011](decisions/0011-web-interface-served-by-the-backend.md)) | [web.py](../src/production_rag/api/web.py), [client.ts](../web/src/api/client.ts) |
@@ -65,7 +65,7 @@ evidence; the findings follow.
 | API | The key, rate limits and body size are checked before a body is read; every route but the probes needs the key (a test walks the OpenAPI schema); validation errors don't echo input | Tested: `tests/integration/test_request_guard.py`, `test_api.py` |
 | API | No CORS headers are sent, so browsers on other origins can't read responses; no debug or reload mode exists | Confirmed in `api/app.py` and `cli.py` |
 | RAG | Retrieved text reaches the model only as `search_result` blocks, apart from the instructions, with untrusted-data framing; citations can only point at retrieved chunks; file names and metadata aren't sent as instructions | Tested with a fake client; **not yet measured with Claude** (the injection cases need the paid run) |
-| RAG | Retrieval can't cross tenants because v0 has one tenant | A known gap, below |
+| RAG | Retrieval can't cross tenants because v0 has one tenant | A known gap at the time; accounts arrived in 1.0.0 (see the review for 1.1.0) |
 | Storage | Bound parameters everywhere and FTS5 operators neutralized; statement errors hide their parameters | Tested: `tests/unit/test_embeddings_and_fusion.py`, `tests/integration/test_database.py` |
 | Storage | Backups carry a SHA-256 and are verified before a restore | Tested: `tests/integration/test_maintenance.py` |
 | Parsing | Each upload is parsed in a separate process without the service's secrets, with a time limit, and a memory limit on Linux and macOS | Tested: `tests/integration/test_parsing_isolation.py` |
@@ -86,6 +86,39 @@ evidence; the findings follow.
 
 No critical or high finding remains open in code. The open items are the known gaps below.
 
+## Review for 1.1.0, 2026-11-12
+
+What has changed since the audit: accounts and per-user isolation (1.0.0), PostgreSQL,
+the web interface, and approximate vector search (1.1.0).
+
+| Area | Checked | Result |
+| --- | --- | --- |
+| Isolation | The owner filter in every search on both databases, including the approximate vector search and the reworked keyword search on SQLite; a small owner's results aren't crowded out by a large owner's | Tested: `test_isolation.py`, `test_ingestion_and_retrieval.py`, `test_vector_index.py`, on SQLite and PostgreSQL, each checked by breaking the code on purpose |
+| Approximate search | The index's DDL takes the model id from the operator's settings, quoted; the build runs from an operator command on its own connection; its parameters are bounded and `--memory` must match a size pattern; pgvector older than 0.8 is refused, since its searches would fail | Tested: `test_vector_search_settings.py`, `test_vector_index.py` |
+| Dependencies, secrets, static analysis | pip-audit on every locked Python package, npm audit on the web interface's, gitleaks over the whole history, open CodeQL alerts | All clear in the release workflow's dry run on `112de4e` (run 43209008375) |
+| Image | A fresh build of `47849c8` with the full scan report (run 43228976778) | No finding with a fix available, at any severity, in the system or in Python packages. 205 findings without a fix, all in Debian 13.7 packages, 11 of them high (below) |
+
+High-severity advisories in the image with no fix released, as of this review:
+
+| Advisory | Package | Why it doesn't reach the service |
+| --- | --- | --- |
+| CVE-2026-119373 | libsqlite3-0 (FTS5) | Needs an FTS5 table with `detail=none`, negative rowids and a prefix query. The service's table uses the default `detail`, chunk ids are positive, and every query term is quoted, so no prefix operator reaches FTS5 |
+| CVE-2026-119374 | libsqlite3-0 (FTS5) | Needs a crafted database file and FTS5's secure-delete. The service opens only its own database, and doesn't enable secure-delete; `rag db restore` and `verify` take only files the operator supplies |
+| CVE-2026-119379 | libsqlite3-0 (sessions) | In the session extension, which the service doesn't use |
+| CVE-2025-69720, CVE-2026-16742, CVE-2026-54369, CVE-2026-76642, CVE-2026-78408, CVE-2026-78409, CVE-2026-78410, CVE-2026-9538 | ncurses, systemd's libraries, acl, util-linux (mount, login and their libraries), perl-base | Part of the base system; the container runs only the Python service, as an unprivileged user, and none of these programs |
+
+The image applies the distribution's updates when it is built, so a fix reaches the next
+build without a change here. Revisit when Debian releases fixes, or by 2026-12-12.
+
+### Findings
+
+| Finding | Severity | Resolution |
+| --- | --- | --- |
+| Owner-scoped retrieval on SQLite, which every API request uses, was about four times slower from 1.0.0: the vector matrix was copied on every search, and keyword search ranked every match through a join | Medium, for availability: CI's HTTP throughput at four clients was 51 requests/s, against 123 with the fix, so the service saturates sooner under load | Fixed in 1.1.0 |
+| The base image's pip, never used, had five medium and one low advisory with fixes | Low | Fixed: removed from the image |
+| On SQLite, keyword scores are computed with statistics from every user's documents | Low | Open: a known gap, below |
+| The image's scan kept no record of what it let through | Low | Fixed: the full report is kept with every build |
+
 ## Supply chain
 
 - Every dependency version is pinned in `uv.lock`, and CI fails if the lock is
@@ -100,7 +133,10 @@ No critical or high finding remains open in code. The open items are the known g
   scanning alerts.
 - The container workflow scans each image with Trivy before publishing and fails
   on a critical or high vulnerability that has a fix. To accept one, add its id to
-  `.trivyignore` with the reason and a date to revisit it. Published images carry
+  `.trivyignore` with the reason and a date to revisit it. Every build also keeps a full
+  report, at every severity and fixed or not, as its `image-vulnerabilities` artifact.
+  Run by hand without a release, the workflow builds and scans the current commit
+  without publishing, as a check before tagging. Published images carry
   an SPDX bill of materials and build provenance:
   `docker buildx imagetools inspect ghcr.io/saicharan-nidiganti/production-rag:TAG --format '{{ json .SBOM }}'`.
 - Runtime dependency licenses are permissive (MIT, BSD, Apache-2.0, PSF) or
@@ -122,7 +158,9 @@ No critical or high finding remains open in code. The open items are the known g
 | --- | --- | --- |
 | Accounts have no self-service sign-up, password reset by email or second factor; an administrator creates users and sets lost passwords | FR-1 | Add before exposing the service to people the operator doesn't know ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)) |
 | Users can't share documents with each other | — | Groups or per-document grants, when needed |
-| Rate limits are per process and in memory: `--workers N` allows a client N times a limit, a restart resets them, and clients behind a proxy that isn't in `--forwarded-allow-ips` share one allowance | NFR-2 | Rate-limit at the reverse proxy for a limit across processes; a shared store comes with PostgreSQL in Phase 5 |
+| Rate limits are per process and in memory: `--workers N` allows a client N times a limit, a restart resets them, and clients behind a proxy that isn't in `--forwarded-allow-ips` share one allowance | NFR-2 | Rate-limit at the reverse proxy for a limit across processes; a shared store, in PostgreSQL or Redis, when several instances need one limit ([ADR-0013](decisions/0013-postgresql-with-pgvector.md)) |
+| On SQLite, keyword scores (`lexical_score` in results) use BM25, which weighs a word by how many documents contain it, every user's included. A user watching their own scores could learn roughly how common a rare word is in other users' documents; no other user's text is returned | NFR-1 | Use PostgreSQL, whose `ts_rank` uses no corpus statistics, when users mustn't learn even that; or leave keyword scores out of responses when accounts are on |
+| The image's base system has advisories without a fix yet (11 high, none reachable from the service as assessed in the review above) | — | The build takes Debian's fixes as they come; a smaller base, such as a distroless one, when one fits Python 3.12 and the models |
 | Uploads over 1 MB pass through a temporary file while they are received | — | Keep the temp directory private to the service user (for example systemd `PrivateTmp=true`) |
 | Prompt-injection cases exist (`partner-integrations.md` in the corpus, `t-par-*` in golden v2) but are only informative with an LLM generator | NFR-3, requirements §7 | Run them with Claude once the owner authorizes a paid evaluation |
 | The parser process is isolated from the service but not sandboxed: it can reach the network and the filesystem, and on Windows has no memory limit | NFR-2 | Add a sandbox (no network, read-only filesystem) before accepting anonymous uploads ([ADR-0007](decisions/0007-isolated-document-parsing.md)) |

@@ -10,14 +10,14 @@ A retrieval-augmented question-answering backend that answers from your document
 the exact passages it used, says so when the documents don't contain the answer, and
 measures itself against a versioned evaluation set on every commit.
 
-> **Status: v1.0.0.** The service works end to end and is checked in CI: background
+> **Status: v1.1.0.** The service works end to end and is checked in CI: background
 > ingestion of five document formats, hybrid retrieval with reranking, cited answers,
-> abstention, streamed answers, per-client rate limits, an HTTP API, a CLI, a container
-> image and evaluation gates. Answers from Claude are implemented but **not yet measured
-> live**: the paid evaluation is approved and waits for API credit. New in 1.0: a web
-> interface, accounts with per-user isolation, PostgreSQL with pgvector, metrics,
-> backups, a performance gate and an automated, checked release.
-> Details: [docs/status.md](docs/status.md).
+> abstention, streamed answers, a web interface, accounts with per-user isolation, SQLite
+> or PostgreSQL with pgvector, metrics, backups, a container image, and evaluation,
+> performance and release gates. Answers from Claude are implemented but **not yet
+> measured live**: the paid evaluation is approved and waits for API credit. New in 1.1:
+> approximate vector search on PostgreSQL for large libraries, and a fix for retrieval on
+> SQLite, which 1.0.0 made about four times slower. Details: [docs/status.md](docs/status.md).
 
 ![The web interface: a streamed answer with numbered sources, and the cited passage highlighted in its section](docs/images/web-ask.png)
 
@@ -200,7 +200,7 @@ Claude (`ANTHROPIC_API_KEY` required). The models download on first use (about 1
 ### Or run the container image
 
 ```bash
-docker run -p 8000:8000 -v rag-data:/data ghcr.io/saicharan-nidiganti/production-rag:1.0.0
+docker run -p 8000:8000 -v rag-data:/data ghcr.io/saicharan-nidiganti/production-rag:1.1.0
 ```
 
 It applies migrations at start, keeps the database in the `rag-data` volume and runs
@@ -307,6 +307,16 @@ the maintainer's approval; CI never makes paid calls.
   uploads to trusted users ([ADR-0007](docs/decisions/0007-isolated-document-parsing.md)).
 - **Rate limits are per process.** Several workers multiply them, and a restart resets
   them; rate-limit at the reverse proxy too ([operations.md](docs/operations.md#rate-limits)).
+- **Keyword scores on SQLite count every user's documents.** BM25 weighs a word by how
+  many documents contain it, other users' included, and search results carry that score.
+  No other user's text is ever returned. PostgreSQL's ranking uses no such statistics.
+- **Approximate search can miss a passage.** On PostgreSQL with
+  `RAG_VECTOR_SEARCH=approximate`, the index returned 0.98 of exact search's top 30 in the
+  measurements; it is off by default ([ADR-0014](docs/decisions/0014-approximate-vector-search.md)).
+- **The image's base system has unfixed advisories.** The latest scan found none with a fix
+  available, in the system or in Python packages, and 11 high-severity ones that Debian
+  hasn't fixed yet, in packages the service doesn't use or in SQLite features it doesn't
+  use ([security.md](docs/security.md#review-for-110-2026-11-12)).
 - **Data sent to Anthropic.** With the Claude generator, questions and retrieved passages
   go to the Claude API. Logs never contain document text or questions.
 - **Small evaluation set.** 94 author-written questions; results are optimistic and coarse.
