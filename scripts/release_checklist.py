@@ -125,9 +125,9 @@ CRITERIA: tuple[Criterion, ...] = (
         blocking=False,
         fixed_state="not-measured",
         reason=(
-            "The Anthropic account has no API credit. Accepted for 1.0 by the owner on "
-            "2026-11-12 and stated in the release notes; the run is prepared "
-            "(docs/evaluation.md)."
+            "The Anthropic account has no API credit. Accepted by the owner for 1.0.0 on "
+            "2026-11-12, on condition the release notes say so; later releases state it the "
+            "same way until the evaluation runs, and the run is prepared (docs/evaluation.md)."
         ),
     ),
     Criterion(

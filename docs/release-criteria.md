@@ -86,11 +86,11 @@ The release carries everything needed to reproduce it and judge it:
 The reports are attached as `release-reports.tar.gz`. The container image, its SBOM and its
 provenance are on ghcr.io under the version's tag.
 
-## Accepted limitations for 1.0.0
+## Accepted limitations
 
 | Criterion | State | Reason | Accepted |
 | --- | --- | --- | --- |
-| `claude` | not measured | The Anthropic account has no API credit, so the paid evaluation can't run. Claude's answers are tested against a fake client and the real SDK's stream parser, not live | By the owner, 2026-11-12, on condition the release notes say so plainly |
+| `claude` | not measured | The Anthropic account has no API credit, so the paid evaluation can't run. Claude's answers are tested against a fake client and the real SDK's stream parser, not live | By the owner for 1.0.0, 2026-11-12, on condition the release notes say so plainly. 1.1.0's notes say so the same way; tagging it carries the acceptance forward |
 
 ## Running the checks before tagging
 
