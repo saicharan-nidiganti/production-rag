@@ -27,12 +27,16 @@ ENV UV_COMPILE_BYTECODE=1 \
 WORKDIR /app
 # Dependencies first, so this layer is reused until uv.lock changes.
 COPY pyproject.toml uv.lock ./
+# The extras this source defines: an earlier release, rebuilt by hand, may lack `postgres`.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --extra local-embeddings --extra postgres --no-install-project
+    extras="--extra local-embeddings"; \
+    if grep -q '^postgres = ' pyproject.toml; then extras="$extras --extra postgres"; fi; \
+    echo "$extras" > /tmp/extras && \
+    uv sync --frozen --no-dev $extras --no-install-project
 COPY README.md LICENSE ./
 COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --extra local-embeddings --extra postgres --no-editable
+    uv sync --frozen --no-dev $(cat /tmp/extras) --no-editable
 
 
 FROM python:3.12-slim

@@ -48,7 +48,7 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
   ([ADR-0013](decisions/0013-postgresql-with-pgvector.md)).
 - The driver is pg8000 (BSD-3-Clause): psycopg 3 was tried and dropped, because LGPL is
   outside the licence policy.
-- The suite runs on both databases (`RAG_TEST_POSTGRES_URL`): 762 tests on SQLite, 726 on
+- The suite runs on both databases (`RAG_TEST_POSTGRES_URL`): 764 tests on SQLite, 726 on
   PostgreSQL, with 39 tests of SQLite itself skipped there. Running it found a
   71-character DOCX media type in a 64-character column, which SQLite had silently
   accepted.
