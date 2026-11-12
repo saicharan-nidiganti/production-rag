@@ -55,14 +55,22 @@ class Retriever:
         rrf_k: int = 60,
         reranker: Reranker | None = None,
         rerank_candidates: int = 5,
+        approximate_vector_search: bool = False,
+        hnsw_ef_search: int = 200,
     ) -> None:
         self._sessions = sessions
         self._embedder = embedder
-        self._index = VectorIndex(embedder.model_id)
+        self._index = VectorIndex(
+            embedder.model_id, approximate=approximate_vector_search, ef_search=hnsw_ef_search
+        )
         self._candidate_pool = candidate_pool
         self._rrf_k = rrf_k
         self._reranker = reranker
         self._rerank_candidates = rerank_candidates
+
+    @property
+    def vector_index(self) -> VectorIndex:
+        return self._index
 
     def search(
         self, query: str, *, top_k: int, mode: RetrievalMode, owner: str | None = None

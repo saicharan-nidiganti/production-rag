@@ -116,7 +116,8 @@ backup from step 2 first with `rag db restore`: there is no `rag db downgrade` c
 | CPU, queries | Exact vector search, BM25 and the optional reranker | Measured: about 0.5 ms of vector search per query at 10,000 chunks and 6 ms at 100,000; reranking 5 candidates about 30 ms |
 
 Vector search is exact, which stays comfortable to about 100,000 chunks per process. Beyond
-that, plan the move to PostgreSQL with pgvector
+that, plan the move to PostgreSQL with pgvector and its
+[approximate search](#approximate-vector-search)
 ([ADR-0002](decisions/0002-v0-storage-and-scope.md)).
 
 ## Streaming
@@ -276,7 +277,7 @@ kept, how to rebuild it and the recovery procedure for each kind of failure.
 ## PostgreSQL
 
 SQLite is the default and the fastest choice for one instance. Use PostgreSQL (16 or later,
-with pgvector 0.6 or later) to run several instances against one database, or to use the
+with pgvector 0.6 or later, or 0.8 for approximate search) to run several instances against one database, or to use the
 backups and operations a team already has for it
 ([ADR-0013](decisions/0013-postgresql-with-pgvector.md)).
 
@@ -300,10 +301,60 @@ rag db upgrade
   process; enforce limits at the load balancer too.
 - **Speed**: each search is a query to the server. Measured at 10,000 chunks, retrieval p95
   was 95 ms, against 13 ms on SQLite in one process ([performance.md](performance.md)).
-  Searches are exact and scan all of an owner's chunks; plan an approximate index past
-  about 30,000 chunks per owner.
+  Searches are exact and scan all of an owner's chunks by default; past about 30,000
+  chunks per owner, use [approximate search](#approximate-vector-search).
 - **Moving from SQLite**: upload the documents again into the PostgreSQL deployment. There is
   no copy tool between the two.
+
+## Approximate vector search
+
+On PostgreSQL, vector search compares the question with every one of the owner's chunks.
+Past about 30,000 chunks per owner, that takes most of the retrieval time. An HNSW index
+makes it a few milliseconds, at the cost of sometimes missing a passage exact search would
+find ([ADR-0014](decisions/0014-approximate-vector-search.md)). It needs pgvector 0.8 or
+later, and is worth it with a real embedding model: with the hashing embedder, the index
+missed more of what exact search finds.
+
+```bash
+rag db create-vector-index --memory 2GB    # the configured model's index; writes continue
+export RAG_VECTOR_SEARCH=approximate       # then restart the service
+curl -s localhost:8000/ready | jq .checks.vector_index
+```
+
+- **Building** uses `CREATE INDEX CONCURRENTLY`, so uploads and searches carry on. On the
+  laptop in [performance.md](performance.md), it took 21 s for 39,000 bge-small chunks and
+  added about 2 KiB per chunk. `--memory` sets `maintenance_work_mem` for this build only:
+  when the graph doesn't fit, PostgreSQL says so and builds more slowly. Don't give it more
+  than the server can spare. A failed build leaves an invalid index; run the command again
+  to replace it.
+- **Until the index exists**, approximate search returns exact results at exact speed, and
+  `/ready` and the startup log say so.
+- **PostgreSQL decides** whether the index is cheaper than reading every chunk. In the
+  measurements it wasn't at 10,000 chunks and was at 100,000, so the setting can be turned
+  on before the library needs it.
+- **Writes cost more**: each new chunk is inserted into the graph. Ingestion was 9% slower
+  with bge-small, and four times slower with the hashing embedder. For a library that takes
+  many writes, `--m 16 --ef-construction 64` costs about a fifth as much per chunk, at slightly
+  lower recall; raise `RAG_HNSW_EF_SEARCH` to make up some of it.
+- **Before switching**, see what it changes for your documents: run `rag eval` with your own
+  dataset in both modes. It builds the index on a throwaway copy. `rag bench` reports recall
+  against exact search on a synthetic library of any size.
+- **Tuning**: `RAG_HNSW_EF_SEARCH` trades speed for recall, and takes effect on restart
+  without a rebuild. The build parameters need a new index: drop it, then create it with
+  other `--m` and `--ef-construction` values.
+- **Owners**: the owner filter is part of the search, and pgvector's iterative scans keep
+  reading the index until `RAG_CANDIDATE_POOL` of the owner's chunks have been found. For an
+  owner with few chunks, PostgreSQL usually reads just those, exactly. A search that still
+  finds fewer than it asked for is redone exactly and counted in
+  `rag_vector_exact_fallbacks_total`. If that count climbs for owners with large libraries,
+  the scan is stopping at pgvector's limit of 20,000 index entries: raise it with
+  `ALTER DATABASE rag SET hnsw.max_scan_tuples = 50000`.
+- **Changing the embedding model**: after `rag reindex`, build the new model's index with
+  `rag db create-vector-index`, then drop the old one with
+  `rag db drop-vector-index --model <the old model's id>`. Searches are exact until the new
+  index exists.
+- **Turning it off**: set `RAG_VECTOR_SEARCH=exact` and restart. Drop the index too, to
+  reclaim its disk space and the work each new chunk costs it.
 
 ## Accounts
 

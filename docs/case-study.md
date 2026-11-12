@@ -102,7 +102,7 @@ Some of the most useful work was finding things that looked fine and weren't:
 - **CI on every push**: lint, `mypy --strict`, about 780 tests on three Python versions with
   a 90% coverage floor, the suite on PostgreSQL, the web interface, the retrieval gates, the
   benchmark, a secret scan, a dependency audit and CodeQL.
-- **Releases are checked, not asserted**: a tag runs 22 criteria and publishes only if none
+- **Releases are checked, not asserted**: a tag runs 23 criteria and publishes only if none
   that blocks fails ([release-criteria.md](release-criteria.md)).
 - **No secret in logs**: keys and the database password are redacted, and question and
   document text are never logged ([observability.md](observability.md#sensitive-data)).
@@ -111,7 +111,8 @@ Some of the most useful work was finding things that looked fine and weren't:
 
 - Claude's answer quality hasn't been measured live.
 - No self-service sign-up, password reset by email or second factor.
-- Rate limits are per process; searches are exact, with no approximate index yet.
+- Rate limits are per process. Keyword search on PostgreSQL ranks every match, which is
+  the slower half of retrieval in large libraries.
 - No OCR for scanned PDFs, and the parser is isolated but not sandboxed.
 - The evaluation set is small, and the web interface hasn't had an accessibility audit.
 
@@ -121,7 +122,8 @@ The full list, with plans, is in [security.md](security.md#known-gaps) and the
 ## What's next
 
 1. Run the paid Claude evaluation and publish its result against the acceptance gate.
-2. An approximate vector index on PostgreSQL, measured against exact search.
+2. Faster keyword search on PostgreSQL, now that approximate vector search
+   ([ADR-0014](decisions/0014-approximate-vector-search.md)) has made it the slower half.
 3. A larger evaluation set written by someone other than the corpus's author.
 4. Sign-up with email verification, password reset and a second factor, before exposing the
    service to people the operator doesn't know.

@@ -200,6 +200,18 @@ jobs:
           uv run rag bench --thresholds eval/bench_thresholds.json \
             --baseline eval/bench/baseline-ci.json --output "$REPORTS/benchmark"
 
+      - name: Approximate vector search on PostgreSQL (10,000 chunks)
+        id: bench_approximate
+        continue-on-error: true
+        env:
+          RAG_DATABASE_URL: ${{ env.PG_URL }}
+          RAG_EMBEDDING_PROVIDER: hashing
+          RAG_RERANKER: none
+          RAG_VECTOR_SEARCH: approximate
+        run: |
+          uv run rag bench --thresholds eval/bench_thresholds.approximate.json \
+            --requests 0 --pdf-pages 0 --output "$REPORTS/benchmark-approximate"
+
       # --- Security ---
 
       - name: Dependency audit

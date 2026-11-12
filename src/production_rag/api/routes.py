@@ -24,6 +24,7 @@ from production_rag.api.schemas import (
 )
 from production_rag.api.security import OwnerDep, require_api_key
 from production_rag.container import Container
+from production_rag.db import vector_index
 from production_rag.db.migrate import current_revision, head_revision
 from production_rag.db.models import DocumentStatus
 from production_rag.ingestion import DocumentTooLargeError, IngestionWorker
@@ -53,7 +54,8 @@ def health() -> dict[str, str]:
 
 @health_router.get("/ready", response_model=ReadinessResponse)
 def ready(request: Request, container: ContainerDep) -> JSONResponse:
-    """Readiness: the database is reachable and its schema is at the latest migration.
+    """Readiness: the database is reachable and its schema is at the latest migration,
+    and, with approximate vector search, pgvector can run it.
 
     Also reports documents by status and the live ingestion threads, for monitoring; neither
     affects readiness.
@@ -71,6 +73,11 @@ def ready(request: Request, container: ContainerDep) -> JSONResponse:
             checks["schema"] = "not at head; run `rag db upgrade`"
         else:
             checks.update(container.index_stats())
+            if container.settings.vector_search == "approximate":
+                searchable, checks["vector_index"] = vector_index.readiness(
+                    container.engine, container.embedder.model_id
+                )
+                ok = ok and searchable
             worker: IngestionWorker | None = getattr(request.app.state, "ingest_worker", None)
             checks["ingestion"] = {
                 **container.documents.status_counts(),

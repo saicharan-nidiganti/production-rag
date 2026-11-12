@@ -167,6 +167,26 @@ jobs:
           RAG_RERANKER: none
         run: uv run rag eval --thresholds eval/thresholds.json
 
+      # The evaluation corpus is too small for the planner to use an HNSW index, so the
+      # index is checked at 10,000 chunks: recall against exact search, and latency.
+      - name: Approximate vector search at 10,000 chunks
+        env:
+          RAG_DATABASE_URL: postgresql+pg8000://rag@127.0.0.1:5432/rag
+          RAG_EMBEDDING_PROVIDER: hashing
+          RAG_RERANKER: none
+          RAG_VECTOR_SEARCH: approximate
+        run: |
+          uv run rag bench --thresholds eval/bench_thresholds.approximate.json \
+            --requests 0 --pdf-pages 0 --output bench-approximate
+
+      - name: Upload the approximate search report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-approximate
+          path: bench-approximate/
+          if-no-files-found: ignore
+
   web:
     name: Web interface (lint, types, tests, build)
     runs-on: ubuntu-latest

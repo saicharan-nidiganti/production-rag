@@ -138,6 +138,13 @@ CRITERIA: tuple[Criterion, ...] = (
         "bench",
     ),
     Criterion(
+        "vector-index",
+        "Performance",
+        "Approximate vector search on PostgreSQL at 10,000 chunks: recall against exact "
+        "search, and retrieval latency (eval/bench_thresholds.approximate.json)",
+        "bench_approximate",
+    ),
+    Criterion(
         "audit",
         "Security",
         "No known vulnerability in a locked Python dependency (pip-audit) or a browser package "
@@ -229,6 +236,16 @@ def _refine(criterion: Criterion, state: State, detail: str, reports: Path) -> t
             )
             if state == "pass" and gate == "warn":
                 state = "warn"
+    if criterion.id == "vector-index":
+        report = _load(reports / "benchmark-approximate" / "benchmark.json")
+        if report:
+            recall = report.get("query", {}).get("vector_recall", {})
+            p95 = report.get("query", {}).get("latency_ms", {}).get("retrieval", {}).get("p95")
+            detail = (
+                f"recall {recall.get('recall_mean')}, same first result "
+                f"{recall.get('same_first_rate')}; retrieval p95 {p95} ms at "
+                f"{report['ingestion']['chunks']:,} chunks"
+            )
     folders = {
         "retrieval-offline": "eval-offline",
         "retrieval-postgres": "eval-postgres",

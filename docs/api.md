@@ -93,6 +93,13 @@ Run `rag reindex` to fix them. `ingestion` counts documents by status and the
 live ingestion threads in the process that answered. It's for monitoring and
 doesn't affect readiness.
 
+With `RAG_VECTOR_SEARCH=approximate` on PostgreSQL, `vector_index` reports the
+search, such as `{"search": "approximate", "pgvector": "0.8.6", "index": "valid"}`.
+`index` is `missing`, or `invalid` after a failed build, until `rag db
+create-vector-index` has run, with a `hint`; searches are exact meanwhile, and readiness
+isn't affected. With pgvector older than 0.8, `vector_index` holds an `error` and the
+service isn't ready, since every approximate search would fail.
+
 ### `GET /metrics`
 
 Prometheus metrics in the text exposition format (`text/plain; version=0.0.4`): request,

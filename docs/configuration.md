@@ -105,6 +105,8 @@ Changing the provider, model or dimensions requires `rag reindex`
 | `RAG_RERANKER_MODEL` | `Xenova/ms-marco-MiniLM-L-6-v2` | Cross-encoder used by the `fastembed` reranker |
 | `RAG_RERANK_CANDIDATES` | `5` | Fused candidates the reranker scores before keeping `RAG_TOP_K`. 20 recovers one dev paraphrase question that 5 misses, with the same held-out results, at about 7× the rerank latency (p50 232 ms against 33 ms in the reference run; [trade-offs](evaluation.md#reranker-trade-offs)). |
 | `RAG_MIN_RERANK_SCORE` | unset | With a reranker, also abstain when the best rerank score is below this value. Unset uses the calibrated default: −8.4 for `Xenova/ms-marco-MiniLM-L-6-v2`; other models have no default and never abstain on this score. |
+| `RAG_VECTOR_SEARCH` | `exact` | PostgreSQL only. `approximate` searches the embedding model's HNSW index instead of comparing the query with every chunk. Build the index first with `rag db create-vector-index`; until it exists, searches stay exact. Needs pgvector 0.8 or later, for iterative index scans. Worth it past about 30,000 chunks per owner, with a real embedding model ([operations.md](operations.md#approximate-vector-search), [ADR-0014](decisions/0014-approximate-vector-search.md)). |
+| `RAG_HNSW_EF_SEARCH` | `200` | With approximate search, the candidates the index search keeps (pgvector's `hnsw.ef_search`; 1–1000, and at least `RAG_CANDIDATE_POOL`). Higher is slower and closer to exact: with bge-small, 100 returned 0.96 of exact search's top 30, 200 returned 0.98 and 400 returned 0.99. |
 
 ## Generation
 

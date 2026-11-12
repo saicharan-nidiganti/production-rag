@@ -118,6 +118,12 @@ RATE_LIMITED = Counter(
     ["operation"],
     registry=REGISTRY,
 )
+VECTOR_EXACT_FALLBACKS = Counter(
+    "rag_vector_exact_fallbacks",
+    "Approximate vector searches that found fewer results than asked for and were redone "
+    "exactly: an owner with few chunks among many, or a library smaller than the request.",
+    registry=REGISTRY,
+)
 
 
 def observe_http(method: str, route: str, status: int, seconds: float) -> None:

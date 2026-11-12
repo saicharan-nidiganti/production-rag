@@ -149,10 +149,31 @@ laptop ([ADR-0013](decisions/0013-postgresql-with-pgvector.md)):
 | Ingestion, one worker | 326 chunks/s | 169 chunks/s |
 | Database | 5.5 KiB per chunk | 7.1 KiB per chunk |
 
-Each search is a round trip to the server, and both scan every chunk the owner has: there
-is no approximate index yet. The retrieval target still holds with a wide margin. Retrieval
-quality is the same or slightly better: hit rate 0.961 against 0.947 on golden v2, with 3
-of 94 questions ranked differently.
+Each search is a round trip to the server, and both scan every chunk the owner has. The
+retrieval target still holds with a wide margin. Retrieval quality is the same or slightly
+better: hit rate 0.961 against 0.947 on golden v2, with 3 of 94 questions ranked
+differently.
+
+### At 100,000 chunks, with approximate search
+
+The same benchmark at 100,045 chunks, on PostgreSQL 16.15 with pgvector 0.8.6, with exact
+vector search and then with the HNSW index (`RAG_VECTOR_SEARCH=approximate`,
+[ADR-0014](decisions/0014-approximate-vector-search.md)):
+
+| | Exact | Approximate |
+| --- | --- | --- |
+| Retrieval p50 / p95 | 340 / 380 ms | 169 / 197 ms |
+| HTTP at 4 concurrent clients, p95 | 728 ms | 343 ms |
+| Requests per second at 4 clients | 7.6 | 16.3 |
+| Index build | | 104 s, 261 MiB |
+| Database | 546 MiB, 5.6 KiB per chunk | 803 MiB, 8.2 KiB per chunk |
+
+Exact search fails the retrieval target at this size; approximate search meets it. Most of
+what is left is keyword search, which ranks every match: 159 ms at p50 on its own.
+
+The index isn't free: each new chunk is inserted into the graph, which slowed ingestion by
+9% with bge-small (embedding is most of the work) and fourfold with the hashing embedder.
+Recall against exact search, and when PostgreSQL chooses the index at all, are in the ADR.
 
 ## Capacity planning
 
@@ -173,7 +194,9 @@ Assumptions: one process, the recommended configuration, the hardware above.
   uses every core.
 - **Index size:** exact search and the in-memory matrix are comfortable to about 100,000
   chunks per process (150 MB of vectors with bge-small). Beyond that, plan the move to
-  PostgreSQL with pgvector ([ADR-0002](decisions/0002-v0-storage-and-scope.md)).
+  PostgreSQL with pgvector ([ADR-0002](decisions/0002-v0-storage-and-scope.md)). There,
+  exact search passes the retrieval target to somewhere between 10,000 and 100,000 chunks
+  per owner; past that, use [approximate search](operations.md#approximate-vector-search).
 - **Storage:** 5.5 KiB per chunk; [data-lifecycle.md](data-lifecycle.md#growth) covers the
   rest.
 
@@ -236,4 +259,6 @@ tokens before a paid run ([evaluation.md](evaluation.md#paid-evaluation-with-cla
 - The server's CPU and memory during the load test on Windows; they are measured on Linux,
   so CI's reports have them.
 - Soak tests over hours, and ingestion running during a load test.
+- Approximate search with bge-small at 100,000 chunks: its library stopped at 38,962,
+  since it ingests about 20 chunks a second here. Its recall is in ADR-0014.
 - More than one machine.

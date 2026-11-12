@@ -56,6 +56,10 @@ included, as a backstop: no code logs them.
 | `startup.complete` | INFO | The app is ready to serve | `version`, `generator`, `embedding_model`, `auth_enabled`, `ingest_workers`, `rate_limits_per_minute`: the effective configuration, without secrets |
 | `startup.lexical_only_embeddings` | WARNING | Started with the hashing embedder | |
 | `startup.schema_not_at_head` | ERROR | The schema is behind at startup; workers don't start | |
+| `startup.vector_index_missing` | WARNING | Approximate vector search is on, but the model's index is missing or invalid; searches are exact until `rag db create-vector-index` has run | `search`, `pgvector`, `index`, `hint` |
+| `startup.vector_search_unavailable` | ERROR | Approximate vector search is on, but pgvector is older than 0.8: every search would fail, and `/ready` reports 503 | `search`, `error` |
+| `startup.vector_index_unknown` | WARNING | The index couldn't be checked at startup, usually because the database wasn't reachable | `error` |
+| `vector_index.created`, `vector_index.dropped` | INFO | `rag db create-vector-index` or `drop-vector-index` changed an index | `model`, and for a build `index`, `seconds`, `size_bytes` |
 | `http.request` | INFO | Every response | `method`, `path`, `status`, `duration_ms` (until the response started) |
 | `request.unhandled_error` | ERROR | An unexpected exception; the client gets 500 `internal_error` | `exc_info` |
 | `query.completed` | INFO | A question was answered, streamed or not | `status`, `mode`, `retrieved`, `citations`, `best_vector_score`, `best_rerank_score`, `abstained_before_generation`, `model`, `streamed`, `timings_ms` (`retrieval`, `rerank`, `generation`, `first_token`, `total`) |
@@ -109,6 +113,7 @@ Counted in each process as events happen:
 | `rag_generation_refusals_total` | counter | `category` | Answers the model declined |
 | `rag_security_refusals_total` | counter | `reason` | `auth_failed`, `rate_limited`, `request_too_large` |
 | `rag_rate_limited_total` | counter | `operation` | Rate-limited requests by bucket: `upload`, `query`, `search`, `read`, `auth_failure` |
+| `rag_vector_exact_fallbacks_total` | counter | | Approximate vector searches redone exactly because they found fewer results than asked for. Expected for owners with fewer chunks than `RAG_CANDIDATE_POOL`; for larger owners, a sign that the index scan gave up early (see [operations.md](operations.md#approximate-vector-search)) |
 
 ### Ingestion
 

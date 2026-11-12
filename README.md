@@ -55,6 +55,7 @@ For the engineering story behind it (decisions, measurements, what testing found
 | Declining on-topic questions the documents can't answer; resisting a planted prompt injection | **Not verified**: both depend on Claude and are what the pending paid evaluation measures |
 | A web interface: upload and manage documents, ask, read streamed answers, open each source's passage | **Implemented and verified**: 37 component tests, and walkthroughs in a real browser against a real server |
 | PostgreSQL with pgvector, alongside SQLite, for several instances | **Implemented and verified**: the whole suite and the retrieval gate run on both databases in CI; same retrieval quality, measured |
+| Approximate vector search on PostgreSQL (HNSW, `RAG_VECTOR_SEARCH=approximate`), for large libraries | **Implemented and verified**: 11 tests on PostgreSQL and 21 without a database, checked by breaking the code on purpose; recall against exact search measured on libraries of 39,000 and 100,000 chunks, and gated in CI at 10,000; off by default |
 | Accounts and per-user isolation: sign-in, sessions, personal API tokens, and every document, search and answer limited to its owner | **Implemented and verified**: 47 tests, including every document route called as another user and each search asked directly; the filters were broken on purpose to check the tests fail |
 
 ## Architecture
@@ -121,8 +122,10 @@ flowchart TB
   transaction that marks the document `ready`. A crashed worker's document is taken over
   once its lease lapses. An upload with `?replaces={id}` swaps in a new version in that same
   transaction, so searches never see both versions or neither.
-- **Retrieval.** BM25 and exact cosine search each return 30 candidates; Reciprocal Rank
+- **Retrieval.** BM25 and cosine search each return 30 candidates; Reciprocal Rank
   Fusion merges them by rank, so their scores never need calibrating against each other.
+  Cosine search is exact, or on PostgreSQL optionally approximate through an HNSW index
+  ([ADR-0014](docs/decisions/0014-approximate-vector-search.md)).
 - **Reranking.** A local cross-encoder (`ms-marco-MiniLM-L-6-v2`) rescores the top 5 fused
   candidates, reading question and passage together ([ADR-0005](docs/decisions/0005-reranking-and-abstention.md)).
 - **Abstention.** If the best cosine or rerank score is below its threshold, calibrated on
@@ -315,8 +318,10 @@ vulnerabilities privately: [SECURITY.md](SECURITY.md).
 
 1. The first paid Claude evaluation, focused on on-topic unanswerable questions and the
    planted injection (prepared and approved; waiting for API credit).
-2. An approximate vector index on PostgreSQL, for libraries past about 30,000 chunks.
-3. The v1.0 release.
+2. Faster keyword search on PostgreSQL: with approximate vector search, it is the slower
+   half of retrieval in large libraries.
+3. A larger evaluation set, written by someone other than the corpus's author.
+4. Sign-up with email verification, password reset and a second factor.
 
 The phase-by-phase plan is in [docs/roadmap.md](docs/roadmap.md); decisions and their
 trade-offs are in the [ADRs](docs/decisions/README.md).

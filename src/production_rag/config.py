@@ -21,6 +21,7 @@ RetrievalMode = Literal["vector", "lexical", "hybrid"]
 EmbeddingProvider = Literal["hashing", "fastembed"]
 GeneratorProvider = Literal["extractive", "anthropic"]
 RerankerProvider = Literal["none", "fastembed"]
+VectorSearch = Literal["exact", "approximate"]
 
 # Scores are not comparable across models, so retrieval-level abstention thresholds are per
 # model. Calibrated on the dev split of eval/golden_v2.jsonl so that no answerable question
@@ -117,6 +118,22 @@ class Settings(BaseSettings):
         description=(
             "With a reranker, abstain when the best rerank score is below this value. "
             "Unset means the calibrated default for the reranker model."
+        ),
+    )
+    vector_search: VectorSearch = Field(
+        default="exact",
+        description=(
+            "PostgreSQL only: 'approximate' searches an HNSW index (rag db "
+            "create-vector-index) instead of comparing the query with every chunk."
+        ),
+    )
+    hnsw_ef_search: int = Field(
+        default=200,
+        ge=1,
+        le=1000,
+        description=(
+            "With approximate search, the candidates the HNSW search keeps: higher is "
+            "slower and closer to exact."
         ),
     )
 
@@ -235,6 +252,22 @@ class Settings(BaseSettings):
             raise ValueError(
                 "RAG_ACCOUNTS_ENABLED and RAG_API_KEY can't both be set: with accounts, "
                 "each user signs in or uses a personal token"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_vector_search(self) -> Settings:
+        if self.vector_search != "approximate":
+            return self
+        if make_url(self.database_url).get_backend_name() != "postgresql":
+            raise ValueError(
+                "RAG_VECTOR_SEARCH=approximate needs PostgreSQL; on SQLite the search is "
+                "exact, in memory"
+            )
+        if self.hnsw_ef_search < self.candidate_pool:
+            raise ValueError(
+                "RAG_HNSW_EF_SEARCH must be at least RAG_CANDIDATE_POOL, the number of "
+                "results each vector search returns"
             )
         return self
 

@@ -24,6 +24,7 @@ from production_rag.api.security import resolve_principal
 from production_rag.api.web import mount_web
 from production_rag.config import ConfigurationError, Settings, get_settings
 from production_rag.container import Container, build_container
+from production_rag.db import vector_index
 from production_rag.db.migrate import is_at_head
 from production_rag.ingestion import IngestionWorker
 from production_rag.observability import configure_logging, request_id_var
@@ -41,6 +42,19 @@ def _route(request: Request) -> str:
     return path if isinstance(path, str) else "unmatched"
 
 
+def _log_vector_index(container: Container) -> None:
+    """Says at startup whether approximate vector search will use its index."""
+    try:
+        searchable, detail = vector_index.readiness(container.engine, container.embedder.model_id)
+    except Exception as exc:  # the database may not be up yet; /ready reports that
+        logger.warning("startup.vector_index_unknown", extra={"error": type(exc).__name__})
+        return
+    if not searchable:
+        logger.error("startup.vector_search_unavailable", extra=detail)
+    elif detail["index"] != "valid":
+        logger.warning("startup.vector_index_missing", extra=detail)
+
+
 def create_app(settings: Settings | None = None, *, container: Container | None = None) -> FastAPI:
     settings = settings or (container.settings if container else get_settings())
     owns_container = container is None
@@ -52,6 +66,8 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
             # Migrations are an explicit deploy step; /ready reports 503 until they run.
             # Ingestion workers back off and retry until then.
             logger.error("startup.schema_not_at_head")
+        if settings.vector_search == "approximate":
+            _log_vector_index(app.state.container)
         worker = IngestionWorker(
             app.state.container.ingestion,
             threads=settings.ingest_workers,

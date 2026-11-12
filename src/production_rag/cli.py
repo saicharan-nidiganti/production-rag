@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from production_rag.config import ConfigurationError, Settings, get_settings
+from production_rag.db.vector_index import DEFAULT_EF_CONSTRUCTION, DEFAULT_M
 from production_rag.observability import configure_logging
 
 if TYPE_CHECKING:
@@ -39,6 +40,8 @@ def cmd_db(args: argparse.Namespace, settings: Settings) -> int:
         finally:
             engine.dispose()
         return 0
+    if args.action in ("create-vector-index", "drop-vector-index"):
+        return _vector_index(args, settings)
     try:
         if args.action == "prune":
             return _prune(args, settings)
@@ -60,6 +63,32 @@ def cmd_db(args: argparse.Namespace, settings: Settings) -> int:
         print(json.dumps({"rebuilt": "search_index", "database": str(database)}))
         return 0
     except m.MaintenanceError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+
+def _vector_index(args: argparse.Namespace, settings: Settings) -> int:
+    from production_rag.db import vector_index
+    from production_rag.embeddings import build_embedder
+
+    try:
+        if args.action == "drop-vector-index":
+            # Another model's index needs no embedder: only its id names the index.
+            model = args.model or build_embedder(settings).model_id
+            dropped = vector_index.drop(settings.database_url, model)
+            print(json.dumps({"dropped": dropped, "model": model,
+                              "index": vector_index.index_name(model)}))  # fmt: skip
+            return 0
+        embedder = build_embedder(settings)
+        model = embedder.model_id
+        dimensions = int(embedder.embed_query("dimensions").shape[0])
+        result = vector_index.create(
+            settings.database_url, model, dimensions, m=args.m,
+            ef_construction=args.ef_construction, maintenance_work_mem=args.memory,
+        )  # fmt: skip
+        print(json.dumps(result, indent=2))
+        return 0
+    except vector_index.VectorIndexError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
@@ -612,6 +641,28 @@ def build_parser() -> argparse.ArgumentParser:
     prune.add_argument("--dry-run", action="store_true", help="list them without deleting")
     actions.add_parser(
         "rebuild-search-index", help="rebuild the full-text index from the stored chunks"
+    )
+    create_index = actions.add_parser(
+        "create-vector-index",
+        help="build the HNSW index that RAG_VECTOR_SEARCH=approximate uses (PostgreSQL)",
+    )
+    create_index.add_argument(
+        "--m", type=int, default=DEFAULT_M, help=f"links per node in the graph ({DEFAULT_M})"
+    )
+    create_index.add_argument(
+        "--ef-construction", type=int, default=DEFAULT_EF_CONSTRUCTION,
+        help=f"candidates considered per insert while building ({DEFAULT_EF_CONSTRUCTION})",
+    )  # fmt: skip
+    create_index.add_argument(
+        "--memory", metavar="SIZE", help="maintenance_work_mem for the build, such as 2GB"
+    )
+    drop_index = actions.add_parser(
+        "drop-vector-index", help="drop that index; vector searches become exact"
+    )
+    drop_index.add_argument(
+        "--model",
+        help="another model's index, such as the previous model's after `rag reindex` "
+        "(default: the configured model)",
     )
     db.set_defaults(func=cmd_db)
 

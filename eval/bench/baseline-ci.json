@@ -24,7 +24,9 @@
     "candidate_pool": 30,
     "chunk_size": 1000,
     "chunk_overlap": 150,
-    "parse_isolation": "process"
+    "parse_isolation": "process",
+    "vector_search": "exact",
+    "hnsw_ef_search": null
   },
   "workload": {
     "corpus": {

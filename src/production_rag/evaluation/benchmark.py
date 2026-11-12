@@ -50,6 +50,7 @@ from production_rag import __version__
 from production_rag.config import Settings
 from production_rag.container import Container, build_container
 from production_rag.db.scratch import scratch_database
+from production_rag.db.vector_index import index_name
 from production_rag.evaluation.dataset import EvalCase, load_dataset
 from production_rag.evaluation.perfgate import summarize
 from production_rag.evaluation.plan import PRICES_PER_MTOK
@@ -110,9 +111,18 @@ def run(
             progress(f"ingesting to {options.chunks:,} chunks")
             ingestion = _ingest(container, corpus_files, options)
             pdf = _pdf(container, options) if options.pdf_pages else None
+            index = container.build_vector_index()
+            if index is not None:
+                progress("built the HNSW index")
+                ingestion["vector_index"] = {
+                    key: index.get(key)
+                    for key in ("seconds", "size_bytes", "dimensions", "m", "ef_construction")
+                }
             ingestion.update(_database_size(container, ingestion["chunks"]))
             progress(f"answering {len(cases)} questions x {options.repeat}")
             query, query_rows, tokens = _questions(container, cases, options)
+            if index is not None:
+                query["vector_recall"] = vector_recall(container, cases, settings.candidate_pool)
             streams = _streams(container, cases, options)
         finally:
             container.close()
@@ -272,6 +282,64 @@ def _database_size(container: Container, chunks: int) -> dict[str, Any]:
     wal = path.with_name(path.name + "-wal")
     size = path.stat().st_size + (wal.stat().st_size if wal.exists() else 0)
     return {"database_bytes": size, "bytes_per_chunk": round(size / max(chunks, 1))}
+
+
+def vector_recall(container: Container, cases: Sequence[EvalCase], k: int) -> dict[str, Any]:
+    """How closely the HNSW index matches exact search on the dataset's questions: the share
+    of the exact top ``k`` it returns (a result scoring the same as the exact k-th counts,
+    since ties may come in either order), how often its first result is the exact first, and
+    the largest shortfall in the best score, which drives abstention.
+
+    PostgreSQL uses the index only where its cost model says it is cheaper, which in a small
+    library it isn't: compared as the planner chooses, the search would often be exact
+    against itself. So the planner's own choice is reported (``planner_used_index_rate``),
+    and the comparison runs with in-query sorts made to look expensive, which only an exact
+    plan needs; ``index_used_rate`` confirms the index was read."""
+    index = container.rag.retriever.vector_index
+    name = index_name(container.embedder.model_id)
+
+    def through_index(plan: list[str]) -> bool:
+        return any(f"Index Scan using {name}" in line for line in plan)
+
+    queries = [container.embedder.embed_query(case.question) for case in cases]
+    exact_results: list[tuple[Any, list[tuple[int, float]]]] = []
+    planner_chose = 0
+    with container.sessions() as session:
+        for query in queries:
+            exact = index.search(session, query, k, exact=True)
+            if exact:
+                exact_results.append((query, exact))
+                planner_chose += through_index(index.approximate_plan(session, query, k))
+    if not exact_results:
+        return {"k": k, "questions": 0}
+    recalls: list[float] = []
+    gaps: list[float] = []
+    same_first = read_index = 0
+    with container.sessions() as session:
+        session.execute(text("SET LOCAL enable_sort = off"))  # this transaction only
+        for query, exact in exact_results:
+            read_index += through_index(index.approximate_plan(session, query, k))
+            approximate = index.search(session, query, k)
+            kth = exact[-1][1]
+            found = sum(score >= kth - _TIE for _, score in approximate)
+            recalls.append(min(found, len(exact)) / len(exact))
+            gap = exact[0][1] - (approximate[0][1] if approximate else 0.0)
+            gaps.append(max(gap, 0.0))
+            same_first += gap <= _TIE
+    measured = len(recalls)
+    return {
+        "k": k,
+        "questions": measured,
+        "recall_mean": round(sum(recalls) / measured, 4),
+        "recall_min": round(min(recalls), 4),
+        "same_first_rate": round(same_first / measured, 4),
+        "best_score_gap_max": round(max(gaps), 4),
+        "index_used_rate": round(read_index / measured, 4),
+        "planner_used_index_rate": round(planner_chose / measured, 4),
+    }
+
+
+_TIE = 1e-6  # scores are float32 cosines
 
 
 def _questions(
@@ -581,6 +649,10 @@ def _config(settings: Settings, container: Container) -> dict[str, Any]:
         "chunk_size": settings.chunk_size,
         "chunk_overlap": settings.chunk_overlap,
         "parse_isolation": settings.parse_isolation,
+        "vector_search": settings.vector_search,
+        "hnsw_ef_search": (
+            settings.hnsw_ef_search if settings.vector_search == "approximate" else None
+        ),
     }
 
 
@@ -643,7 +715,12 @@ def render(report: Mapping[str, Any]) -> str:
         f"production-rag {env['version']}"
         + (f" ({env['git_commit'][:7]})" if env.get("git_commit") else ""),
         f"- Configuration: {config['embedding_model']}, reranker {config['reranker']}, "
-        f"{config['generator']}, {config['retrieval_mode']} retrieval, top {config['top_k']}",
+        f"{config['generator']}, {config['retrieval_mode']} retrieval, top {config['top_k']}"
+        + (
+            f", approximate vector search (ef_search {config['hnsw_ef_search']})"
+            if config.get("vector_search") == "approximate"
+            else ""
+        ),
         f"- Workload: {report['ingestion']['chunks']:,} chunks in "
         f"{report['ingestion']['documents']} documents; {work['dataset']['questions']} questions "
         f"x {work['repeat']} after {work['warmup']} warm-up",
@@ -676,6 +753,24 @@ def render(report: Mapping[str, Any]) -> str:
             f"| {pdf['pages']}-page text PDF | {pdf['seconds']} s, {pdf['chunks']} chunks |"
         )
     lines.append(f"| Questions, one thread | {query['queries_per_s']}/s |")
+    if ingestion.get("vector_index"):
+        built = ingestion["vector_index"]
+        lines.append(
+            f"| HNSW index build | {built['seconds']} s, {built['size_bytes'] / 2**20:.1f} MiB "
+            f"(m {built['m']}, ef_construction {built['ef_construction']}) |"
+        )
+    if query.get("vector_recall", {}).get("questions"):
+        recall = query["vector_recall"]
+        lines.append(
+            f"| Approximate against exact, top {recall['k']} | recall {recall['recall_mean']} "
+            f"(lowest {recall['recall_min']}), same first result {recall['same_first_rate']}, "
+            f"best score short by at most {recall['best_score_gap_max']} (the index read in "
+            f"{recall['index_used_rate']:.0%} of these searches) |"
+        )
+        lines.append(
+            f"| Searches the planner sent through the index | "
+            f"{recall['planner_used_index_rate']:.0%} |"
+        )
     if report.get("http"):
         http = report["http"]
         lines.append(

@@ -1,7 +1,9 @@
 # ADR-0013: PostgreSQL with pgvector, alongside SQLite
 
 - **Status:** Accepted, 2026-11-12. An engineering decision; the owner approved the phase
-  and installed PostgreSQL for it.
+  and installed PostgreSQL for it. Its choice of exact search is amended by
+  [ADR-0014](0014-approximate-vector-search.md), which adds approximate search as an option;
+  exact stays the default.
 - **Date:** 2026-11-12
 - **Deciders:** Engineering
 - **Supersedes:** the "SQLite only" scope of [ADR-0002](0002-v0-storage-and-scope.md), which

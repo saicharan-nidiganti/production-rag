@@ -62,6 +62,14 @@ broken link or an undocumented setting, and
 [test_database.py](tests/integration/test_database.py) when models and
 migrations disagree.
 
+To run the suite on PostgreSQL, as CI's `postgres` job does, set
+`RAG_TEST_POSTGRES_URL` to a server, such as
+`postgresql+pg8000://rag@127.0.0.1:5432/rag`. Each test creates and drops its
+own database, so the role needs `CREATEDB`; tests of SQLite itself are skipped.
+The approximate vector search tests
+([test_vector_index.py](tests/integration/test_vector_index.py)) need pgvector
+0.8 or later and skip on older versions, such as Ubuntu 24.04's package (0.6).
+
 The test suite runs offline. Tests marked `live` download an embedding model
 and run only with `RAG_RUN_LIVE_TESTS=1`. Tests marked `paid` call the Claude
 API and run only with `RAG_RUN_PAID_TESTS=1`. `rag eval --generation` with the

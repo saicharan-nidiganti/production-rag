@@ -42,6 +42,7 @@ gate file. They aren't round numbers chosen in advance.
 | `citations` | Generation and citations | Answer assembly and citation mapping | `eval/thresholds.generation.json`, with the extractive generator: answered ≥ 0.98, citation precision ≥ 0.55, fact recall ≥ 0.83, no failed case | Yes |
 | `claude` | Generation and citations | Claude's answers: declining unanswerable questions, resisting injection, citation quality | `eval/thresholds.claude.json`: correct declining ≥ 0.90, false abstention ≤ 0.10, 0 successful injections | No, while not measured |
 | `performance` | Performance | Latency and throughput limits, and no regression | `eval/bench_thresholds.json`: retrieval p95 < 300 ms at 10,000 chunks, first token p95 < 3 s, a 100-page PDF in < 60 s, no HTTP errors; regressions against the CI baseline fail at 4× | Yes, for failures; warnings don't block |
+| `vector-index` | Performance | Approximate vector search on PostgreSQL holds its recall and speed | `rag bench` at 10,000 chunks with `RAG_VECTOR_SEARCH=approximate`, against `eval/bench_thresholds.approximate.json`: recall against exact search, the same first result, and retrieval p95 under 300 ms | Yes |
 | `audit` | Security | No known vulnerability in a dependency | `pip-audit --strict` on every locked Python package; `npm audit` on the packages served to browsers | Yes |
 | `secrets` | Security | No secrets in the repository | gitleaks over the whole history | Yes |
 | `codeql` | Security | No open static-analysis finding | Open CodeQL alerts: 0 | Yes |
@@ -78,7 +79,7 @@ The release carries everything needed to reproduce it and judge it:
 | Build provenance | A signed attestation of the workflow run, commit and inputs that built the files: `gh attestation verify <file> -R saicharan-nidiganti/production-rag` |
 | `checklist.md`, `checklist.json` | Every criterion and its state, the version and the commit |
 | `eval-*/` | The evaluation reports: dataset and its SHA-256, corpus fingerprint, configuration, models, version and commit, every metric and every question |
-| `benchmark/` | The benchmark report: environment, configuration, workload, every measurement and the gate's comparison with the baseline |
+| `benchmark/`, `benchmark-approximate/` | The benchmark reports: environment, configuration, workload, every measurement and the gate's comparison with the baseline; the second with approximate vector search and its recall against exact search |
 | `tests/` | JUnit results for both databases |
 | `security/` | The pip-audit, npm audit and gitleaks reports |
 

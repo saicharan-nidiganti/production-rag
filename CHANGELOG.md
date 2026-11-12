@@ -10,6 +10,34 @@ record. Detailed per-session notes and verification results are in
 
 ## [Unreleased]
 
+### Added
+
+- **Approximate vector search on PostgreSQL** (`RAG_VECTOR_SEARCH=approximate`,
+  [ADR-0014](docs/decisions/0014-approximate-vector-search.md)). One HNSW index per
+  embedding model, built with `rag db create-vector-index` while uploads and searches carry
+  on, and dropped with `rag db drop-vector-index`. A search limited to one owner keeps
+  scanning until it has found that owner's chunks (pgvector's iterative scans, so 0.8 or
+  later), and one that still comes up short is redone exactly and counted in
+  `rag_vector_exact_fallbacks_total`. `/ready` and the startup log report the index. At
+  100,000 chunks retrieval p95 fell from 380 ms to 197 ms; with bge-small the index
+  returned 0.98 of exact search's top 30 and matched it on hybrid retrieval. Exact search
+  stays the default, and PostgreSQL still searches exactly where that is cheaper.
+- **`rag bench` measures the index**: with approximate search it builds the index, and
+  reports the build's time and size, recall against exact search with the index plan
+  forced, and how often the planner chose the index. CI and the release gate this at
+  10,000 chunks (`eval/bench_thresholds.approximate.json`, release criterion
+  `vector-index`).
+- `RAG_HNSW_EF_SEARCH` sets how many candidates the index search keeps (default 200).
+
+### Changed
+
+- Benchmark and evaluation reports record `vector_search` and `hnsw_ef_search` in their
+  configuration; the CI baseline records `vector_search: exact`.
+
+### Fixed
+
+- The README's roadmap still listed the 1.0 release as upcoming.
+
 ## [1.0.0] - 2026-11-12
 
 ### Added

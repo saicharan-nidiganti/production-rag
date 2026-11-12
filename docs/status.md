@@ -4,7 +4,9 @@ Last updated: 2026-11-10
 
 ## Current state
 
-**v1.0.0, released 2026-11-12.** A web interface, accounts with per-user isolation,
+**v1.0.0, released 2026-11-12; on `main` since: approximate vector search on PostgreSQL
+([ADR-0014](decisions/0014-approximate-vector-search.md)).** A web interface, accounts
+with per-user isolation,
 SQLite or PostgreSQL with pgvector, metrics, backups, a performance gate and an automated
 release checked against [release-criteria.md](release-criteria.md), on top of the v0
 backend: background ingestion (PDF, DOCX,
@@ -43,6 +45,29 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 | Streaming (FR-9) | Met: `POST /v1/query/stream` (Server-Sent Events) and `rag ask --stream` ([ADR-0010](decisions/0010-streaming-answers-over-sse.md)); verified through the Claude SDK's stream parser with recorded events and a real-server smoke test, not yet live against Claude |
 
 ## Session log
+
+### Session 22 — Approximate vector search on PostgreSQL (2026-11-12)
+
+- The owner asked for the vector index next. Measured before building it, on a private
+  PostgreSQL 16.15 with pgvector 0.8.6 (CI's version) built under
+  `~/.cache/production-rag/pg08` in WSL, port 5433: the packaged pgvector is 0.6.0, which
+  has no iterative scans, and the system packages were left alone.
+- At 100,045 chunks exact search failed the retrieval target (p95 380 ms); with the index,
+  197 ms. Keyword search, at about 160 ms, is now the larger half and the next item on
+  the roadmap.
+- The build parameters came from the measurements: pgvector's defaults lost a question
+  that exact search answered on bge-small, `m` 32 and `ef_construction` 128 didn't. With
+  the hashing embedder the index misses short sections that sit apart from long chunks, so
+  approximate search is documented for real embedding models.
+- Found on the way: an index built on a connection with an open transaction was never
+  committed, so the first measurement compared exact search with itself; at 10,000 chunks
+  PostgreSQL rightly searches exactly, so a recall check there measured nothing until the
+  benchmark forced the index plan and checked that it was used; and tests that assumed the
+  planner would choose the index were planner-dependent. The tests and the CI gate now
+  force the index plan where they measure the index, and assert that it was read.
+- Five deliberate breakages (iterative scans off, with and without the fallback; the owner
+  condition dropped; ordering by the bare column; no fallback) were each caught by the
+  tests; the bare-column one is also caught by the CI gate.
 
 ### Session 21 — Release 1.0.0 (2026-11-12)
 

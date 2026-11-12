@@ -77,6 +77,8 @@ def config_snapshot(container: Container) -> dict[str, Any]:
         "reranker": s.reranker_model if s.reranker != "none" else "none",
         "rerank_candidates": s.rerank_candidates if s.reranker != "none" else None,
         "rerank_abstain_threshold": s.rerank_abstain_threshold,
+        "vector_search": s.vector_search,
+        "hnsw_ef_search": s.hnsw_ef_search if s.vector_search == "approximate" else None,
         "generator": container.rag.generator.model_id,
     }
 
@@ -106,6 +108,7 @@ def evaluation_index(
         try:
             for path in files:
                 container.ingestion.ingest(path.name, path.read_bytes())
+            container.build_vector_index()  # with approximate search only
             yield IndexedCorpus(container, files, container.index_stats())
         finally:
             container.close()
