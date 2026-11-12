@@ -49,6 +49,14 @@ Two dry runs on `main` before the release commit passed 21 of 22 criteria, then 
 problems, both fixed: markdown lint was reading installed packages, and a benchmark test
 compared timings between two runs in one process.
 
+Published on 2026-11-12. The owner pushed the annotated tag `v1.0.0` on `f5b107d`. The
+release workflow (run 43176562519) passed every blocking criterion and published the
+release with the wheel, the sdist, `SHA256SUMS`, build provenance and the reports; the
+checksums and the provenance were then verified from the published files. The one
+warning was the benchmark's HTTP p95 at 2.01x the CI baseline, just past the warn line,
+which doesn't block. The container workflow (run 43176562284) published the image as
+`1.0.0`, `1.0` and `latest`.
+
 ## v1.0.0 release notes
 
 > **Production RAG v1.0.0: accounts, PostgreSQL, a web interface and production operations.**

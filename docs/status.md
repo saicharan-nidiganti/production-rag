@@ -58,6 +58,12 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
   warned at 2.02x the baseline, which doesn't block by design.
 - Version 1.0.0, release notes with the upgrade path from 0.2.0 and the known
   limitations, and [case-study.md](case-study.md).
+- Released: the owner pushed the tag `v1.0.0` on `f5b107d`. The release run (43176562519)
+  passed every blocking criterion and published the GitHub release; the image run
+  (43176562284) published `1.0.0`, `1.0` and `latest`. Checksums and provenance were
+  verified from the published files. The benchmark's HTTP latency warned in two of four
+  runs, each time just past 2x the baseline: if it keeps doing so, re-record the baseline
+  from a typical run rather than loosen the rule.
 - Dependabot: #46 and #47 were closed by the owner; #48 (ESLint 10) fails CI and should
   be closed (closing it was blocked by the session's permissions); #45 waits until its
   CodeQL release is two weeks old.
