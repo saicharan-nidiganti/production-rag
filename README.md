@@ -320,6 +320,9 @@ the maintainer's approval; CI never makes paid calls.
 - **Data sent to Anthropic.** With the Claude generator, questions and retrieved passages
   go to the Claude API. Logs never contain document text or questions.
 - **Small evaluation set.** 94 author-written questions; results are optimistic and coarse.
+- **Not built or checked yet.** No OCR: a scanned PDF without a text layer fails with "no
+  extractable text". No WCAG 2.1 AA audit of the web interface, which is linted with
+  accessibility rules. macOS is untested ([roadmap](docs/roadmap.md)).
 
 Controls, data flows and known gaps: [docs/security.md](docs/security.md). Report
 vulnerabilities privately: [SECURITY.md](SECURITY.md).

@@ -49,6 +49,15 @@ scanned the image from the same source (`47849c8`, run 43228976778): no vulnerab
 a fix available at any severity, and the image's own checks passed. The release workflow
 checks the tagged commit again and attaches its checklist to the GitHub release.
 
+Published on 2026-11-12. The annotated tag `v1.1.0` on `04cf145`, the commit the last dry
+run validated, ran the release workflow (run 43237244629): every blocking criterion passed,
+and the release was published with the wheel, the sdist, `SHA256SUMS`, build provenance
+and the reports. The container workflow (run 43237244972) built, checked and scanned the
+image, with no finding that has a fix, and published it as `1.1.0`, `1.1` and `latest`.
+Checked afterwards from the published files: the checksums match, the provenance verifies,
+and the wheel, installed on its own, migrates, serves `/health` and `/ready`, ingests a
+document and answers with a citation.
+
 ## v1.1.0 release notes
 
 > **Production RAG v1.1.0: approximate vector search, and faster retrieval on SQLite.**

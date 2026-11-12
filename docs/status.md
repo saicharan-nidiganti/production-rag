@@ -45,6 +45,7 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 | Rate limits (NFR-2) | Met within one process: per client for authentication failures, uploads, questions, searches and other requests; across processes, at the reverse proxy ([operations.md](operations.md#rate-limits)) |
 | File types (FR-2) | Met: PDF (text layer), DOCX, TXT, Markdown and HTML, parsed in the isolated process ([ADR-0009](decisions/0009-docx-and-html-extraction.md)) |
 | Streaming (FR-9) | Met: `POST /v1/query/stream` (Server-Sent Events) and `rag ask --stream` ([ADR-0010](decisions/0010-streaming-answers-over-sse.md)); verified through the Claude SDK's stream parser with recorded events and a real-server smoke test, not yet live against Claude |
+| Accessibility (NFR-8) | Partial: the web interface is linted with accessibility rules (jsx-a11y), and its interface tests query controls by role and label; no WCAG 2.1 AA audit yet |
 
 ## Session log
 
@@ -63,7 +64,13 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 - The security review for 1.1.0 found one new gap, now listed: on SQLite, keyword scores
   are computed with statistics from every user's documents.
 - The roadmap's release phase, security review and PostgreSQL items were out of date, as
-  were the security document's "v0" scope and its audit's single-tenant note.
+  were the security document's "v0" scope and its audit's single-tenant note. A second pass
+  added the limitations the README didn't state (no OCR, no WCAG audit, macOS untested) and
+  an accessibility row to the requirements above.
+- Released: v1.1.0 on `04cf145`. The release run (43237244629) passed every blocking
+  criterion and published the GitHub release; the image run (43237244972) published
+  `1.1.0`, `1.1` and `latest`, with no finding that has a fix. Checksums, provenance and a
+  clean install of the published wheel were verified afterwards.
 
 ### Session 22 — Approximate vector search on PostgreSQL (2026-11-12)
 

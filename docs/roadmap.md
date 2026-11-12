@@ -128,7 +128,8 @@ the item notes the proposed decision.
 
 The same list as the [README's roadmap](../README.md#roadmap):
 
-1. The first paid Claude evaluation (prepared and approved; waiting for API credit).
+1. The first paid Claude evaluation, focused on on-topic unanswerable questions and the
+   planted injection (prepared and approved; waiting for API credit).
 2. Faster keyword search on PostgreSQL.
 3. A larger evaluation set, written by someone other than the corpus's author.
 4. Sign-up with email verification, password reset and a second factor.
