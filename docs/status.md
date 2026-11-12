@@ -65,6 +65,17 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
   benchmark forced the index plan and checked that it was used; and tests that assumed the
   planner would choose the index were planner-dependent. The tests and the CI gate now
   force the index plan where they measure the index, and assert that it was read.
+- **A regression in 1.0.0, found while checking this change's benchmark warning.** CI's
+  HTTP p95 was 39 to 72 ms on the seven runs before the accounts commit (13dba21) and 75 to
+  135 ms on every run since. During the release this was taken for runner noise, and
+  Session 21 below suggested re-recording the baseline, which would have hidden it. The
+  cause: exact search on SQLite selected the owner's rows of the matrix with an index
+  array, which copies them, on every search; with accounts off that is the whole matrix,
+  7.7 ms instead of 0.65 ms at 10,000 chunks. The matrix is now ordered by owner and
+  sliced. The benchmark's in-process questions passed no owner, so they never took that
+  path; they now pass the shared owner, as the API does. A new test, with owners' documents
+  ingested interleaved, catches a broken grouping; the isolation tests didn't, since they
+  ingest each user's documents in one block.
 - Five deliberate breakages (iterative scans off, with and without the fallback; the owner
   condition dropped; ordering by the bare column; no fallback) were each caught by the
   tests; the bare-column one is also caught by the CI gate.

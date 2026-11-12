@@ -49,6 +49,7 @@ from sqlalchemy import text
 from production_rag import __version__
 from production_rag.config import Settings
 from production_rag.container import Container, build_container
+from production_rag.db.models import SHARED_OWNER
 from production_rag.db.scratch import scratch_database
 from production_rag.db.vector_index import index_name
 from production_rag.evaluation.dataset import EvalCase, load_dataset
@@ -346,7 +347,7 @@ def _questions(
     container: Container, cases: Sequence[EvalCase], options: BenchOptions
 ) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
     for i in range(options.warmup):
-        container.rag.answer(cases[i % len(cases)].question)
+        container.rag.answer(cases[i % len(cases)].question, owner=SHARED_OWNER)
     rows: list[dict[str, Any]] = []
     stages: dict[str, list[float]] = {}
     statuses: Counter[str] = Counter()
@@ -357,7 +358,7 @@ def _questions(
     start = time.perf_counter()
     for iteration in range(options.repeat):
         for case in cases:
-            result = container.rag.answer(case.question)
+            result = container.rag.answer(case.question, owner=SHARED_OWNER)
             for stage, ms in result.timings_ms.items():
                 stages.setdefault(stage, []).append(ms)
             statuses[result.answer.status] += 1
@@ -412,7 +413,9 @@ def _streams(
 ) -> dict[str, Any]:
     first: list[float] = []
     for i in range(options.stream_samples):
-        for event in container.rag.stream_answer(cases[i % len(cases)].question):
+        for event in container.rag.stream_answer(
+            cases[i % len(cases)].question, owner=SHARED_OWNER
+        ):
             if isinstance(event, QueryDone) and "first_token" in event.result.timings_ms:
                 first.append(event.result.timings_ms["first_token"])
     return {

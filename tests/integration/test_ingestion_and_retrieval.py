@@ -15,7 +15,7 @@ from production_rag.ingestion import (
 from production_rag.parsing.docx_text import CONTENT_TYPE as DOCX_TYPE
 from production_rag.rag import RagService
 from production_rag.retrieval import Retriever, lexical_search
-from tests.conftest import POSTGRES_URL
+from tests.conftest import CORPUS_DIR, POSTGRES_URL
 from tests.unit.test_extract_docx import docx, p
 
 GUIDE = b"""# Guide
@@ -173,6 +173,35 @@ def test_a_second_process_view_stays_consistent(container: Container) -> None:
         assert other.rag.search("zebracorn", top_k=1, mode="vector").chunks
     finally:
         other.close()
+
+
+def test_each_owners_search_matches_ranking_everyone_then_filtering(
+    container: Container,
+) -> None:
+    """In memory, the matrix is ordered by owner so that each owner's rows are one range,
+    searched as a slice. Documents of three owners, ingested interleaved, must each give
+    the same results as ranking every chunk and keeping that owner's."""
+    owners = ["ada", "", "bob"]
+    for i, path in enumerate(sorted(CORPUS_DIR.glob("*.md"))):
+        container.ingestion.ingest(path.name, path.read_bytes(), owner=owners[i % 3])
+    index = container.rag.retriever.vector_index
+    query = container.embedder.embed_query("How long does a canary run before the rollout?")
+    with container.sessions() as session:
+        everyone = index.search(session, query, 100_000)
+        owner_of = dict(
+            session.execute(
+                text(
+                    "SELECT chunks.id, documents.owner_id FROM chunks "
+                    "JOIN documents ON documents.id = chunks.document_id"
+                )
+            ).all()
+        )
+        assert len(everyone) == len(owner_of)
+        for owner in owners:
+            expected = [hit for hit in everyone if owner_of[hit[0]] == owner][:5]
+            found = index.search(session, query, 5, owner)
+            assert [chunk_id for chunk_id, _ in found] == [chunk_id for chunk_id, _ in expected]
+            assert [score for _, score in found] == pytest.approx([s for _, s in expected])
 
 
 def test_reindex_reembeds_chunks_from_another_model(container: Container) -> None:

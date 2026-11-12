@@ -65,12 +65,15 @@ class VectorIndex:
         self._generation: int | None = None
         self._ids: npt.NDArray[np.int64] = np.zeros(0, dtype=np.int64)
         self._matrix: Vector = np.zeros((0, 0), dtype=np.float32)
-        # Each owner's rows of the matrix, so a search scores only that owner's chunks.
-        self._rows_of: dict[str, npt.NDArray[np.int64]] = {}
+        # The matrix is ordered by owner, then chunk id, so each owner's rows are one range
+        # and a search slices them out: a view, not a copy. Selecting them by index array
+        # copied the owner's rows on every search; with accounts off, the whole matrix,
+        # which made each search twelve times slower at 10,000 chunks.
+        self._range_of: dict[str, tuple[int, int]] = {}
 
     def _refresh(
         self, session: Session
-    ) -> tuple[npt.NDArray[np.int64], Vector, dict[str, npt.NDArray[np.int64]]]:
+    ) -> tuple[npt.NDArray[np.int64], Vector, dict[str, tuple[int, int]]]:
         generation = session.scalar(select(IndexState.generation).where(IndexState.id == 1))
         with self._lock:
             if generation != self._generation:
@@ -78,7 +81,7 @@ class VectorIndex:
                     select(Chunk.id, Chunk.embedding, Document.owner_id)
                     .join(Document, Document.id == Chunk.document_id)
                     .where(Chunk.embedding_model == self.model_id)
-                    .order_by(Chunk.id)
+                    .order_by(Document.owner_id, Chunk.id)
                 ).all()
                 self._ids = np.array([r.id for r in rows], dtype=np.int64)
                 self._matrix = (
@@ -86,15 +89,13 @@ class VectorIndex:
                     if rows
                     else np.zeros((0, 0), dtype=np.float32)
                 )
-                owners: dict[str, list[int]] = {}
+                ranges: dict[str, tuple[int, int]] = {}
                 for position, row in enumerate(rows):
-                    owners.setdefault(row.owner_id, []).append(position)
-                self._rows_of = {
-                    owner: np.array(positions, dtype=np.int64)
-                    for owner, positions in owners.items()
-                }
+                    start = ranges.get(row.owner_id, (position, position))[0]
+                    ranges[row.owner_id] = (start, position + 1)
+                self._range_of = ranges
                 self._generation = generation
-            return self._ids, self._matrix, self._rows_of
+            return self._ids, self._matrix, self._range_of
 
     def search(
         self,
@@ -118,18 +119,19 @@ class VectorIndex:
                 # The exact search settles which, and for a small owner it is cheap.
                 metrics.VECTOR_EXACT_FALLBACKS.inc()
             return self._postgres_search(session, query, k, owner)
-        ids, matrix, rows_of = self._refresh(session)
+        ids, matrix, range_of = self._refresh(session)
         if owner is not None:
-            rows = rows_of.get(owner)
-            if rows is None:
+            span = range_of.get(owner)
+            if span is None:
                 return []
-            ids, matrix = ids[rows], matrix[rows]
+            ids, matrix = ids[span[0] : span[1]], matrix[span[0] : span[1]]
         if len(ids) == 0:
             return []
         scores = matrix @ query
         k = min(k, len(ids))
         top = np.argpartition(-scores, k - 1)[:k]
-        top = top[np.argsort(-scores[top], kind="stable")]
+        # Highest score first; equal scores by chunk id, whatever the rows' order.
+        top = top[np.lexsort((ids[top], -scores[top]))]
         return [(int(ids[i]), float(scores[i])) for i in top]
 
     def _postgres_search(
