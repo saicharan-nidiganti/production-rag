@@ -47,8 +47,11 @@ LABEL org.opencontainers.image.title="Production RAG" \
       org.opencontainers.image.licenses="MIT"
 
 # The base image's tag lags the distribution's security fixes; take them at build time.
+# The base's own pip is never used at run time (the app runs from the uv-built virtualenv,
+# which has none) and carries advisories of its own, so it is removed.
 RUN apt-get update && apt-get upgrade -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
+    && python -m pip uninstall --yes --quiet pip \
     && useradd --uid 10001 --create-home --shell /usr/sbin/nologin rag \
     && mkdir /data && chown rag:rag /data
 COPY --from=build /app/.venv /app/.venv
