@@ -204,6 +204,28 @@ def test_each_owners_search_matches_ranking_everyone_then_filtering(
             assert [score for _, score in found] == pytest.approx([s for _, s in expected])
 
 
+def test_a_small_owners_keyword_matches_are_found_under_a_large_owners_better_ones(
+    container: Container,
+) -> None:
+    """Keyword search ranks everyone's matches, then keeps the owner's. When hundreds of
+    another owner's chunks rank higher, it must keep widening until it finds the owner's."""
+    section = "## Note {n}\n\n" + "The zebracorn command rolls back a release. " * 18 + "\n\n"
+    for d in range(5):
+        body = f"# Big {d}\n\n" + "".join(section.format(n=n) for n in range(60))
+        container.ingestion.ingest(f"big-{d}.md", body.encode(), owner="big")
+    container.ingestion.ingest(
+        "small.md", b"# Small\n\nOnce, a zebracorn was mentioned in passing.", owner="small"
+    )
+    with container.sessions() as session:
+        big = lexical_search(session, "zebracorn", 5, "big")
+        found = lexical_search(session, "zebracorn", 5, "small")
+        everyone = lexical_search(session, "zebracorn", 1_000)
+    assert len(big) == 5
+    assert len(found) == 1, found
+    # Its place among everyone's matches is past the first scan of 64: the scan had to widen.
+    assert [chunk_id for chunk_id, _ in everyone].index(found[0][0]) >= 64
+
+
 def test_reindex_reembeds_chunks_from_another_model(container: Container) -> None:
     container.ingestion.ingest("guide.md", GUIDE)
     container.settings.embedding_dimensions = 128

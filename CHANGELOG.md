@@ -36,14 +36,17 @@ record. Detailed per-session notes and verification results are in
 
 ### Fixed
 
-- **Vector search on SQLite was twelve times slower than it should be, since accounts
-  (1.0.0).** Searching one owner's chunks copied that owner's part of the in-memory matrix
-  on every search; with accounts off, every chunk belongs to the shared owner, so each
-  search copied the whole matrix: 7.7 ms instead of 0.65 ms at 10,000 chunks. It doubled
-  the benchmark's HTTP latency at four concurrent clients (p95 about 50 ms before, 75 to
-  135 ms after). The matrix is now ordered by owner, and a search takes a slice of it.
+- **Retrieval on SQLite was about four times slower than it should be, since accounts
+  (1.0.0).** Every API search is limited to an owner, the shared owner while accounts are
+  off, and both searches took a slow path for it. Vector search copied the owner's part of
+  the in-memory matrix on every search: 7.7 ms instead of 0.65 at 10,000 chunks. Keyword
+  search joined every match to its document before ranking: 30 ms instead of 6. The
+  benchmark's HTTP p95 at four clients went from about 50 ms to between 75 and 135. Vector
+  search now slices a matrix ordered by owner. Keyword search ranks through FTS5's index
+  and keeps the owner's matches in the same statement, widening the scan until it has the
+  owner's best *k*, so a small library isn't crowded out by a large one.
 - `rag bench` asks its in-process questions as the shared owner, as the API does. It asked
-  as no owner, which skipped the slow path and hid the regression from those numbers.
+  as no owner, which skipped both slow paths and hid the regression from those numbers.
 - The README's roadmap still listed the 1.0 release as upcoming.
 
 ## [1.0.0] - 2026-11-12

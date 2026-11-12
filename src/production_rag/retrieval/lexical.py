@@ -13,6 +13,25 @@ from production_rag.text import content_tokens
 
 _MAX_QUERY_TERMS = 64
 
+# An owner's search on SQLite. FTS5 ranks "ORDER BY rank LIMIT" straight from its index only
+# when the query reads chunks_fts alone; joined to documents for the owner, SQLite ranks
+# every match and joins each one (30 ms against 7 at 10,000 chunks). So the statement takes
+# the best m matches from the index, then keeps the owner's, filtered in the same statement.
+# Those are the owner's best k whenever k of them are among the m: any better match of
+# theirs would be there too. If not, and the m didn't exhaust the matches, m grows: a small
+# library is never crowded out by a large one. "scanned" comes back even with no match.
+_SQLITE_ONE_OWNER = (
+    "WITH hits AS MATERIALIZED ("
+    "SELECT rowid, bm25(chunks_fts) AS rank FROM chunks_fts "
+    "WHERE chunks_fts MATCH :query ORDER BY rank LIMIT :m), "
+    "mine AS (SELECT hits.rowid AS rowid, hits.rank AS rank FROM hits "
+    "JOIN chunks ON chunks.id = hits.rowid "
+    "JOIN documents ON documents.id = chunks.document_id "
+    "WHERE documents.owner_id = :owner ORDER BY hits.rank LIMIT :k) "
+    "SELECT (SELECT count(*) FROM hits) AS scanned, mine.rowid AS rowid, mine.rank AS rank "
+    "FROM (SELECT 1) LEFT JOIN mine ORDER BY mine.rank"
+)
+
 
 def build_fts_query(query: str) -> str | None:
     """Turn free text into a safe FTS5 expression: quoted terms joined with OR.
@@ -29,31 +48,32 @@ def build_fts_query(query: str) -> str | None:
 def lexical_search(
     session: Session, query: str, k: int, owner: str | None = None
 ) -> list[tuple[int, float]]:
-    """The ``k`` best BM25 matches. With ``owner``, the filter is part of the query, so the
-    limit applies to that owner's chunks, not to everyone's."""
+    """The ``k`` best BM25 matches. With ``owner``, the filter is part of the statement, and
+    the limit applies to that owner's chunks, not to everyone's."""
     if is_postgres(session):
         return _postgres_search(session, query, k, owner)
     fts_query = build_fts_query(query)
     if fts_query is None:
         return []
-    if owner is None:
-        statement = (
-            "SELECT rowid, bm25(chunks_fts) AS rank FROM chunks_fts "
-            "WHERE chunks_fts MATCH :query ORDER BY rank LIMIT :k"
-        )
-        parameters: dict[str, object] = {"query": fts_query, "k": k}
-    else:
-        statement = (
-            "SELECT chunks_fts.rowid AS rowid, bm25(chunks_fts) AS rank FROM chunks_fts "
-            "JOIN chunks ON chunks.id = chunks_fts.rowid "
-            "JOIN documents ON documents.id = chunks.document_id "
-            "WHERE chunks_fts MATCH :query AND documents.owner_id = :owner "
-            "ORDER BY rank LIMIT :k"
-        )
-        parameters = {"query": fts_query, "k": k, "owner": owner}
-    rows = session.execute(text(statement), parameters).all()
     # FTS5's bm25() is negative, and more negative means more relevant.
-    return [(int(row.rowid), -float(row.rank)) for row in rows]
+    if owner is None:
+        rows = session.execute(
+            text(
+                "SELECT rowid, bm25(chunks_fts) AS rank FROM chunks_fts "
+                "WHERE chunks_fts MATCH :query ORDER BY rank LIMIT :k"
+            ),
+            {"query": fts_query, "k": k},
+        ).all()
+        return [(int(row.rowid), -float(row.rank)) for row in rows]
+    scan = max(4 * k, 64)
+    while True:
+        rows = session.execute(
+            text(_SQLITE_ONE_OWNER), {"query": fts_query, "m": scan, "k": k, "owner": owner}
+        ).all()
+        hits = [(int(row.rowid), -float(row.rank)) for row in rows if row.rowid is not None]
+        if len(hits) >= k or int(rows[0].scanned) < scan:
+            return hits
+        scan *= 4
 
 
 _POSTGRES_SEARCH = (

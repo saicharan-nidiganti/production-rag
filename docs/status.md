@@ -69,13 +69,18 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
   HTTP p95 was 39 to 72 ms on the seven runs before the accounts commit (13dba21) and 75 to
   135 ms on every run since. During the release this was taken for runner noise, and
   Session 21 below suggested re-recording the baseline, which would have hidden it. The
-  cause: exact search on SQLite selected the owner's rows of the matrix with an index
-  array, which copies them, on every search; with accounts off that is the whole matrix,
-  7.7 ms instead of 0.65 ms at 10,000 chunks. The matrix is now ordered by owner and
-  sliced. The benchmark's in-process questions passed no owner, so they never took that
-  path; they now pass the shared owner, as the API does. A new test, with owners' documents
-  ingested interleaved, catches a broken grouping; the isolation tests didn't, since they
-  ingest each user's documents in one block.
+  cause, in two parts, both on SQLite and both on the owner-scoped path every API search
+  takes (the shared owner while accounts are off): vector search selected the owner's rows
+  of the matrix with an index array, copying them on every search (7.7 ms instead of 0.65
+  at 10,000 chunks), and keyword search joined every match to its document before ranking
+  (30 ms instead of 6). Fixing the first alone didn't move CI's HTTP numbers, which is how
+  the second was found. The matrix is now ordered by owner and sliced; keyword search takes
+  the best matches through FTS5's index and filters the owner in the same statement,
+  widening until it has k of the owner's. The benchmark's in-process questions passed no
+  owner, so they never took either path; they now pass the shared owner, as the API does.
+  Two new tests: owners' documents ingested interleaved, which catches a broken grouping
+  (the isolation tests ingest each user's in one block, and didn't), and a small owner's
+  keyword match ranked below hundreds of another's, which fails without the widening.
 - Five deliberate breakages (iterative scans off, with and without the fallback; the owner
   condition dropped; ordering by the bare column; no fallback) were each caught by the
   tests; the bare-column one is also caught by the CI gate.
