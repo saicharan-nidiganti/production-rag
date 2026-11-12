@@ -1,0 +1,322 @@
+name: Release
+
+# Validates a release against docs/release-criteria.md, then publishes it with its reports.
+# On a version tag it publishes a GitHub release; run by hand, it is a dry run that
+# publishes nothing. The container image is published by container.yml on the same tag.
+#
+# Each check is a step that may fail without stopping the others, so the checklist shows
+# every result. The checklist step then decides, by the rules in
+# scripts/release_checklist.py, whether the release may go ahead.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate against the release criteria
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read # the CI run of this commit
+      security-events: read # open code-scanning alerts
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.6-pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_DB: rag
+          POSTGRES_HOST_AUTH_METHOD: trust # a throwaway server, reachable only by this job
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rag" --health-interval 5s --health-timeout 5s
+          --health-retries 12
+    env:
+      PG_URL: postgresql+pg8000://rag@127.0.0.1:5432/rag
+      REPORTS: ${{ github.workspace }}/release-reports
+      RAG_GENERATOR: extractive # never a paid model: the Claude gate is run separately
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the secret scan reads the whole history
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12" # the benchmark baseline was recorded with 3.12
+          enable-cache: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: |
+          make install
+          mkdir -p "$REPORTS"/{tests,security}
+          # Builds from the same commit get the same timestamps, so they can be compared.
+          echo "SOURCE_DATE_EPOCH=$(git log -1 --format=%ct)" >> "$GITHUB_ENV"
+
+      # --- Reproducibility ---
+
+      - name: Version
+        id: version
+        continue-on-error: true
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          package=$(uv run python -c "import production_rag; print(production_rag.__version__)")
+          [ "$package" = "$version" ] \
+            || { echo "::error::pyproject.toml says ${version}, the package ${package}"; exit 1; }
+          if [ "$REF_TYPE" = tag ]; then
+            [ "v${version}" = "$REF_NAME" ] \
+              || { echo "::error::pyproject.toml says ${version}, the tag is ${REF_NAME}"; exit 1; }
+          fi
+          grep -qE "^## \[${version//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md \
+            || { echo "::error::CHANGELOG.md has no dated [${version}] section"; exit 1; }
+          echo "version ${version}, commit ${GITHUB_SHA}"
+
+      - name: Lock file matches pyproject.toml
+        id: lock
+        continue-on-error: true
+        run: make lock-check
+
+      - name: CI passed on this commit
+        id: ci
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The tag points at a commit pushed to main: wait for that commit's CI run.
+          for _ in $(seq 120); do
+            run=$(gh run list -R "$GITHUB_REPOSITORY" --commit "$GITHUB_SHA" --workflow ci.yml \
+              --json status,conclusion,event,url --jq '[.[] | select(.event == "push")][0] // empty')
+            if [ -n "$run" ] && [ "$(jq -r .status <<<"$run")" = completed ]; then
+              echo "CI: $(jq -r '.conclusion + " " + .url' <<<"$run")"
+              [ "$(jq -r .conclusion <<<"$run")" = success ]
+              exit
+            fi
+            sleep 30
+          done
+          echo "::error::no finished CI run for ${GITHUB_SHA}"; exit 1
+
+      # --- Functional ---
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: make lint
+
+      - name: Types
+        id: types
+        continue-on-error: true
+        run: make typecheck
+
+      - name: Tests on SQLite, with coverage
+        id: tests
+        continue-on-error: true
+        run: uv run python -m pytest --cov --cov-report=term --junitxml="$REPORTS/tests/sqlite.xml"
+
+      - name: Tests on PostgreSQL
+        id: tests_postgres
+        continue-on-error: true
+        env:
+          RAG_TEST_POSTGRES_URL: ${{ env.PG_URL }}
+        run: uv run python -m pytest -q --junitxml="$REPORTS/tests/postgres.xml"
+
+      - name: Web interface
+        id: web
+        continue-on-error: true
+        working-directory: web
+        run: npm ci && npm run check
+
+      - name: Smoke test (a real server over HTTP)
+        id: smoke
+        continue-on-error: true
+        run: make smoke
+
+      # --- Quality ---
+
+      - name: Retrieval gate, offline, SQLite
+        id: eval_offline
+        continue-on-error: true
+        env:
+          RAG_EMBEDDING_PROVIDER: hashing
+          RAG_RERANKER: none
+        run: uv run rag eval --thresholds eval/thresholds.json --output "$REPORTS/eval-offline"
+
+      - name: Retrieval gate, offline, PostgreSQL
+        id: eval_postgres
+        continue-on-error: true
+        env:
+          RAG_DATABASE_URL: ${{ env.PG_URL }}
+          RAG_EMBEDDING_PROVIDER: hashing
+          RAG_RERANKER: none
+        run: uv run rag eval --thresholds eval/thresholds.json --output "$REPORTS/eval-postgres"
+
+      - name: Retrieval gate, recommended configuration (downloads two models, free)
+        id: eval_reranked
+        continue-on-error: true
+        env:
+          RAG_EMBEDDING_PROVIDER: fastembed
+          RAG_RERANKER: fastembed
+          RAG_FASTEMBED_CACHE_DIR: ${{ runner.temp }}/models
+        run: |
+          uv run rag eval --thresholds eval/thresholds.reranked.json \
+            --output "$REPORTS/eval-reranked"
+
+      - name: Answer assembly and citation gate
+        id: eval_generation
+        continue-on-error: true
+        env:
+          RAG_EMBEDDING_PROVIDER: hashing
+          RAG_RERANKER: none
+        run: |
+          uv run rag eval --generation --thresholds eval/thresholds.generation.json \
+            --output "$REPORTS/eval-generation"
+
+      - name: Performance gate (10,000 chunks)
+        id: bench
+        continue-on-error: true
+        env:
+          RAG_EMBEDDING_PROVIDER: hashing
+          RAG_RERANKER: none
+        run: |
+          uv run rag bench --thresholds eval/bench_thresholds.json \
+            --baseline eval/bench/baseline-ci.json --output "$REPORTS/benchmark"
+
+      # --- Security ---
+
+      - name: Dependency audit
+        id: audit
+        continue-on-error: true
+        run: |
+          uv export --frozen --all-extras --all-groups --no-hashes --no-emit-project \
+            --format requirements-txt -o "$RUNNER_TEMP/requirements.txt"
+          python_ok=0; uvx pip-audit@2.10.1 -r "$RUNNER_TEMP/requirements.txt" --disable-pip \
+            --no-deps --strict --format json --output "$REPORTS/security/pip-audit.json" || python_ok=$?
+          web_ok=0; (cd web && npm audit --omit=dev --json > "$REPORTS/security/npm-audit.json") || web_ok=$?
+          echo "pip-audit exit ${python_ok}, npm audit exit ${web_ok}"
+          [ "$python_ok" = 0 ] && [ "$web_ok" = 0 ]
+
+      - name: Secret scan of the whole history
+        id: secrets
+        continue-on-error: true
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/repo" \
+            zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            git --redact --no-banner --report-format json \
+            --report-path /repo/release-reports/security/gitleaks.json /repo
+
+      - name: No open code-scanning alerts
+        id: codeql
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          open=$(gh api "repos/${GITHUB_REPOSITORY}/code-scanning/alerts?state=open&per_page=100" --jq length)
+          echo "open alerts: ${open}"
+          [ "$open" = 0 ]
+
+      # --- Deployment ---
+
+      - name: Package (build, then install the wheel alone and run the CLI)
+        id: package
+        continue-on-error: true
+        run: make package
+
+      - name: Reproducible build
+        id: reproducible
+        continue-on-error: true
+        run: |
+          uv build --out-dir "$RUNNER_TEMP/rebuild"
+          (cd dist && sha256sum -- *) > "$RUNNER_TEMP/first.sha256"
+          (cd "$RUNNER_TEMP/rebuild" && sha256sum -- *) > "$RUNNER_TEMP/second.sha256"
+          cat "$RUNNER_TEMP/first.sha256"
+          diff "$RUNNER_TEMP/first.sha256" "$RUNNER_TEMP/second.sha256"
+
+      # --- Documentation ---
+
+      - name: Markdown lint
+        id: docs
+        continue-on-error: true
+        uses: DavidAnson/markdownlint-cli2-action@696eb3f2509270d7b882d2aa68347bc676e7af34 # v25.0.0
+        with:
+          globs: "**/*.md"
+
+      # --- The decision ---
+
+      - name: Release checklist
+        id: checklist
+        if: always()
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          printf '%s' "$STEPS" > "$RUNNER_TEMP/steps.json"
+          [ -d dist ] && (cd dist && sha256sum -- * > SHA256SUMS)
+          status=0
+          python3 scripts/release_checklist.py --steps "$RUNNER_TEMP/steps.json" \
+            --version "${VERSION:-unknown}" --commit "$GITHUB_SHA" \
+            --reports "$REPORTS" --output "$REPORTS" || status=$?
+          cat "$REPORTS/checklist.md" >> "$GITHUB_STEP_SUMMARY" || true
+          exit "$status"
+
+      - name: Upload the package and the reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release
+          path: |
+            dist/
+            release-reports/
+          if-no-files-found: warn
+
+  publish:
+    name: Publish the GitHub release
+    needs: validate
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release
+      id-token: write # sign the build provenance
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: release
+
+      - name: Build provenance for the wheel and sdist
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: "dist/*.whl, dist/*.tar.gz"
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          python3 scripts/release_notes.py "$VERSION" --checklist release-reports/checklist.md \
+            --title-file "$RUNNER_TEMP/title" > "$RUNNER_TEMP/notes.md"
+          tar -czf release-reports.tar.gz release-reports
+          gh release create "$TAG" --verify-tag --title "$(cat "$RUNNER_TEMP/title")" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            dist/*.whl dist/*.tar.gz dist/SHA256SUMS release-reports.tar.gz

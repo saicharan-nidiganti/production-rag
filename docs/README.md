@@ -18,6 +18,7 @@ Each topic has one authoritative document. Start with the repository
 | [security.md](security.md) | Review the controls, data flows, third-party models, supply chain and known gaps | Reviewers, operators |
 | [evaluation.md](evaluation.md) | Understand the dataset, the metrics, current results, the regression gates and the paid-evaluation plan | Contributors, reviewers |
 | [decisions/](decisions/README.md) | Read why each consequential technical choice was made, with options and trade-offs (ADRs) | Contributors, reviewers |
+| [release-criteria.md](release-criteria.md) | See what a release must pass, which checks block it, what it records, and the limitations accepted for it | Maintainers, reviewers |
 | [roadmap.md](roadmap.md) | See the phase-by-phase plan and what is done | Everyone |
 | [status.md](status.md) | See current progress, the checks run each session, open decisions and blockers | Maintainers |
 

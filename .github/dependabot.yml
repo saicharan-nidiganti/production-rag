@@ -20,6 +20,12 @@ updates:
     groups:
       web:
         patterns: ["*"]
+    # eslint-plugin-jsx-a11y supports ESLint up to 9; take ESLint 10 when it supports that.
+    ignore:
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: build
   # The image's base (python:3.12-slim) and the uv image it copies from.

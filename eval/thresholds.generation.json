@@ -1,0 +1,22 @@
+{
+  "description": "Regression gate for answer assembly and citations, in the offline configuration (hashing embeddings, hybrid retrieval, no reranker, the extractive generator). The extractive generator quotes retrieved sentences, so this checks the code that builds answers and maps citations to passages, not a model's quality. Calibrated on golden_v2 at answered 1.0 (76 answerable), citation precision 0.579, fact recall 0.855, 4 of 18 unanswerable questions declined, no failed cases; bounds leave room for about one additional miss. Claude's quality is gated by thresholds.claude.json.",
+  "dataset": "golden_v2.jsonl",
+  "config": {
+    "embedding_model": "hashing-v1-d512",
+    "retrieval_mode": "hybrid",
+    "top_k": 5,
+    "chunk_size": 1000,
+    "chunk_overlap": 150,
+    "reranker": "none",
+    "generator": "extractive-v1"
+  },
+  "min": {
+    "generation.answered_rate": 0.98,
+    "generation.citation_precision": 0.55,
+    "generation.fact_recall": 0.83,
+    "generation.unanswerable_declined_rate": 0.16
+  },
+  "max": {
+    "generation.failed": 0
+  }
+}

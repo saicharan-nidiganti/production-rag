@@ -12,6 +12,16 @@ record. Detailed per-session notes and verification results are in
 
 ### Added
 
+- **Release criteria and an automated release** (`docs/release-criteria.md`,
+  `.github/workflows/release.yml`). A version tag runs every check as its own step: tests
+  on both databases, the web interface, the smoke test, four quality gates, the performance
+  gate, dependency audits, a full-history secret scan, code-scanning alerts, the package and
+  a reproducible rebuild. `scripts/release_checklist.py` records each as pass, fail, warn or
+  not measured, and the release is published only if nothing blocking failed, with the
+  package, checksums, signed build provenance and every report attached. Run by hand, it
+  is a dry run.
+- **A gate for answer assembly and citations** (`eval/thresholds.generation.json`), with
+  the extractive generator, so the citation code is checked without a paid model.
 - **PostgreSQL with pgvector**, alongside SQLite: set `RAG_DATABASE_URL` to
   `postgresql+pg8000://...` and install the `postgres` extra (pg8000, BSD-3-Clause); the
   image includes it. Vector search runs in the database with pgvector, keyword search with
