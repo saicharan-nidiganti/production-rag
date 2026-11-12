@@ -96,6 +96,11 @@ def database_file(database_url: str) -> Path:
     """The SQLite file a ``RAG_DATABASE_URL`` points at."""
     url = make_url(database_url)
     if url.get_backend_name() != "sqlite" or not url.database or url.database == ":memory:":
+        if url.get_backend_name() == "postgresql":
+            raise MaintenanceError(
+                "this command works on a SQLite file; on PostgreSQL, use pg_dump and "
+                "pg_restore (docs/operations.md#backups)"
+            )
         raise MaintenanceError("backups and restores need a SQLite database file")
     return Path(url.database)
 

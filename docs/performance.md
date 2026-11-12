@@ -137,6 +137,23 @@ that, added clients only add queueing time, and nothing fails at 64. That is wha
 Python process gives: the handlers run in a thread pool, and the parts of a request that
 hold the interpreter lock don't run in parallel.
 
+### On PostgreSQL
+
+The same offline benchmark, with PostgreSQL 16.15 and pgvector 0.6.0 in WSL on the same
+laptop ([ADR-0013](decisions/0013-postgresql-with-pgvector.md)):
+
+| | SQLite | PostgreSQL |
+| --- | --- | --- |
+| Retrieval p50 / p95 | 8.4 / 12.8 ms | 87 / 95 ms |
+| HTTP at 4 concurrent clients | 191 requests/s | 34 requests/s |
+| Ingestion, one worker | 326 chunks/s | 169 chunks/s |
+| Database | 5.5 KiB per chunk | 7.1 KiB per chunk |
+
+Each search is a round trip to the server, and both scan every chunk the owner has: there
+is no approximate index yet. The retrieval target still holds with a wide margin. Retrieval
+quality is the same or slightly better: hit rate 0.961 against 0.947 on golden v2, with 3
+of 94 questions ranked differently.
+
 ## Capacity planning
 
 Assumptions: one process, the recommended configuration, the hardware above.

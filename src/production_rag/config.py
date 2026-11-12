@@ -14,6 +14,8 @@ from pydantic import (
     model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 RetrievalMode = Literal["vector", "lexical", "hybrid"]
 EmbeddingProvider = Literal["hashing", "fastembed"]
@@ -190,9 +192,17 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     def secret_values(self) -> list[str]:
-        """The configured secrets, for redaction from logs."""
+        """The configured secrets, for redaction from logs: the keys, and the database
+        password when the URL has one."""
         secrets = (self.api_key, self.anthropic_api_key)
-        return [secret.get_secret_value() for secret in secrets if secret is not None]
+        values = [secret.get_secret_value() for secret in secrets if secret is not None]
+        try:
+            password = make_url(self.database_url).password
+        except ArgumentError:  # reported by the engine, with a clearer message
+            password = None
+        if password:
+            values.append(str(password))
+        return values
 
     @property
     def abstain_threshold(self) -> float:

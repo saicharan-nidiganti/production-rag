@@ -15,8 +15,8 @@ measures itself against a versioned evaluation set on every commit.
 > abstention, streamed answers, per-client rate limits, an HTTP API, a CLI, a container
 > image and evaluation gates. Answers from Claude are implemented but **not yet measured
 > live**: the paid evaluation is approved and waits for API credit. On `main`, not yet
-> released: a web interface, accounts with per-user isolation, metrics, backups and a
-> performance gate. PostgreSQL comes next.
+> released: a web interface, accounts with per-user isolation, PostgreSQL with pgvector,
+> metrics, backups and a performance gate.
 > Details: [docs/status.md](docs/status.md).
 
 ![The web interface: a streamed answer with numbered sources, and the cited passage highlighted in its section](docs/images/web-ask.png)
@@ -51,6 +51,7 @@ documents, and as a worked example of taking RAG from prototype to an engineered
 | Grounded answers from Claude with native citations | **Implemented, not verified live**: tested offline against a fake client; the paid evaluation hasn't run |
 | Declining on-topic questions the documents can't answer; resisting a planted prompt injection | **Not verified**: both depend on Claude and are what the pending paid evaluation measures |
 | A web interface: upload and manage documents, ask, read streamed answers, open each source's passage | **Implemented and verified**: 33 component tests, and a walkthrough in a real browser against a real server. On `main`, in the next release |
+| PostgreSQL with pgvector, alongside SQLite, for several instances | **Implemented and verified**: the whole suite and the retrieval gate run on both databases in CI; same retrieval quality, measured. On `main`, in the next release |
 | Accounts and per-user isolation: sign-in, sessions, personal API tokens, and every document, search and answer limited to its owner | **Implemented and verified**: 47 tests, including every document route called as another user and each search asked directly; the filters were broken on purpose to check the tests fail. On `main`, in the next release; still on SQLite |
 
 ## Architecture
@@ -311,7 +312,7 @@ vulnerabilities privately: [SECURITY.md](SECURITY.md).
 
 1. The first paid Claude evaluation, focused on on-topic unanswerable questions and the
    planted injection (prepared and approved; waiting for API credit).
-2. PostgreSQL with pgvector, so more than one instance can serve.
+2. An approximate vector index on PostgreSQL, for libraries past about 30,000 chunks.
 3. The v1.0 release.
 
 The phase-by-phase plan is in [docs/roadmap.md](docs/roadmap.md); decisions and their

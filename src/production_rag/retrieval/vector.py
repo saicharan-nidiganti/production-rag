@@ -13,11 +13,22 @@ import threading
 
 import numpy as np
 import numpy.typing as npt
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from production_rag.db.engine import is_postgres
 from production_rag.db.models import Chunk, Document, IndexState
+from production_rag.db.types import vector_literal
 from production_rag.embeddings import Vector, from_blob
+
+_POSTGRES_SEARCH = (
+    "SELECT chunks.id AS id, -(chunks.embedding <#> CAST(:query AS vector)) AS score "
+    "FROM chunks JOIN documents ON documents.id = chunks.document_id "
+    "WHERE chunks.embedding_model = :model {owner}"
+    "ORDER BY chunks.embedding <#> CAST(:query AS vector), chunks.id LIMIT :k"
+)
+_POSTGRES_ANY_OWNER = _POSTGRES_SEARCH.format(owner="")
+_POSTGRES_ONE_OWNER = _POSTGRES_SEARCH.format(owner="AND documents.owner_id = :owner ")
 
 
 class VectorIndex:
@@ -63,6 +74,8 @@ class VectorIndex:
     ) -> list[tuple[int, float]]:
         """The ``k`` nearest chunks. With ``owner``, only that owner's chunks are scored at
         all: another owner's can't be returned, ranked against, or leak through a score."""
+        if is_postgres(session):
+            return self._postgres_search(session, query, k, owner)
         ids, matrix, rows_of = self._refresh(session)
         if owner is not None:
             rows = rows_of.get(owner)
@@ -76,3 +89,22 @@ class VectorIndex:
         top = np.argpartition(-scores, k - 1)[:k]
         top = top[np.argsort(-scores[top], kind="stable")]
         return [(int(ids[i]), float(scores[i])) for i in top]
+
+    def _postgres_search(
+        self, session: Session, query: Vector, k: int, owner: str | None
+    ) -> list[tuple[int, float]]:
+        """The same exact search, run by pgvector. Embeddings are unit vectors, so the inner
+        product is the cosine; ``<#>`` is its negative, which sorts nearest first. Nothing
+        is cached in this process, so every instance sees the same index at once."""
+        parameters: dict[str, object] = {
+            "query": vector_literal(query),
+            "model": self.model_id,
+            "k": k,
+        }
+        if owner is None:
+            statement = _POSTGRES_ANY_OWNER
+        else:
+            statement = _POSTGRES_ONE_OWNER
+            parameters["owner"] = owner
+        rows = session.execute(text(statement), parameters).all()
+        return [(int(row.id), float(row.score)) for row in rows]

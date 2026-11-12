@@ -19,7 +19,7 @@ flowchart LR
     class data store
 ```
 
-- **One application instance per database.** SQLite allows a single writer, so the app runs
+- **One application instance per SQLite database.** SQLite allows a single writer, so the app runs
   on one machine: one container, or one `rag serve` or `uvicorn` process group.
 - **A reverse proxy** terminates TLS, caps request bodies, rate-limits across processes and
   must pass `POST /v1/query/stream` through unbuffered ([Streaming](#streaming)).
@@ -238,6 +238,9 @@ the last column give the same signal.
 
 ## Backups
 
+On PostgreSQL, back up with `pg_dump` or the provider's snapshots; this section is about
+the SQLite file.
+
 The database is one SQLite file in WAL mode, and the only copy of the extracted text and
 the ingestion state. Copying the file alone can miss what is still in the write-ahead log, so
 use `rag db backup`, which copies it with SQLite's backup API while the service runs:
@@ -269,6 +272,38 @@ stored uploads, that nobody has retried for 30 days; add `--dry-run` to list the
 both commands from a scheduler, such as cron or a Kubernetes CronJob.
 [data-lifecycle.md](data-lifecycle.md) covers what each piece of data is, how long it is
 kept, how to rebuild it and the recovery procedure for each kind of failure.
+
+## PostgreSQL
+
+SQLite is the default and the fastest choice for one instance. Use PostgreSQL (16 or later,
+with pgvector 0.6 or later) to run several instances against one database, or to use the
+backups and operations a team already has for it
+([ADR-0013](decisions/0013-postgresql-with-pgvector.md)).
+
+```bash
+uv sync --frozen --extra postgres            # pg8000; the container image includes it
+# once, as a superuser: the migrations create the extension
+psql -c "CREATE DATABASE rag" -c "CREATE ROLE rag LOGIN PASSWORD '...'" \
+     -c "ALTER DATABASE rag OWNER TO rag"
+psql -d rag -c "CREATE EXTENSION IF NOT EXISTS vector"
+export RAG_DATABASE_URL=postgresql+pg8000://rag:...@db.internal:5432/rag
+rag db upgrade
+```
+
+- **Evaluation and the benchmark** create a throwaway database on the same server and drop
+  it afterwards. Their role needs `CREATEDB`; run them with a separate role, not the
+  service's.
+- **Backups**: use `pg_dump` and `pg_restore`, or your provider's snapshots. `rag db backup`,
+  `verify` and `restore` work on SQLite files and say so on PostgreSQL.
+- **Several instances** can share the database: the queue's claims are transactions, so a
+  document is processed once. Rate limits and the failed sign-in lockout are still per
+  process; enforce limits at the load balancer too.
+- **Speed**: each search is a query to the server. Measured at 10,000 chunks, retrieval p95
+  was 95 ms, against 13 ms on SQLite in one process ([performance.md](performance.md)).
+  Searches are exact and scan all of an owner's chunks; plan an approximate index past
+  about 30,000 chunks per owner.
+- **Moving from SQLite**: upload the documents again into the PostgreSQL deployment. There is
+  no copy tool between the two.
 
 ## Accounts
 

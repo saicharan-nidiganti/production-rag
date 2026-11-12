@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 
+import pytest
 from alembic import command
 from sqlalchemy import select, text
 
@@ -121,6 +122,7 @@ def test_the_migration_keeps_a_matching_copy_of_the_key_function() -> None:
         assert frozen(*args) == chunk_key(*args)
 
 
+@pytest.mark.sqlite_only  # a migration of rows written by an earlier SQLite schema
 def test_upgrading_backfills_keys_for_existing_chunks(settings: Settings) -> None:
     config = alembic_config(settings.database_url)
     command.upgrade(config, "0002")

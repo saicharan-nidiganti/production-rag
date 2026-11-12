@@ -28,11 +28,11 @@ WORKDIR /app
 # Dependencies first, so this layer is reused until uv.lock changes.
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --extra local-embeddings --no-install-project
+    uv sync --frozen --no-dev --extra local-embeddings --extra postgres --no-install-project
 COPY README.md LICENSE ./
 COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --extra local-embeddings --no-editable
+    uv sync --frozen --no-dev --extra local-embeddings --extra postgres --no-editable
 
 
 FROM python:3.12-slim

@@ -23,6 +23,9 @@ dependencies = [
 [project.optional-dependencies]
 # Semantic embeddings via ONNX models (downloaded from Hugging Face on first use).
 local-embeddings = ["fastembed>=0.4"]
+postgres = [
+    "pg8000>=1.31",
+]
 
 [project.scripts]
 rag = "production_rag.cli:main"
@@ -49,6 +52,7 @@ addopts = "-ra --strict-markers"
 markers = [
     "live: needs network (model downloads); skipped unless RAG_RUN_LIVE_TESTS=1",
     "paid: spends money (Claude API); skipped unless RAG_RUN_PAID_TESTS=1",
+    "sqlite_only: tests SQLite itself; skipped when RAG_TEST_POSTGRES_URL selects PostgreSQL",
 ]
 filterwarnings = ["error::DeprecationWarning:production_rag.*"]
 

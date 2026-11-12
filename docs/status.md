@@ -41,6 +41,27 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 
 ## Session log
 
+### Session 20 — PostgreSQL with pgvector (2026-11-12)
+
+- The owner installed PostgreSQL 16 and pgvector 0.6 in WSL and created a development
+  role. PostgreSQL works alongside SQLite, chosen by `RAG_DATABASE_URL`
+  ([ADR-0013](decisions/0013-postgresql-with-pgvector.md)).
+- The driver is pg8000 (BSD-3-Clause): psycopg 3 was tried and dropped, because LGPL is
+  outside the licence policy.
+- The suite runs on both databases (`RAG_TEST_POSTGRES_URL`): 762 tests on SQLite, 726 on
+  PostgreSQL, with 39 tests of SQLite itself skipped there. Running it found a
+  71-character DOCX media type in a 64-character column, which SQLite had silently
+  accepted.
+- Retrieval quality was measured before calling the two equivalent: hit rate 0.961 on
+  PostgreSQL against 0.947 on SQLite, 3 of 94 questions ranked differently.
+  `ts_rank` replaced `ts_rank_cd` after the same evaluation showed no difference and a
+  30% faster query. A guess that out-of-line vector storage slowed vector search was
+  tested and was wrong.
+- At 10,000 chunks: retrieval p95 95 ms on PostgreSQL against 13 ms on SQLite, within
+  the 300 ms target. Searches are exact; an approximate index is the next step for
+  large libraries.
+- CI gains a `postgres` job against a pgvector 0.8.6 service container.
+
 ### Session 19 — Accounts and per-user isolation (2026-11-12)
 
 - The owner approved Phase 3. PostgreSQL isn't installed in WSL and installing it needs the

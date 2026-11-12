@@ -12,6 +12,13 @@ record. Detailed per-session notes and verification results are in
 
 ### Added
 
+- **PostgreSQL with pgvector**, alongside SQLite: set `RAG_DATABASE_URL` to
+  `postgresql+pg8000://...` and install the `postgres` extra (pg8000, BSD-3-Clause); the
+  image includes it. Vector search runs in the database with pgvector, keyword search with
+  a generated `tsvector` column and `ts_rank`, both with the owner filter in the same
+  statement. Evaluation and the benchmark run on the configured kind of database. The
+  suite and the retrieval gate run on both databases in CI
+  ([ADR-0013](docs/decisions/0013-postgresql-with-pgvector.md)).
 - **Accounts and per-user isolation** (FR-1, NFR-1), with `RAG_ACCOUNTS_ENABLED=true`
   ([ADR-0012](docs/decisions/0012-accounts-and-per-user-isolation.md)). Users sign in with
   an email address and password (Argon2id) and get an `HttpOnly`, `SameSite=Strict` session

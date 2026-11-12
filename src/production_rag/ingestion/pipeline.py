@@ -41,6 +41,10 @@ from production_rag.parsing.isolation import ParseFailedError, ParseTimeoutError
 
 logger = logging.getLogger(__name__)
 
+# The width of the title and heading columns. PostgreSQL refuses a longer value, where
+# SQLite would store it.
+MAX_LABEL = 512
+
 _EMBED_BATCH = 64  # chunks embedded between lease renewals
 
 
@@ -311,7 +315,7 @@ class IngestionService:
                     self._chunk(claim.document_id, content_hash, i, span, vectors[i])
                     for i, span in enumerate(spans)
                 ],
-                title=extracted.title,
+                title=extracted.title[:MAX_LABEL],
                 content_type=extracted.content_type,
                 text=extracted.text,
                 # Lineage: what produced these chunks. The embedding model is recorded per
@@ -406,7 +410,7 @@ class IngestionService:
             text=span.text,
             start_char=span.start,
             end_char=span.end,
-            heading=span.heading,
+            heading=span.heading[:MAX_LABEL] if span.heading else span.heading,
             page=span.page,
             embedding=embedding,
             embedding_model=self._embedder.model_id,

@@ -7,8 +7,10 @@ rebuilt, and how to back up, verify, restore and delete it. The commands are `ra
 
 ## Data inventory
 
-Everything the service writes lives in one SQLite file (ADR-0002), except the downloaded
-models, logs and metrics.
+Everything the service writes lives in one database, except the downloaded models, logs and
+metrics: a SQLite file by default, or PostgreSQL ([ADR-0013](decisions/0013-postgresql-with-pgvector.md)).
+The backup, verify and restore commands below are for SQLite; on PostgreSQL, use `pg_dump`,
+`pg_restore` and the server's own integrity tools.
 
 | Data | Where | Class | Kept | Rebuilt from | In a backup |
 | --- | --- | --- | --- | --- | --- |

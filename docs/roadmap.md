@@ -71,7 +71,7 @@ the item notes the proposed decision.
 - [x] User accounts and session authentication — Argon2id passwords, cookie sessions with CSRF tokens, personal API tokens, administrators ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md))
 - [x] Server-side document ownership checks on every endpoint
 - [x] Cross-tenant isolation test suite — `tests/integration/test_isolation.py`, checked by breaking the filters on purpose
-- [ ] PostgreSQL with pgvector — accounts run on SQLite today; the schema is portable
+- [x] PostgreSQL with pgvector — alongside SQLite, chosen by `RAG_DATABASE_URL`; the suite and the retrieval gate run on both in CI ([ADR-0013](decisions/0013-postgresql-with-pgvector.md))
 - [x] Rate limiting and upload hardening — size and page limits, parsing in an isolated, resource-limited process ([ADR-0007](decisions/0007-isolated-document-parsing.md)), and per-client rate limits, kept per process until a shared store exists
 - [ ] Security review
 

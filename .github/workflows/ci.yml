@@ -128,6 +128,45 @@ jobs:
             --format requirements-txt -o "$RUNNER_TEMP/requirements.txt"
           uvx pip-audit@2.10.1 -r "$RUNNER_TEMP/requirements.txt" --disable-pip --no-deps --strict
 
+  postgres:
+    name: Tests and retrieval gate on PostgreSQL (pgvector)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.6-pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_DB: rag
+          POSTGRES_HOST_AUTH_METHOD: trust # a throwaway server, reachable only by this job
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rag" --health-interval 5s --health-timeout 5s
+          --health-retries 12
+    env:
+      # Each test creates its own database on this server and drops it afterwards.
+      RAG_TEST_POSTGRES_URL: postgresql+pg8000://rag@127.0.0.1:5432/rag
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install
+        run: make install
+
+      # Tests of SQLite itself (file backups, FTS5) are skipped; everything else runs here.
+      - name: Tests against PostgreSQL
+        run: uv run python -m pytest -q
+
+      - name: Retrieval regression gate on PostgreSQL
+        env:
+          RAG_DATABASE_URL: postgresql+pg8000://rag@127.0.0.1:5432/rag
+          RAG_EMBEDDING_PROVIDER: hashing
+          RAG_RERANKER: none
+        run: uv run rag eval --thresholds eval/thresholds.json
+
   web:
     name: Web interface (lint, types, tests, build)
     runs-on: ubuntu-latest

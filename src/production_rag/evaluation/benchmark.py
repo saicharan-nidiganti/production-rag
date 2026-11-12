@@ -44,11 +44,12 @@ from typing import Any
 import httpx
 from prometheus_client.parser import text_string_to_metric_families
 from pydantic import SecretStr
+from sqlalchemy import text
 
 from production_rag import __version__
 from production_rag.config import Settings
 from production_rag.container import Container, build_container
-from production_rag.db.migrate import upgrade_to_head
+from production_rag.db.scratch import scratch_database
 from production_rag.evaluation.dataset import EvalCase, load_dataset
 from production_rag.evaluation.perfgate import summarize
 from production_rag.evaluation.plan import PRICES_PER_MTOK
@@ -97,9 +98,10 @@ def run(
     if not cases:
         raise BenchmarkError(f"no questions in {options.dataset}")
 
-    with tempfile.TemporaryDirectory(prefix="rag-bench-", ignore_cleanup_errors=True) as tmp:
-        url = f"sqlite:///{(Path(tmp) / 'bench.db').as_posix()}"
-        upgrade_to_head(url)
+    with (
+        tempfile.TemporaryDirectory(prefix="rag-bench-", ignore_cleanup_errors=True) as tmp,
+        scratch_database(settings.database_url) as url,
+    ):
         bench = settings.model_copy(update={"database_url": url, "ingest_workers": 0})
         container = build_container(bench)
         config = _config(settings, container)
@@ -108,7 +110,7 @@ def run(
             progress(f"ingesting to {options.chunks:,} chunks")
             ingestion = _ingest(container, corpus_files, options)
             pdf = _pdf(container, options) if options.pdf_pages else None
-            ingestion.update(_database_size(Path(tmp) / "bench.db", ingestion["chunks"]))
+            ingestion.update(_database_size(container, ingestion["chunks"]))
             progress(f"answering {len(cases)} questions x {options.repeat}")
             query, query_rows, tokens = _questions(container, cases, options)
             streams = _streams(container, cases, options)
@@ -258,7 +260,12 @@ def _pdf(container: Container, options: BenchOptions) -> dict[str, Any]:
     }
 
 
-def _database_size(path: Path, chunks: int) -> dict[str, Any]:
+def _database_size(container: Container, chunks: int) -> dict[str, Any]:
+    if container.engine.dialect.name == "postgresql":
+        with container.engine.connect() as pg:
+            size = int(pg.execute(text("SELECT pg_database_size(current_database())")).scalar_one())
+        return {"database_bytes": size, "bytes_per_chunk": round(size / max(chunks, 1))}
+    path = Path(str(container.engine.url.database))
     with sqlite3.connect(path) as conn:
         conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
     conn.close()
@@ -563,6 +570,7 @@ def environment() -> dict[str, Any]:
 
 def _config(settings: Settings, container: Container) -> dict[str, Any]:
     return {
+        "database": container.engine.dialect.name,
         "embedding_model": container.embedder.model_id,
         "reranker": settings.reranker,
         "rerank_candidates": settings.rerank_candidates if settings.reranker != "none" else None,

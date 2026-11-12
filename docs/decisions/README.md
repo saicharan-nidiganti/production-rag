@@ -27,6 +27,7 @@ ADRs document important technical decisions, including:
 | [0010](0010-streaming-answers-over-sse.md) | Stream answers over Server-Sent Events | Accepted |
 | [0011](0011-web-interface-served-by-the-backend.md) | A web interface served by the backend, on the same origin | Accepted |
 | [0012](0012-accounts-and-per-user-isolation.md) | Accounts, sessions and per-user isolation | Accepted |
+| [0013](0013-postgresql-with-pgvector.md) | PostgreSQL with pgvector, alongside SQLite | Accepted |
 
 Open decisions that these ADRs depend on are tracked in
 [status.md](../status.md#open-decisions).

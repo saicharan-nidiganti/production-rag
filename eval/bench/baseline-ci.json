@@ -14,6 +14,7 @@
     "git_commit": "bfebbdd86e52416f113d5737f5fa3897bcf8edb2"
   },
   "config": {
+    "database": "sqlite",
     "embedding_model": "hashing-v1-d512",
     "reranker": "none",
     "rerank_candidates": null,

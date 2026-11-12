@@ -24,6 +24,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+from production_rag.db.types import Embedding
+
 # queued -> processing -> ready | failed. Only ready documents have chunks.
 DocumentStatus = Literal["queued", "processing", "ready", "failed"]
 Role = Literal["admin", "user"]
@@ -50,7 +52,8 @@ class Document(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     source_name: Mapped[str] = mapped_column(String(512))
     title: Mapped[str] = mapped_column(String(512))
-    content_type: Mapped[str] = mapped_column(String(64))
+    # 255 on PostgreSQL, which enforces lengths: a DOCX's media type alone is 71 characters.
+    content_type: Mapped[str] = mapped_column(String(64).with_variant(String(255), "postgresql"))
     content_hash: Mapped[str] = mapped_column(String(64))
     # The user the document belongs to; SHARED_OWNER while accounts are off. Every query
     # that reads documents or chunks filters on it (NFR-1).
@@ -122,7 +125,7 @@ class Chunk(Base):
     end_char: Mapped[int] = mapped_column(Integer)
     heading: Mapped[str | None] = mapped_column(String(512), nullable=True)
     page: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    embedding: Mapped[bytes] = mapped_column(LargeBinary)
+    embedding: Mapped[bytes] = mapped_column(Embedding)  # float32 bytes; see db/types.py
     embedding_model: Mapped[str] = mapped_column(String(128), index=True)
 
     document: Mapped[Document] = relationship(back_populates="chunks")

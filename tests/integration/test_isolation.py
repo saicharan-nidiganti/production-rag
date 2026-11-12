@@ -20,8 +20,7 @@ from production_rag.api.security import SESSION_COOKIE
 from production_rag.cli import main
 from production_rag.config import ConfigurationError, Settings, get_settings
 from production_rag.container import Container
-from production_rag.db import maintenance
-from tests.conftest import CORPUS_DIR
+from tests.conftest import CORPUS_DIR, verify_storage
 
 PASSWORD = "correct horse battery"
 RUNBOOK = (CORPUS_DIR / "deployment-runbook.md").read_bytes()
@@ -264,8 +263,7 @@ def test_an_administrator_creates_disables_and_deletes_users(
     assert bob.get("/v1/documents").status_code == 401  # signed out at once
 
     assert ada.delete(f"/v1/users/{bob_id}").status_code == 204
-    database = maintenance.database_file(site.container.settings.database_url)
-    assert maintenance.verify(database).ok  # his documents and chunks went with him
+    verify_storage(site.container)  # his documents and chunks went with him
     assert site.container.documents.get(document["id"]) is None
 
 
@@ -424,7 +422,7 @@ def test_the_same_file_is_a_separate_document_for_each_user(
     assert ada.delete(f"/v1/documents/{hers}").status_code == 204
     assert bob.get(f"/v1/documents/{his}").json()["status"] == "ready"
     assert bob.post("/v1/search", json={"query": "canary", "mode": "hybrid"}).json()["hits"]
-    assert maintenance.verify(maintenance.database_file(site.container.settings.database_url)).ok
+    verify_storage(site.container)
 
 
 def test_a_small_library_isnt_crowded_out_by_a_large_one(ada: TestClient, bob: TestClient) -> None:

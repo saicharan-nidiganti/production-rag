@@ -244,3 +244,10 @@ def test_evaluation_never_touches_the_configured_database(tmp_path: Path) -> Non
     report = run_evaluation(settings, corpus_dir=CORPUS_DIR, dataset_path=DATASET, split="dev")
     assert report["corpus"]["documents"] == 9  # it built its own index...
     assert not production_db.exists()  # ...in a temporary database, not this one
+
+
+def test_the_database_password_is_redacted_like_the_keys() -> None:
+    password = "p" * 12  # obviously made up
+    url = f"postgresql+pg8000://rag:{password}@db.internal/rag"
+    assert password in Settings(_env_file=None, database_url=url).secret_values()  # type: ignore[call-arg]
+    assert Settings(_env_file=None).secret_values() == []  # type: ignore[call-arg]

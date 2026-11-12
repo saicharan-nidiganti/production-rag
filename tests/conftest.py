@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import logging
 import os
+import re
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 
 from production_rag.api import create_app
 from production_rag.config import Settings, get_settings
@@ -15,6 +19,10 @@ from production_rag.db.migrate import upgrade_to_head
 from production_rag.retrieval import RetrievedChunk
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+# Set to a PostgreSQL server's URL (for example
+# postgresql+pg8000://user:password@127.0.0.1:5432/postgres) to run the suite against
+# PostgreSQL instead of SQLite. Each test gets its own empty database, dropped afterwards.
+POSTGRES_URL = os.environ.get("RAG_TEST_POSTGRES_URL")
 CORPUS_DIR = REPO_ROOT / "eval" / "corpus"
 DATASET = REPO_ROOT / "eval" / "golden_v2.jsonl"
 DATASET_V1 = REPO_ROOT / "eval" / "golden_v1.jsonl"
@@ -30,6 +38,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             item.add_marker(skip_paid)
         elif "live" in item.keywords and not run_live:
             item.add_marker(skip_live)
+        if POSTGRES_URL and item.get_closest_marker("sqlite_only"):
+            item.add_marker(pytest.mark.skip(reason="tests SQLite itself: files, FTS5, backups"))
 
 
 @pytest.fixture(autouse=True)
@@ -53,8 +63,20 @@ def _isolate_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Ite
 
 
 @pytest.fixture
-def db_url(tmp_path: Path) -> str:
-    return f"sqlite:///{(tmp_path / 'test.db').as_posix()}"
+def db_url(tmp_path: Path) -> Iterator[str]:
+    if not POSTGRES_URL:
+        yield f"sqlite:///{(tmp_path / 'test.db').as_posix()}"
+        return
+    name = f"ragtest_{uuid.uuid4().hex}"
+    admin = create_engine(POSTGRES_URL, isolation_level="AUTOCOMMIT")
+    try:
+        with admin.connect() as conn:
+            conn.execute(text(f"CREATE DATABASE {name}"))
+        yield make_url(POSTGRES_URL).set(database=name).render_as_string(hide_password=False)
+    finally:
+        with admin.connect() as conn:
+            conn.execute(text(f"DROP DATABASE IF EXISTS {name} WITH (FORCE)"))
+        admin.dispose()
 
 
 @pytest.fixture
@@ -86,6 +108,26 @@ def corpus_container(container: Container) -> Container:
 def client(container: Container) -> Iterator[TestClient]:
     with TestClient(create_app(container=container)) as test_client:
         yield test_client
+
+
+def run_sql(container: Container, statement: str, *params: object) -> list[tuple[object, ...]]:
+    """Run raw SQL with ``?`` placeholders on the test's database, SQLite or PostgreSQL."""
+    names = iter(f"p{i}" for i in range(len(params)))
+    bound = re.sub(r"\?", lambda _: f":{next(names)}", statement)
+    with container.engine.begin() as conn:
+        result = conn.execute(text(bound), {f"p{i}": value for i, value in enumerate(params)})
+        return [tuple(row) for row in result] if result.returns_rows else []
+
+
+def verify_storage(container: Container) -> None:
+    """On SQLite, check the file's invariants (nothing orphaned, indexes in step). PostgreSQL
+    enforces its foreign keys itself and has no separate search index to drift."""
+    if POSTGRES_URL:
+        return
+    from production_rag.db import maintenance
+
+    report = maintenance.verify(maintenance.database_file(container.settings.database_url))
+    assert report.ok, report.as_dict()
 
 
 def make_chunk(

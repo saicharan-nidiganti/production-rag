@@ -13,8 +13,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from production_rag.container import Container
-from production_rag.db import maintenance as m
 from production_rag.ingestion import DocumentStateError, ReplacedDocumentNotFoundError
+from tests.conftest import verify_storage
 
 V1 = b"# Deployment\n\n## Canary\n\nThe canary receives 5% of traffic for 30 minutes.\n"
 V2 = b"# Deployment\n\n## Canary\n\nThe canary receives 10% of traffic for 45 minutes.\n"
@@ -46,7 +46,7 @@ def test_the_old_version_is_searched_until_the_new_one_is_ready(container: Conta
     replacement = container.documents.get(v2.id)
     assert replacement is not None and replacement.replaces_id == v1  # kept as lineage
     assert found(container) == {v2.id}
-    assert m.verify(m.database_file(container.settings.database_url)).ok  # nothing orphaned
+    verify_storage(container)  # nothing orphaned
 
 
 def test_a_failed_new_version_leaves_the_old_one(container: Container) -> None:

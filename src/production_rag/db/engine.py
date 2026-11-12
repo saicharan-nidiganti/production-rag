@@ -6,17 +6,28 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Engine, create_engine, event
+from sqlalchemy import Connection, Engine, create_engine, event
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 
+def is_postgres(bind: Engine | Connection | Session) -> bool:
+    """True when the code is talking to PostgreSQL, where both searches run as SQL."""
+    engine = bind.get_bind() if isinstance(bind, Session) else bind
+    return engine.dialect.name == "postgresql"
+
+
 def create_db_engine(database_url: str) -> Engine:
     url = make_url(database_url)
-    if url.get_backend_name() != "sqlite":
+    backend = url.get_backend_name()
+    if backend == "postgresql":
+        # pool_pre_ping: a connection the server closed (a restart, an idle timeout) is
+        # replaced instead of failing a request. hide_parameters: see below.
+        return create_engine(url, pool_pre_ping=True, hide_parameters=True)
+    if backend != "sqlite":
         raise ValueError(
-            "Only SQLite is supported in this release; "
-            "see docs/decisions/0002-v0-storage-and-scope.md"
+            f"unsupported database {backend!r}: use sqlite:///path or "
+            "postgresql+pg8000://user:password@host/database"
         )
     if url.database and url.database != ":memory:":
         Path(url.database).parent.mkdir(parents=True, exist_ok=True)

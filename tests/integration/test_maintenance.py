@@ -19,6 +19,9 @@ from production_rag.db.migrate import head_revision
 from production_rag.ingestion import ExtractionError
 from tests.conftest import CORPUS_DIR
 
+# Backups, verification and restores work on the SQLite file itself.
+pytestmark = pytest.mark.sqlite_only
+
 RUNBOOK = (CORPUS_DIR / "deployment-runbook.md").read_bytes()
 INCIDENTS = (CORPUS_DIR / "incident-response.md").read_bytes()
 NO_TEXT = b"# Title\n\n## Nothing here\n"
@@ -295,9 +298,11 @@ def test_a_restore_onto_a_new_machine_and_from_an_older_schema(
 
 
 def test_only_sqlite_files_can_be_backed_up() -> None:
-    for url in ("sqlite://", "sqlite:///:memory:", "postgresql://localhost/rag"):
+    for url in ("sqlite://", "sqlite:///:memory:", "mysql://localhost/rag"):
         with pytest.raises(m.MaintenanceError, match="SQLite database file"):
             m.database_file(url)
+    with pytest.raises(m.MaintenanceError, match="pg_dump"):
+        m.database_file("postgresql+pg8000://localhost/rag")  # points at the right tool
 
 
 # --- Retention ---

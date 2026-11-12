@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import subprocess
-import tempfile
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -19,7 +18,7 @@ from typing import Any
 from production_rag import __version__
 from production_rag.config import Settings
 from production_rag.container import Container, build_container
-from production_rag.db.migrate import upgrade_to_head
+from production_rag.db.scratch import scratch_database
 from production_rag.evaluation.dataset import EvalCase, load_dataset
 from production_rag.evaluation.metrics import (
     citation_precision,
@@ -66,6 +65,7 @@ def _git_commit() -> str | None:
 def config_snapshot(container: Container) -> dict[str, Any]:
     s = container.settings
     return {
+        "database": container.engine.dialect.name,
         "embedding_model": container.embedder.model_id,
         "retrieval_mode": s.retrieval_mode,
         "top_k": s.top_k,
@@ -98,10 +98,8 @@ def evaluation_index(
     files = discover_documents(corpus_dir)
     if not files:
         raise ValueError(f"no supported documents found in {corpus_dir}")
-    # ignore_cleanup_errors: on Windows a lingering SQLite handle would otherwise fail the run.
-    with tempfile.TemporaryDirectory(prefix="rag-eval-", ignore_cleanup_errors=True) as tmp:
-        db_url = f"sqlite:///{Path(tmp, 'eval.db').as_posix()}"
-        upgrade_to_head(db_url)
+    # A throwaway database of the configured kind, so PostgreSQL is evaluated on PostgreSQL.
+    with scratch_database(settings.database_url) as db_url:
         container = build_container(
             settings.model_copy(update={"database_url": db_url}), generator=generator
         )

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sqlite3
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -16,8 +15,7 @@ from production_rag.accounts import (
     normalize_email,
 )
 from production_rag.container import Container
-from production_rag.db import maintenance
-from tests.conftest import CORPUS_DIR
+from tests.conftest import CORPUS_DIR, run_sql
 
 PASSWORD = "correct horse battery"
 RUNBOOK = (CORPUS_DIR / "deployment-runbook.md").read_bytes()
@@ -28,12 +26,7 @@ def accounts(container: Container) -> AccountService:
     return container.accounts
 
 
-def raw(container: Container, statement: str, *params: object) -> list[tuple[object, ...]]:
-    path = maintenance.database_file(container.settings.database_url)
-    with sqlite3.connect(path) as conn:
-        rows = conn.execute(statement, params).fetchall()
-    conn.close()
-    return rows
+raw = run_sql
 
 
 # --- Users and passwords ---
@@ -129,7 +122,7 @@ def test_sessions_end_on_sign_out_expiry_disabling_and_a_password_change(
     assert accounts.resolve_session(token) is None
 
     token, _, _ = accounts.start_session(user)
-    raw(container, "UPDATE auth_sessions SET expires_at = '2020-01-01 00:00:00.000000'")
+    raw(container, "UPDATE auth_sessions SET expires_at = '2020-01-01 00:00:00'")
     assert accounts.resolve_session(token) is None
     accounts.start_session(user)  # starting one clears expired rows
     assert raw(container, "SELECT COUNT(*) FROM auth_sessions") == [(1,)]
@@ -170,7 +163,9 @@ def test_a_token_is_shown_once_stored_as_a_hash_and_can_be_revoked(
     principal = accounts.resolve_token(token)
     assert principal is not None and principal.user_id == ada.id and principal.via == "token"
     assert principal.csrf_token is None
-    assert raw(container, "SELECT last_used_at IS NOT NULL FROM api_tokens") == [(1,)]
+    assert raw(container, "SELECT COUNT(*) FROM api_tokens WHERE last_used_at IS NOT NULL") == [
+        (1,)
+    ]
 
     assert accounts.resolve_token(token + "x") is None
     assert accounts.resolve_token("not-one-of-ours") is None

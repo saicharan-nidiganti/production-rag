@@ -64,7 +64,8 @@ src/production_rag/
   config.py          Settings (RAG_* environment variables, .env)
   observability.py   JSON logging, request-id context, stage timer
   text.py            tokenization shared by embeddings, lexical search, evaluation
-  db/                SQLAlchemy models, engine, Alembic migrations (single source of schema truth),
+  db/                SQLAlchemy models, engine (SQLite or PostgreSQL), Alembic migrations (single
+                     source of schema truth), scratch databases for evaluation,
                      document queries (documents.py), backups, verification and restores
                      (maintenance.py)
   embeddings.py      Embedder protocol: hashing and fastembed providers

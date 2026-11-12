@@ -10,6 +10,9 @@ from production_rag.db import create_db_engine
 from production_rag.db.migrate import alembic_config, current_revision, head_revision, is_at_head
 from production_rag.db.models import Base
 
+# These check SQLite's schema: FTS5, its triggers, in-place column changes.
+pytestmark = pytest.mark.sqlite_only
+
 
 def test_upgrade_creates_schema_fts_and_triggers(migrated_settings: Settings) -> None:
     engine = create_db_engine(migrated_settings.database_url)

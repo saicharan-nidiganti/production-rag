@@ -8,9 +8,12 @@ Create Date: 2026-10-28
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 import sqlalchemy as sa
 from alembic import op
+
+from production_rag.db.types import PgVector
 
 revision: str = "0001"
 down_revision: str | None = None
@@ -20,13 +23,23 @@ depends_on: str | Sequence[str] | None = None
 _BUMP_GENERATION = "UPDATE index_state SET generation = generation + 1 WHERE id = 1;"
 
 
+def _postgres() -> bool:
+    return op.get_bind().dialect.name == "postgresql"
+
+
 def upgrade() -> None:
+    postgres = _postgres()
+    embedding: sa.types.TypeEngine[Any] = PgVector() if postgres else sa.LargeBinary()
+    if postgres:
+        # Needs a role allowed to create extensions, once per database.
+        op.execute("CREATE EXTENSION IF NOT EXISTS vector")
     op.create_table(
         "documents",
         sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("source_name", sa.String(512), nullable=False),
         sa.Column("title", sa.String(512), nullable=False),
-        sa.Column("content_type", sa.String(64), nullable=False),
+        # SQLite ignores the length; PostgreSQL enforces it, and media types run past 64.
+        sa.Column("content_type", sa.String(255 if postgres else 64), nullable=False),
         sa.Column("content_hash", sa.String(64), nullable=False),
         sa.Column("size_bytes", sa.Integer, nullable=False),
         sa.Column("num_chunks", sa.Integer, nullable=False),
@@ -51,7 +64,7 @@ def upgrade() -> None:
         sa.Column("end_char", sa.Integer, nullable=False),
         sa.Column("heading", sa.String(512), nullable=True),
         sa.Column("page", sa.Integer, nullable=True),
-        sa.Column("embedding", sa.LargeBinary, nullable=False),
+        sa.Column("embedding", embedding, nullable=False),
         sa.Column("embedding_model", sa.String(128), nullable=False),
     )
     op.create_index("ix_chunks_document_id", "chunks", ["document_id"])
@@ -63,6 +76,17 @@ def upgrade() -> None:
         sa.Column("generation", sa.Integer, nullable=False),
     )
     op.execute("INSERT INTO index_state (id, generation) VALUES (1, 0)")
+
+    if postgres:
+        # The same search, the PostgreSQL way: a stored tsvector the database maintains,
+        # with a GIN index. No triggers: vectors are searched in the database too, so
+        # there is no in-process index to tell about changes.
+        op.execute(
+            "ALTER TABLE chunks ADD COLUMN text_search tsvector "
+            "GENERATED ALWAYS AS (to_tsvector('english', text)) STORED"
+        )
+        op.execute("CREATE INDEX ix_chunks_text_search ON chunks USING gin (text_search)")
+        return
 
     # External-content FTS5 index over chunks.text, kept in sync by triggers.
     op.execute(
@@ -97,9 +121,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    for trigger in ("chunks_au", "chunks_ad", "chunks_ai"):
-        op.execute(f"DROP TRIGGER IF EXISTS {trigger}")
-    op.execute("DROP TABLE IF EXISTS chunks_fts")
+    if not _postgres():
+        for trigger in ("chunks_au", "chunks_ad", "chunks_ai"):
+            op.execute(f"DROP TRIGGER IF EXISTS {trigger}")
+        op.execute("DROP TABLE IF EXISTS chunks_fts")
     op.drop_table("index_state")
     op.drop_index("ix_chunks_embedding_model", table_name="chunks")
     op.drop_index("ix_chunks_document_id", table_name="chunks")

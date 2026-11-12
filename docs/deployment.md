@@ -13,7 +13,7 @@ requirements they implement.
 | A managed container service with a persistent volume (one instance) | Works if the volume is a real disk, not a network file share: SQLite needs working file locks | Supported, one instance only |
 | Kubernetes | One replica with a `ReadWriteOnce` volume works; more replicas don't, since they can't share the database | Possible, with no advantage until PostgreSQL |
 | Serverless functions | No persistent local disk; the models take seconds to load on a cold start | Not supported |
-| Several instances behind a load balancer | Needs a shared database, queue and rate-limit store | Planned with PostgreSQL in Phase 5 ([roadmap](roadmap.md)) |
+| Several instances behind a load balancer | Possible on PostgreSQL ([ADR-0013](decisions/0013-postgresql-with-pgvector.md)): the queue and the index are shared. Rate limits and the sign-in lockout stay per process | Supported on PostgreSQL, with limits enforced at the load balancer |
 
 A single instance is a deliberate limit, not an oversight
 ([ADR-0002](decisions/0002-v0-storage-and-scope.md)). Measured on a laptop, one instance

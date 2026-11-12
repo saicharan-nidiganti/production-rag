@@ -59,7 +59,7 @@ parser process. `.env` and key files are git-ignored (`test_secret_files_are_ign
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `RAG_DATABASE_URL` | `sqlite:///data/rag.db` | SQLAlchemy URL. Only SQLite is supported in v0 ([ADR-0002](decisions/0002-v0-storage-and-scope.md)). Parent directories are created. |
+| `RAG_DATABASE_URL` | `sqlite:///data/rag.db` | `sqlite:///path` (parent directories are created), or `postgresql+pg8000://user:password@host:5432/database`, which needs the `postgres` extra and pgvector 0.6 or later on the server ([ADR-0013](decisions/0013-postgresql-with-pgvector.md)). The password is redacted from logs. |
 
 ## Ingestion
 
