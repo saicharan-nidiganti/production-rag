@@ -307,9 +307,11 @@ the maintainer's approval; CI never makes paid calls.
   uploads to trusted users ([ADR-0007](docs/decisions/0007-isolated-document-parsing.md)).
 - **Rate limits are per process.** Several workers multiply them, and a restart resets
   them; rate-limit at the reverse proxy too ([operations.md](docs/operations.md#rate-limits)).
-- **Keyword scores on SQLite count every user's documents.** BM25 weighs a word by how
-  many documents contain it, other users' included, and search results carry that score.
-  No other user's text is ever returned. PostgreSQL's ranking uses no such statistics.
+- **Keyword ranking on SQLite counts every user's documents.** BM25 weighs a word by how
+  many documents contain it, other users' included. That shows in the scores search
+  results carry, and in the order of a user's own results for a query of several words. No
+  other user's text is ever returned. PostgreSQL's ranking uses no such statistics; with
+  accounts on SQLite, the service says so at startup.
 - **Approximate search can miss a passage.** On PostgreSQL with
   `RAG_VECTOR_SEARCH=approximate`, the index returned 0.98 of exact search's top 30 in the
   measurements; it is off by default ([ADR-0014](docs/decisions/0014-approximate-vector-search.md)).

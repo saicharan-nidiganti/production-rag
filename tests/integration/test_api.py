@@ -384,6 +384,21 @@ def test_generation_failures_map_to_http_errors(
         container.close()
 
 
+def test_accounts_on_sqlite_warn_that_keyword_statistics_are_shared(
+    migrated_settings: Settings, caplog: pytest.LogCaptureFixture
+) -> None:
+    """BM25 on SQLite weighs words across every user's documents; PostgreSQL's ranking
+    doesn't. The operator is told at startup, only where it applies."""
+    container = build_container(migrated_settings.model_copy(update={"accounts_enabled": True}))
+    try:
+        with caplog.at_level(logging.WARNING), TestClient(create_app(container=container)):
+            pass
+    finally:
+        container.close()
+    warned = any(r.getMessage() == "startup.shared_keyword_statistics" for r in caplog.records)
+    assert warned == (container.engine.dialect.name == "sqlite")
+
+
 def test_logs_never_contain_questions_or_document_text(
     client: TestClient, caplog: pytest.LogCaptureFixture
 ) -> None:

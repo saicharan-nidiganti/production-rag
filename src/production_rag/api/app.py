@@ -80,6 +80,16 @@ def create_app(settings: Settings | None = None, *, container: Container | None 
                 "startup.lexical_only_embeddings",
                 extra={"hint": "set RAG_EMBEDDING_PROVIDER=fastembed for semantic retrieval"},
             )
+        if settings.accounts_enabled and app.state.container.engine.dialect.name == "sqlite":
+            # FTS5's BM25 weighs words by their frequency across the whole table, every
+            # user's documents included; it can't be scoped to one owner (docs/security.md).
+            logger.warning(
+                "startup.shared_keyword_statistics",
+                extra={
+                    "hint": "keyword ranking on SQLite uses every user's documents' word "
+                    "statistics; use PostgreSQL if users mustn't learn even that"
+                },
+            )
         logger.info(
             "startup.complete",
             extra={

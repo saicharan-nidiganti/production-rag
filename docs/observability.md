@@ -55,6 +55,7 @@ included, as a backstop: no code logs them.
 | --- | --- | --- | --- |
 | `startup.complete` | INFO | The app is ready to serve | `version`, `generator`, `embedding_model`, `auth_enabled`, `ingest_workers`, `rate_limits_per_minute`: the effective configuration, without secrets |
 | `startup.lexical_only_embeddings` | WARNING | Started with the hashing embedder | |
+| `startup.shared_keyword_statistics` | WARNING | Started with accounts on SQLite, where keyword ranking uses every user's documents' word statistics ([security.md](security.md#known-gaps)) | `hint` |
 | `startup.schema_not_at_head` | ERROR | The schema is behind at startup; workers don't start | |
 | `startup.vector_index_missing` | WARNING | Approximate vector search is on, but the model's index is missing or invalid; searches are exact until `rag db create-vector-index` has run | `search`, `pgvector`, `index`, `hint` |
 | `startup.vector_search_unavailable` | ERROR | Approximate vector search is on, but pgvector is older than 0.8: every search would fail, and `/ready` reports 503 | `search`, `error` |

@@ -10,6 +10,13 @@ record. Detailed per-session notes and verification results are in
 
 ## [Unreleased]
 
+### Security
+
+- With accounts on SQLite, the service warns at startup (`startup.shared_keyword_statistics`)
+  that keyword ranking uses every user's documents' word statistics. The known gap now
+  says that it shows in the order of a user's own results, not only in their scores, so
+  hiding scores wouldn't close it; PostgreSQL's ranking doesn't have it.
+
 ## [1.1.0] - 2026-11-12
 
 ### Added
