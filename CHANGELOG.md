@@ -10,6 +10,8 @@ record. Detailed per-session notes and verification results are in
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-12
+
 ### Added
 
 - **Release criteria and an automated release** (`docs/release-criteria.md`,
@@ -103,6 +105,18 @@ record. Detailed per-session notes and verification results are in
   that it becomes ready, ingests, answers with citations and streams, and only
   then publishes it, for every release tag (or by hand for an earlier one).
   Published for 0.2.0 from that release's source.
+
+### Changed
+
+- **Schema revision 0005** (from 0003): document replacement, the account tables and an
+  owner on every document. Run `rag db upgrade` after backing up; existing documents stay in
+  the shared space.
+- **`rag db`** is a group of commands. `rag db upgrade` and `rag db current` work as before.
+- **`rag eval` and `rag bench`** build their throwaway index on the configured kind of
+  database, and record it in their reports.
+- **`/metrics`** is served by default, behind the API key when one is set.
+- **The container image** serves the web interface at `/` and includes the PostgreSQL
+  driver.
 
 ### Security
 
@@ -261,6 +275,7 @@ record. Detailed per-session notes and verification results are in
 - Third-party GitHub Actions are pinned to commit SHAs and kept current by
   Dependabot.
 
-[Unreleased]: https://github.com/saicharan-nidiganti/production-rag/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/saicharan-nidiganti/production-rag/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/saicharan-nidiganti/production-rag/releases/tag/v1.0.0
 [0.2.0]: https://github.com/saicharan-nidiganti/production-rag/releases/tag/v0.2.0
 [0.1.0]: https://github.com/saicharan-nidiganti/production-rag/releases/tag/v0.1.0

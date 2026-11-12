@@ -4,7 +4,10 @@ Last updated: 2026-11-10
 
 ## Current state
 
-**v0 backend: implemented and on `main`.** Background ingestion (PDF, DOCX,
+**v1.0.0, released 2026-11-12.** A web interface, accounts with per-user isolation,
+SQLite or PostgreSQL with pgvector, metrics, backups, a performance gate and an automated
+release checked against [release-criteria.md](release-criteria.md), on top of the v0
+backend: background ingestion (PDF, DOCX,
 HTML, TXT, Markdown) with a status per document, hybrid retrieval (BM25 + vectors with
 RRF) with optional cross-encoder reranking, grounded generation with Claude
 search-result citations, an HTTP API, the `rag` CLI, and an evaluation suite of
@@ -40,6 +43,24 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 | Streaming (FR-9) | Met: `POST /v1/query/stream` (Server-Sent Events) and `rag ask --stream` ([ADR-0010](decisions/0010-streaming-answers-over-sse.md)); verified through the Claude SDK's stream parser with recorded events and a real-server smoke test, not yet live against Claude |
 
 ## Session log
+
+### Session 21 — Release 1.0.0 (2026-11-12)
+
+- The owner chose to release 1.0 now, with the Claude evaluation stated as not measured,
+  rather than wait for API credit.
+- [release-criteria.md](release-criteria.md): 22 criteria, their checks, thresholds
+  from the gate files, and which block. `release.yml` runs each as a step and
+  `scripts/release_checklist.py` decides from fixed rules; a new answer and citation
+  gate (`eval/thresholds.generation.json`) covers the citation code offline.
+- The first dry run passed 21 of 22: markdown lint was reading installed packages. The
+  second found a flaky benchmark test comparing timings and peak memory between two
+  runs in one process; it now compares deterministic metrics. The benchmark's HTTP p99
+  warned at 2.02x the baseline, which doesn't block by design.
+- Version 1.0.0, release notes with the upgrade path from 0.2.0 and the known
+  limitations, and [case-study.md](case-study.md).
+- Dependabot: #46 and #47 were closed by the owner; #48 (ESLint 10) fails CI and should
+  be closed (closing it was blocked by the session's permissions); #45 waits until its
+  CodeQL release is two weeks old.
 
 ### Session 20 — PostgreSQL with pgvector (2026-11-12)
 

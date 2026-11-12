@@ -237,7 +237,7 @@ version and the chunk size and overlap ([data-lifecycle.md](data-lifecycle.md#li
   "id": "37f7f8c9-44cd-463d-ab2d-94778be20085",
   "title": "Public API Usage Limits",
   "num_chunks": 5,
-  "metadata": {"ingested_with": {"version": "0.2.0", "chunk_size": 1000, "chunk_overlap": 150}},
+  "metadata": {"ingested_with": {"version": "1.0.0", "chunk_size": 1000, "chunk_overlap": 150}},
   "status": "ready",
   "error": null,
   "attempts": 1,

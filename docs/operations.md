@@ -59,7 +59,7 @@ pushed: it must become ready, ingest a document, answer with citations and strea
 docker run -d --name rag -p 8000:8000 -v rag-data:/data \
   -e RAG_API_KEY -e ANTHROPIC_API_KEY \
   -e RAG_EMBEDDING_PROVIDER=fastembed -e RAG_RERANKER=fastembed -e RAG_GENERATOR=anthropic \
-  ghcr.io/saicharan-nidiganti/production-rag:0.2.0
+  ghcr.io/saicharan-nidiganti/production-rag:1.0.0
 ```
 
 - It runs `rag serve --migrate`: one process on port 8000, as an unprivileged user
@@ -103,8 +103,8 @@ app enforces the limit too, but only after the body has been received.
 
 To roll back, run the previous version. If the upgrade applied a migration, restore the
 backup from step 2 first with `rag db restore`: there is no `rag db downgrade` command.
-0.1.0 and 0.2.0 share schema revision 0003, so moving between them needs no migration; the
-next release adds 0004.
+0.1.0 and 0.2.0 share schema revision 0003, so moving between them needs no migration.
+1.0.0 adds revisions 0004 and 0005, so returning from 1.0.0 to 0.2.0 means restoring the backup.
 
 ## Sizing
 

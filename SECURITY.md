@@ -3,7 +3,7 @@
 ## Supported versions
 
 Security fixes are made on `main` and shipped in the next release. Only the latest
-release (currently 0.2.x) and `main` are supported; older releases don't receive fixes.
+release (currently 1.0.x) and `main` are supported; older releases don't receive fixes.
 
 ## Reporting a vulnerability
 

@@ -1,9 +1,26 @@
 # Releasing
 
-How a version is cut, and the state of the next one. A release is a signed-off
-commit on `main` with an annotated tag `vX.Y.Z` and a GitHub release whose notes
-come from [CHANGELOG.md](../CHANGELOG.md). The maintainer creates the tag and
-the release; nothing here is automated yet.
+How a version is cut, and the state of each release. From 1.0.0, a release is automated:
+pushing an annotated tag `vX.Y.Z` runs [release.yml](../.github/workflows/release.yml), which
+checks the commit against [release-criteria.md](release-criteria.md) and, if nothing that
+blocks fails, publishes the GitHub release with the package, checksums, build provenance,
+every report and the checklist. The notes come from this page's `vX.Y.Z release notes`
+section. [container.yml](../.github/workflows/container.yml) publishes the image on the same
+tag.
+
+To cut a release:
+
+1. Move the changelog's `[Unreleased]` section to `[X.Y.Z] - date`, with a new empty
+   `[Unreleased]` above it; set the version in `pyproject.toml` and
+   `production_rag.__version__`, and run `uv lock`.
+2. Add a `vX.Y.Z release notes` section here: a block quote whose first bold line is the
+   title, stating what is new, how to upgrade, what was measured and what wasn't.
+3. Commit, push, and wait for CI.
+4. Run the release workflow by hand as a dry run: `gh workflow run release.yml`. Fix
+   anything that fails.
+5. Tag and push: `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`.
+
+The checklist below was the manual process for 0.1.0 and 0.2.0.
 
 ## Checklist
 
@@ -22,6 +39,67 @@ Run against the exact commit to be tagged.
 | 9 | Live-model behaviour is either verified or stated as unverified in the release notes | [evaluation.md](evaluation.md#paid-evaluation-with-claude) |
 | 10 | CHANGELOG: `[Unreleased]` becomes `[X.Y.Z] - date`, with a new empty `[Unreleased]` above it | Edit, commit, wait for CI |
 | 11 | Tag and release | `git tag -a vX.Y.Z -m "..." <commit> && git push origin vX.Y.Z`, then create the GitHub release from the tag with the notes; attach the wheel and sdist from `uv build`. Pushing the tag also builds, tests and publishes the container image ([container.yml](../.github/workflows/container.yml)) |
+
+## v1.0.0: status
+
+The release commit moves the changelog's `[Unreleased]` section to `[1.0.0] - 2026-11-12`
+and adds these notes. The release workflow checks the tagged commit against
+[release-criteria.md](release-criteria.md) and attaches its checklist to the GitHub release.
+Two dry runs on `main` before the release commit passed 21 of 22 criteria, then found two
+problems, both fixed: markdown lint was reading installed packages, and a benchmark test
+compared timings between two runs in one process.
+
+## v1.0.0 release notes
+
+> **Production RAG v1.0.0: accounts, PostgreSQL, a web interface and production operations.**
+>
+> **What's new since 0.2.0**
+>
+> - **A web interface** at `/`: upload and manage documents, ask questions, read answers as
+>   they stream in, and open each numbered source to see its passage highlighted in context.
+> - **Accounts and per-user isolation** (`RAG_ACCOUNTS_ENABLED`): email and password sign-in
+>   (Argon2id), `HttpOnly` cookie sessions with CSRF tokens, personal API tokens and
+>   administrators. Every listing, search, answer and citation is limited to its owner, with
+>   the filter inside both searches.
+> - **PostgreSQL with pgvector**, alongside SQLite, for several instances sharing one
+>   database. The whole suite and the retrieval gate run on both.
+> - **New versions of a document** with `?replaces={id}`, swapped in atomically.
+> - **Operations**: Prometheus metrics at `/metrics`; `rag db backup`, `verify`, `restore`,
+>   `prune` and `rebuild-search-index`; runbooks for incidents.
+> - **A performance benchmark** (`rag bench`) and a gate in CI, at 10,000 chunks.
+> - **Security**: CodeQL, a vulnerability scan, SBOM and provenance for the image, and a
+>   written audit. The image now takes the distribution's security updates at build time.
+> - **An automated release**: this release was checked against 22 criteria by
+>   `release.yml`; the checklist is below.
+>
+> **Upgrading from 0.2.0**: back up first (`rag db backup`). Install 1.0.0, then run
+> `rag db upgrade`: the schema goes from revision 0003 to 0005, adding document
+> replacement, the account tables and an owner on every document. Existing documents stay in
+> the shared space, so nothing changes until you turn accounts on, and with accounts on they
+> aren't visible to anyone. New settings default to the 0.2.0 behaviour. The new routes
+> served by default are `/metrics`, behind the key when one is set
+> (`RAG_METRICS_ENABLED=false` removes it), and, in the container image, the web interface
+> at `/`. `rag eval` and `rag bench` now build their throwaway index on the configured kind
+> of database. To return to 0.2.0, restore the backup taken before the upgrade.
+>
+> **Measured**, on golden v2 (94 questions) and a 10,000-chunk benchmark: retrieval hit rate
+> 0.947 offline on SQLite, 0.961 on PostgreSQL, and 0.987 with bge-small embeddings and
+> reranking. Retrieval p95 is 13 ms on SQLite and 95 ms on PostgreSQL, against a 300 ms
+> target; with reranking on a laptop CPU, 160 ms. The numbers and their environment are in
+> [performance.md](https://github.com/saicharan-nidiganti/production-rag/blob/v1.0.0/docs/performance.md).
+>
+> **Not verified live**: Claude's answers. Declining questions the documents can't answer,
+> resisting a planted prompt injection, and citation quality with a real model are designed
+> for and tested against a fake client and the SDK's own stream parser, but the paid
+> evaluation hasn't run: the Anthropic account has no API credit. This is accepted for 1.0
+> and recorded in the checklist as not measured. The run is prepared:
+> [evaluation.md](https://github.com/saicharan-nidiganti/production-rag/blob/v1.0.0/docs/evaluation.md#paid-evaluation-with-claude).
+>
+> **Known limitations**: no self-service sign-up, password reset by email or second factor;
+> no sharing between users; rate limits and the sign-in lockout are per process; searches are
+> exact, comfortable to about 100,000 chunks per process on SQLite and 30,000 per owner on
+> PostgreSQL; no OCR for scanned PDFs; the parser is isolated but not sandboxed; the web
+> interface hasn't had a WCAG audit; macOS is untested.
 
 ## v0.2.0: status
 

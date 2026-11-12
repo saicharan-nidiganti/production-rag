@@ -10,13 +10,13 @@ A retrieval-augmented question-answering backend that answers from your document
 the exact passages it used, says so when the documents don't contain the answer, and
 measures itself against a versioned evaluation set on every commit.
 
-> **Status: v0.2.0.** The v0 backend works end to end and is checked in CI: background
+> **Status: v1.0.0.** The service works end to end and is checked in CI: background
 > ingestion of five document formats, hybrid retrieval with reranking, cited answers,
 > abstention, streamed answers, per-client rate limits, an HTTP API, a CLI, a container
 > image and evaluation gates. Answers from Claude are implemented but **not yet measured
-> live**: the paid evaluation is approved and waits for API credit. On `main`, not yet
-> released: a web interface, accounts with per-user isolation, PostgreSQL with pgvector,
-> metrics, backups and a performance gate.
+> live**: the paid evaluation is approved and waits for API credit. New in 1.0: a web
+> interface, accounts with per-user isolation, PostgreSQL with pgvector, metrics,
+> backups, a performance gate and an automated, checked release.
 > Details: [docs/status.md](docs/status.md).
 
 ![The web interface: a streamed answer with numbered sources, and the cited passage highlighted in its section](docs/images/web-ask.png)
@@ -39,6 +39,9 @@ gate behind it:
 It is built for teams who want a self-hosted question-answering service over their own
 documents, and as a worked example of taking RAG from prototype to an engineered service.
 
+For the engineering story behind it (decisions, measurements, what testing found) see the
+[case study](docs/case-study.md).
+
 ## What works today
 
 | Capability | State |
@@ -50,9 +53,9 @@ documents, and as a worked example of taking RAG from prototype to an engineered
 | Answers streamed as they are written (`POST /v1/query/stream`, Server-Sent Events; `rag ask --stream`), ending with the same response as `/v1/query` | **Implemented and verified**: tests through the Claude SDK's stream parser with recorded events, and a real-server smoke test in CI; not yet run live against Claude |
 | Grounded answers from Claude with native citations | **Implemented, not verified live**: tested offline against a fake client; the paid evaluation hasn't run |
 | Declining on-topic questions the documents can't answer; resisting a planted prompt injection | **Not verified**: both depend on Claude and are what the pending paid evaluation measures |
-| A web interface: upload and manage documents, ask, read streamed answers, open each source's passage | **Implemented and verified**: 33 component tests, and a walkthrough in a real browser against a real server. On `main`, in the next release |
-| PostgreSQL with pgvector, alongside SQLite, for several instances | **Implemented and verified**: the whole suite and the retrieval gate run on both databases in CI; same retrieval quality, measured. On `main`, in the next release |
-| Accounts and per-user isolation: sign-in, sessions, personal API tokens, and every document, search and answer limited to its owner | **Implemented and verified**: 47 tests, including every document route called as another user and each search asked directly; the filters were broken on purpose to check the tests fail. On `main`, in the next release; still on SQLite |
+| A web interface: upload and manage documents, ask, read streamed answers, open each source's passage | **Implemented and verified**: 37 component tests, and walkthroughs in a real browser against a real server |
+| PostgreSQL with pgvector, alongside SQLite, for several instances | **Implemented and verified**: the whole suite and the retrieval gate run on both databases in CI; same retrieval quality, measured |
+| Accounts and per-user isolation: sign-in, sessions, personal API tokens, and every document, search and answer limited to its owner | **Implemented and verified**: 47 tests, including every document route called as another user and each search asked directly; the filters were broken on purpose to check the tests fail |
 
 ## Architecture
 
@@ -194,7 +197,7 @@ Claude (`ANTHROPIC_API_KEY` required). The models download on first use (about 1
 ### Or run the container image
 
 ```bash
-docker run -p 8000:8000 -v rag-data:/data ghcr.io/saicharan-nidiganti/production-rag:0.2.0
+docker run -p 8000:8000 -v rag-data:/data ghcr.io/saicharan-nidiganti/production-rag:1.0.0
 ```
 
 It applies migrations at start, keeps the database in the `rag-data` volume and runs
@@ -289,7 +292,7 @@ the maintainer's approval; CI never makes paid calls.
 ## Security and limitations
 
 - **A static key is single tenant.** Anyone with `RAG_API_KEY` can read and delete every
-  document. For several people, turn on accounts (on `main`, in the next release): each
+  document. For several people, turn on accounts: each
   user then sees only their own documents. There is no sign-up, password reset by email or
   second factor; an administrator creates users.
 - **Unverified generation.** Claude's citation quality, declining of unanswerable

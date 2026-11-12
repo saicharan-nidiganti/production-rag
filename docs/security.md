@@ -13,8 +13,7 @@ The service runs in one of three modes:
   upload and delete every document. Don't share it between people who shouldn't see each
   other's documents.
 - **Accounts** (`RAG_ACCOUNTS_ENABLED`): each user signs in and reads only their own
-  documents ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)). On `main`, in
-  the next release.
+  documents ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)). Since 1.0.0.
 
 ## Assets and data flows
 
@@ -54,7 +53,7 @@ policy before enabling the Claude generator.
 ## Audit, 2026-11-10
 
 A review of the code, API, configuration, dependencies, image, storage, logging, CI and the
-RAG-specific surfaces before the next release. Each area lists what was checked and the
+RAG-specific surfaces before release 1.0.0. Each area lists what was checked and the
 evidence; the findings follow.
 
 | Area | Checked | Result |
