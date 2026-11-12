@@ -61,6 +61,11 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
   the 300 ms target. Searches are exact; an approximate index is the next step for
   large libraries.
 - CI gains a `postgres` job against a pgvector 0.8.6 service container.
+- The owner republished the 0.2.0 image (run 43168037120): built from the `v0.2.0` source
+  with the current Dockerfile, it passed its checks and scanned with no fixable critical or
+  high vulnerability. `0.2.0`, `0.2` and `latest` now point at `sha256:bb941a4f…`. Before
+  that, a build-only run had failed: the current Dockerfile asked for the `postgres` extra,
+  which 0.2.0 doesn't have; it now uses only the extras the source defines.
 
 ### Session 19 — Accounts and per-user isolation (2026-11-12)
 
