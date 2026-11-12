@@ -24,6 +24,7 @@ import hashlib
 import json
 import logging
 import sqlite3
+import time
 from collections.abc import Iterator
 from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
@@ -31,6 +32,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
 from production_rag import __version__
@@ -374,6 +376,62 @@ def rebuild_search_index(database: Path) -> None:
         conn.execute("UPDATE index_state SET generation = generation + 1 WHERE id = 1")
         conn.commit()
     logger.info("search_index.rebuilt", extra={"file": database.name})
+
+
+def rewrite_search_vectors(
+    database_url: str, *, batch_size: int = 1000, keep_vector_index: bool = False
+) -> dict[str, Any]:
+    """On PostgreSQL, rewrite every chunk so its search vector is stored as migration 0006
+    sets: in the row, not in TOAST storage. Rows written before that migration keep the old
+    layout until rewritten. One short transaction per batch, so the service keeps running;
+    then VACUUM, so the old row versions' space is reused.
+
+    Every rewritten row is also inserted again into each index on the table. For an HNSW
+    index that is slow, so the command refuses while one exists, unless told to go ahead:
+    drop it, rewrite, and build it again (ADR-0015)."""
+    if make_url(database_url).get_backend_name() != "postgresql":
+        raise MaintenanceError("this rewrite is for PostgreSQL; on SQLite, pass the database file")
+    engine = create_engine(database_url, isolation_level="AUTOCOMMIT", hide_parameters=True)
+    try:
+        with engine.connect() as conn:
+            hnsw = conn.execute(
+                text(
+                    "SELECT count(*) FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid "
+                    "WHERE i.indrelid = 'chunks'::regclass AND c.relname LIKE 'ix_chunks_hnsw_%'"
+                )
+            ).scalar_one()
+        if hnsw and not keep_vector_index:
+            raise MaintenanceError(
+                "an HNSW vector index exists, and rewriting every chunk would also re-insert "
+                "each one into it, slowly. Drop it with `rag db drop-vector-index`, run this "
+                "again, then `rag db create-vector-index`; or pass --keep-vector-index"
+            )
+        start = time.perf_counter()
+        rewritten, after = 0, 0
+        while True:
+            with engine.begin() as conn:
+                ids = (
+                    conn.execute(
+                        text(
+                            "UPDATE chunks SET text = text WHERE id IN (SELECT id FROM chunks "
+                            "WHERE id > :after ORDER BY id LIMIT :batch) RETURNING id"
+                        ),
+                        {"after": after, "batch": batch_size},
+                    )
+                    .scalars()
+                    .all()
+                )
+            if not ids:
+                break
+            rewritten += len(ids)
+            after = max(ids)
+        with engine.connect() as conn:
+            conn.execute(text("VACUUM (ANALYZE) chunks"))
+        seconds = round(time.perf_counter() - start, 1)
+    finally:
+        engine.dispose()
+    logger.info("search_index.rewritten", extra={"chunks": rewritten, "seconds": seconds})
+    return {"rewritten_chunks": rewritten, "seconds": seconds}
 
 
 # --- Helpers ---

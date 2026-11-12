@@ -105,7 +105,13 @@ To roll back, run the previous version. If the upgrade applied a migration, rest
 backup from step 2 first with `rag db restore`: there is no `rag db downgrade` command.
 0.1.0 and 0.2.0 share schema revision 0003, so moving between them needs no migration.
 1.0.0 adds revisions 0004 and 0005, so returning from 1.0.0 to 0.2.0 means restoring the backup.
-1.1.0 adds no migration.
+1.1.0 adds no migration. The next release adds 0006, which on PostgreSQL keeps each
+chunk's search vector in its row ([ADR-0015](decisions/0015-search-vectors-in-the-row.md)):
+new chunks get that layout at once. To give it to existing chunks as well, run
+`rag db rebuild-search-index` after upgrading. It rewrites the chunks in small batches while
+the service runs; with an HNSW index, drop it first (`rag db drop-vector-index`) and build it
+again afterwards, since every rewritten chunk would otherwise be re-inserted into it. 100,000
+chunks took 24 s.
 
 ## Sizing
 
@@ -303,7 +309,9 @@ rag db upgrade
 - **Speed**: each search is a query to the server. Measured at 10,000 chunks, retrieval p95
   was 95 ms, against 13 ms on SQLite in one process ([performance.md](performance.md)).
   Searches are exact and scan all of an owner's chunks by default; past about 30,000
-  chunks per owner, use [approximate search](#approximate-vector-search).
+  chunks per owner, use [approximate search](#approximate-vector-search). Keyword search
+  costs grow with the number of chunks a question matches; at 100,000 chunks, retrieval
+  p95 was 85 ms with approximate search ([performance.md](performance.md)).
 - **Moving from SQLite**: upload the documents again into the PostgreSQL deployment. There is
   no copy tool between the two.
 

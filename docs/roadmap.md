@@ -98,7 +98,7 @@ the item notes the proposed decision.
 - [x] Add regression evaluation — threshold gate in CI
 - [x] Generate evaluation reports
 - [x] Approximate vector search on PostgreSQL (HNSW), measured against exact search and gated in CI ([ADR-0014](decisions/0014-approximate-vector-search.md))
-- [ ] Faster keyword search on PostgreSQL — with approximate vector search, it is the slower half of retrieval in a large library: about 160 ms at 100,000 chunks
+- [x] Faster keyword search on PostgreSQL — search vectors kept in the row, the same results 3.4 times faster; retrieval p95 at 100,000 chunks 85 ms with approximate search ([ADR-0015](decisions/0015-search-vectors-in-the-row.md))
 - [ ] LLM-as-judge groundedness and answer correctness
 - [ ] Abstention on on-topic unanswerable questions — no retrieval signal separates them; measure Claude's declines, then consider an answerability model
 
@@ -130,6 +130,5 @@ The same list as the [README's roadmap](../README.md#roadmap):
 
 1. The first paid Claude evaluation, focused on on-topic unanswerable questions and the
    planted injection (prepared and approved; waiting for API credit).
-2. Faster keyword search on PostgreSQL.
-3. A larger evaluation set, written by someone other than the corpus's author.
-4. Sign-up with email verification, password reset and a second factor.
+2. A larger evaluation set, written by someone other than the corpus's author.
+3. Sign-up with email verification, password reset and a second factor.

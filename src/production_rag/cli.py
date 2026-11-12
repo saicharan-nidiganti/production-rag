@@ -45,6 +45,12 @@ def cmd_db(args: argparse.Namespace, settings: Settings) -> int:
     try:
         if args.action == "prune":
             return _prune(args, settings)
+        if args.action == "rebuild-search-index" and settings.database_url.startswith("postgresql"):
+            result = m.rewrite_search_vectors(
+                settings.database_url, keep_vector_index=args.keep_vector_index
+            )
+            print(json.dumps({"rebuilt": "search_vectors", **result}))
+            return 0
         database = m.database_file(settings.database_url)
         if args.action == "backup":
             made = m.backup(database, Path(args.output) if args.output else None)
@@ -639,8 +645,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="failed documents not updated for this many days, with their stored uploads",
     )  # fmt: skip
     prune.add_argument("--dry-run", action="store_true", help="list them without deleting")
-    actions.add_parser(
-        "rebuild-search-index", help="rebuild the full-text index from the stored chunks"
+    rebuild = actions.add_parser(
+        "rebuild-search-index",
+        help="rebuild the full-text index from the stored chunks; on PostgreSQL, rewrite the "
+        "chunks so their search vectors are stored in the row",
+    )
+    rebuild.add_argument(
+        "--keep-vector-index",
+        action="store_true",
+        help="PostgreSQL: go ahead although an HNSW index exists (every chunk is re-inserted)",
     )
     create_index = actions.add_parser(
         "create-vector-index",

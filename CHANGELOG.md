@@ -10,6 +10,17 @@ record. Detailed per-session notes and verification results are in
 
 ## [Unreleased]
 
+### Changed
+
+- **Keyword search on PostgreSQL is 3.4 times faster, with the same results**
+  ([ADR-0015](docs/decisions/0015-search-vectors-in-the-row.md)). Each chunk's search vector
+  was stored out of line, because it is larger than the text, so every match cost a lookup;
+  migration 0006 keeps it in the row. At 100,045 chunks, keyword search's p50 went from 172
+  to 51 ms. Retrieval p95 went from 197 to 85 ms with approximate vector search, and from
+  380 to 256 ms with exact search, which now meets the 300 ms target there too. New chunks
+  get the layout at once; `rag db rebuild-search-index` rewrites existing ones on
+  PostgreSQL (drop the HNSW index first, or pass `--keep-vector-index`).
+
 ### Security
 
 - With accounts on SQLite, the service warns at startup (`startup.shared_keyword_statistics`)

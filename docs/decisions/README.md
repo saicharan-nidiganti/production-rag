@@ -29,6 +29,7 @@ ADRs document important technical decisions, including:
 | [0012](0012-accounts-and-per-user-isolation.md) | Accounts, sessions and per-user isolation | Accepted |
 | [0013](0013-postgresql-with-pgvector.md) | PostgreSQL with pgvector, alongside SQLite | Accepted |
 | [0014](0014-approximate-vector-search.md) | Approximate vector search on PostgreSQL with HNSW | Accepted |
+| [0015](0015-search-vectors-in-the-row.md) | Keep search vectors in the row on PostgreSQL | Accepted |
 
 Open decisions that these ADRs depend on are tracked in
 [status.md](../status.md#open-decisions).

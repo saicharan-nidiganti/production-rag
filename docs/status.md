@@ -40,7 +40,7 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 | Correct abstention on unanswerable ≥ 0.90 | **Not met yet.** Retrieval abstains on 4 of 4 off-topic test questions but 0 of 8 on-topic ones; the extractive baseline declines 4 of 12. Claude, which has to handle the on-topic ones, is unmeasured ([evaluation.md](evaluation.md#abstention-signals)) |
 | Prompt-injection suite (0 successful injections) | Cases exist (`t-par-*`); only informative with Claude, so **unverified** |
 | Accounts and isolation (FR-1, NFR-1) | Met, opt-in, since 1.0.0: sign-in, sessions, API tokens, an owner on every document and in every search, on SQLite and PostgreSQL ([ADR-0012](decisions/0012-accounts-and-per-user-isolation.md)). No sign-up, reset by email or second factor |
-| Retrieval p95 under 300 ms (requirements §7) | Met at 10,000 chunks on both databases (SQLite 12 ms in CI). At 100,000 chunks on PostgreSQL, met with approximate search (197 ms), not with exact search (380 ms) ([performance.md](performance.md)) |
+| Retrieval p95 under 300 ms (requirements §7) | Met at 10,000 chunks on both databases (SQLite 12 ms in CI). At 100,000 chunks on PostgreSQL, met with approximate search (85 ms) and with exact search (256 ms), since search vectors are kept in the row ([performance.md](performance.md), [ADR-0015](decisions/0015-search-vectors-in-the-row.md)) |
 | Ingestion status (FR-3) | Met: `queued` → `processing` → `ready` or `failed` with a code and message, retry, recovery after crashes and restarts ([ADR-0006](decisions/0006-background-ingestion.md)) |
 | Rate limits (NFR-2) | Met within one process: per client for authentication failures, uploads, questions, searches and other requests; across processes, at the reverse proxy ([operations.md](operations.md#rate-limits)) |
 | File types (FR-2) | Met: PDF (text layer), DOCX, TXT, Markdown and HTML, parsed in the isolated process ([ADR-0009](decisions/0009-docx-and-html-extraction.md)) |
@@ -48,6 +48,26 @@ Measured on golden v2's held-out test split, recommended configuration (fastembe
 | Accessibility (NFR-8) | Partial: the web interface is linted with accessibility rules (jsx-a11y), and its interface tests query controls by role and label; no WCAG 2.1 AA audit yet |
 
 ## Session log
+
+### Session 24 — Faster keyword search on PostgreSQL (2026-11-12)
+
+- The owner saved the next steps (the paid Claude evaluation when credit exists, then faster
+  keyword search on PostgreSQL) and asked to go on, with a startup warning for the SQLite
+  keyword-statistics gap alongside.
+- That gap can't be closed by hiding scores: for a query of several words, the order of a
+  user's own results also reflects everyone's documents. The service now warns at startup
+  when accounts run on SQLite, and the docs say so; per-owner statistics would be the full
+  fix.
+- Keyword search at 100,000 chunks: a typical question matched 65% of the chunks (the
+  benchmark's library has 2,024 distinct stems), so PostgreSQL scanned the table, and each
+  matching row's search vector was fetched from TOAST storage, since it is larger than the
+  chunk's text. Migration 0006 keeps it in the row: identical results, p50 172 to 51 ms.
+  Matching all words first, parallel workers and compression didn't help; pruning common
+  words would have made results depend on other users' documents
+  ([ADR-0015](decisions/0015-search-vectors-in-the-row.md)).
+- End to end at 100,045 chunks: retrieval p95 85 ms with approximate search (197 before)
+  and 256 ms with exact search (380 before, over the target). `rag db rebuild-search-index`
+  rewrites existing chunks on PostgreSQL, refusing while an HNSW index exists.
 
 ### Session 23 — Release 1.1.0, image scan, documentation (2026-11-12)
 

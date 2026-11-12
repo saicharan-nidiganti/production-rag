@@ -111,8 +111,8 @@ Some of the most useful work was finding things that looked fine and weren't:
 
 - Claude's answer quality hasn't been measured live.
 - No self-service sign-up, password reset by email or second factor.
-- Rate limits are per process. Keyword search on PostgreSQL ranks every match, which is
-  the slower half of retrieval in large libraries.
+- Rate limits are per process. Keyword search ranks every match, so it grows with how
+  many chunks a question matches.
 - No OCR for scanned PDFs, and the parser is isolated but not sandboxed.
 - The evaluation set is small, and the web interface hasn't had an accessibility audit.
 
@@ -122,8 +122,9 @@ The full list, with plans, is in [security.md](security.md#known-gaps) and the
 ## What's next
 
 1. Run the paid Claude evaluation and publish its result against the acceptance gate.
-2. Faster keyword search on PostgreSQL, now that approximate vector search
-   ([ADR-0014](decisions/0014-approximate-vector-search.md)) has made it the slower half.
+2. A ranking index for keyword search (RUM, or a BM25 extension with a permissive
+   licence), if real libraries' questions match a large share of chunks
+   ([ADR-0015](decisions/0015-search-vectors-in-the-row.md)).
 3. A larger evaluation set written by someone other than the corpus's author.
 4. Sign-up with email verification, password reset and a second factor, before exposing the
    service to people the operator doesn't know.

@@ -333,10 +333,8 @@ vulnerabilities privately: [SECURITY.md](SECURITY.md).
 
 1. The first paid Claude evaluation, focused on on-topic unanswerable questions and the
    planted injection (prepared and approved; waiting for API credit).
-2. Faster keyword search on PostgreSQL: with approximate vector search, it is the slower
-   half of retrieval in large libraries.
-3. A larger evaluation set, written by someone other than the corpus's author.
-4. Sign-up with email verification, password reset and a second factor.
+2. A larger evaluation set, written by someone other than the corpus's author.
+3. Sign-up with email verification, password reset and a second factor.
 
 The phase-by-phase plan is in [docs/roadmap.md](docs/roadmap.md); decisions and their
 trade-offs are in the [ADRs](docs/decisions/README.md).

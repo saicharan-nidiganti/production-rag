@@ -171,6 +171,20 @@ vector search and then with the HNSW index (`RAG_VECTOR_SEARCH=approximate`,
 Exact search fails the retrieval target at this size; approximate search meets it. Most of
 what is left is keyword search, which ranks every match: 159 ms at p50 on its own.
 
+Most of that keyword time was spent fetching each match's search vector from PostgreSQL's
+out-of-line storage. Since migration 0006 it is kept in the row
+([ADR-0015](decisions/0015-search-vectors-in-the-row.md)), and the same benchmark gives:
+
+| | Exact | Approximate |
+| --- | --- | --- |
+| Retrieval p50 / p95 | 231 / 256 ms | 71 / 85 ms |
+| HTTP at 4 concurrent clients, p95 | 507 ms | 126 ms |
+
+Exact search now meets the 300 ms target at this size too; approximate search leaves most
+of the margin. Keyword search's cost grows with the number of chunks a question matches. In this
+library, built from nine documents' sentences, a typical question matches 65% of the
+chunks; a real library's questions match far fewer.
+
 The index isn't free: each new chunk is inserted into the graph, which slowed ingestion by
 9% with bge-small (embedding is most of the work) and fourfold with the hashing embedder.
 Recall against exact search, and when PostgreSQL chooses the index at all, are in the ADR.
