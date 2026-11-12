@@ -1,7 +1,9 @@
 name: Container image
 
-# Builds the image, runs it and checks it answers, then publishes it to the GitHub Container
-# Registry: for every release tag, or by hand for an existing release (docs/release.md).
+# Builds the image, runs it and checks it answers, scans it, then publishes it to the GitHub
+# Container Registry: for every release tag, or by hand for an existing release
+# (docs/release.md). Run by hand without a release, it builds, tests and scans the commit it
+# runs on, as a check before tagging, and never publishes.
 
 on:
   push:
@@ -15,10 +17,11 @@ on:
   workflow_dispatch:
     inputs:
       release:
-        description: "Existing release tag whose source goes into the image, for example v0.2.0"
-        required: true
+        description: "Release tag whose source goes into the image, such as v1.0.0; empty builds this commit and never publishes"
+        required: false
+        default: ""
       publish:
-        description: "Push the image to ghcr.io (otherwise build and test only)"
+        description: "Push the release's image to ghcr.io (otherwise build and test only)"
         type: boolean
         default: false
 
@@ -39,14 +42,16 @@ jobs:
     env:
       IMAGE: ghcr.io/${{ github.repository }}
       TEST_TAG: production-rag:test
-      PUBLISH: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
+      PUBLISH: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish && inputs.release != '') }}
+      # A pull request, or a manual run without a release: this commit's source, unpublished.
+      CANDIDATE: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.release == '') }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # release tags, for a manual build of an earlier release
 
       - name: Use the release's source (manual runs)
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && inputs.release != ''
         env:
           RELEASE: ${{ inputs.release }} # via env, never spliced into the script
         run: |
@@ -68,7 +73,7 @@ jobs:
         run: |
           version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
+          if [ "$CANDIDATE" != true ]; then
             [ "v${version}" = "${RELEASE}" ] \
               || { echo "::error::pyproject.toml says ${version}, the tag is ${RELEASE}"; exit 1; }
             echo "revision=$(git rev-parse "${RELEASE}^{commit}")" >> "$GITHUB_OUTPUT"
@@ -91,6 +96,7 @@ jobs:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Build the image for testing
+        id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -152,6 +158,52 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
           format: table
+
+      # Everything the scanner knows of, at every severity, fixed or not: what the gate above
+      # lets through. Every input is set here, so nothing carries over from the gate's step.
+      - name: Full vulnerability report
+        if: always() && steps.build.outcome == 'success'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.TEST_TAG }}
+          scanners: vuln
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: false
+          exit-code: "0"
+          format: json
+          output: image-vulnerabilities.json
+
+      - name: Summarize the report
+        if: always() && hashFiles('image-vulnerabilities.json') != ''
+        run: |
+          python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import json
+          from collections import Counter
+          report = json.load(open("image-vulnerabilities.json"))
+          found = [v for r in report.get("Results", []) for v in r.get("Vulnerabilities") or []]
+          order = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"]
+          fixed = Counter(v["Severity"] for v in found if v.get("FixedVersion"))
+          unfixed = Counter(v["Severity"] for v in found if not v.get("FixedVersion"))
+          print("## Image vulnerabilities\n")
+          print("| Severity | With a fix | Without a fix |")
+          print("| --- | --- | --- |")
+          for severity in order:
+              print(f"| {severity} | {fixed[severity]} | {unfixed[severity]} |")
+          serious = [v for v in found if v["Severity"] in ("CRITICAL", "HIGH")]
+          if serious:
+              print("\n| Id | Package | Installed | Fixed in | Severity |")
+              print("| --- | --- | --- | --- | --- |")
+              for v in sorted(serious, key=lambda v: (order.index(v["Severity"]), v["VulnerabilityID"])):
+                  print(f"| {v['VulnerabilityID']} | {v['PkgName']} | {v['InstalledVersion']} "
+                        f"| {v.get('FixedVersion') or 'no fix yet'} | {v['Severity']} |")
+          PY
+
+      - name: Upload the report
+        if: always() && hashFiles('image-vulnerabilities.json') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-vulnerabilities
+          path: image-vulnerabilities.json
 
       - name: Log in to the GitHub Container Registry
         if: env.PUBLISH == 'true'
